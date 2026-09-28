@@ -3,7 +3,7 @@ import { FaEye, FaEyeSlash } from 'react-icons/fa'
 import loginIcons from '../assest/signin.gif'
 import imageTobase64 from '../helpers/imageTobase64'
 import { toast } from 'sonner'
-import SummaryApi from '../common'
+import createAccountWithRole from '../helpers/createAccountWithRole';
 
 const AddPartnerModal = ({ isOpen, onClose, onPartnerAdded }) => {
   const [showPassword, setShowPassword] = useState(false)
@@ -39,18 +39,12 @@ const AddPartnerModal = ({ isOpen, onClose, onPartnerAdded }) => {
 
     try {
       setLoading(true)
-      const response = await fetch(SummaryApi.signUP.url, {
-        method: SummaryApi.signUP.method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: data.email,
-          name: data.name,
-          password: data.password,
-          profilePic: data.profilePic,
-          role: 'partner',
-        }),
-      })
-      const result = await response.json()
+      const result = await createAccountWithRole({
+        email: data.email,
+        name: data.name,
+        password: data.password,
+        profilePic: data.profilePic,
+      }, 'partner')
 
       if (result.success) {
         toast.success('Partner added successfully!')

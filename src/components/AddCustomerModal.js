@@ -4,6 +4,7 @@ import loginIcons from '../assest/signin.gif';
 import imageTobase64 from '../helpers/imageTobase64';
 import { toast } from 'sonner';
 import SummaryApi from '../common';
+import createAccountWithRole from '../helpers/createAccountWithRole';
 import { useEffect } from 'react';
 
 const AddCustomerModal = ({ isOpen, onClose, onCustomerAdded }) => {
@@ -81,19 +82,13 @@ const handlePartnerSelect = (partner) => {
 
     try {
       setLoading(true);
-      const response = await fetch(SummaryApi.signUP.url, {
-        method: SummaryApi.signUP.method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: data.email,
-          name: data.name,
-          password: data.password,
-          profilePic: data.profilePic,
-          role: 'customer',
-          referredBy: data.referredBy,
-        }),
-      });
-      const result = await response.json();
+      const result = await createAccountWithRole({
+        email: data.email,
+        name: data.name,
+        password: data.password,
+        profilePic: data.profilePic,
+        referredBy: data.referredBy,
+      }, 'customer');
 
       if (result.success) {
         toast.success('Customer added successfully!');

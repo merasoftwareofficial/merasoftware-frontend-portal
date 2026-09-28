@@ -6,6 +6,13 @@ import { getPortalHome } from "../helpers/portalHome";
 // logged-out users go to /login, logged-in users to their portal home.
 const RoleBasedHome = () => {
   const user = useSelector((state) => state?.user?.user);
+  const initialized = useSelector((state) => state?.user?.initialized);
+
+  // Someone signed in on the website arrives with the cookie but nothing cached yet:
+  // wait for the user check instead of sending them to /login.
+  if (!initialized) {
+    return null;
+  }
 
   if (!user) {
     return <Navigate to="/login" replace />;

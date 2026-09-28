@@ -4,7 +4,7 @@ import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import loginIcons from '../assest/signin.gif';
 import imageTobase64 from '../helpers/imageTobase64';
 import { toast } from 'sonner';
-import SummaryApi from '../common';
+import createAccountWithRole from '../helpers/createAccountWithRole';
 
 const AddDeveloperModal = ({ isOpen, onClose, onDeveloperAdded }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -41,18 +41,12 @@ const AddDeveloperModal = ({ isOpen, onClose, onDeveloperAdded }) => {
 
     try {
       setLoading(true);
-      const response = await fetch(SummaryApi.signUP.url, {
-        method: SummaryApi.signUP.method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: data.email,
-          name: data.name,
-          password: data.password,
-          profilePic: data.profilePic,
-          role: 'developer',
-        }),
-      });
-      const result = await response.json();
+      const result = await createAccountWithRole({
+        email: data.email,
+        name: data.name,
+        password: data.password,
+        profilePic: data.profilePic,
+      }, 'developer');
 
       if (result.success) {
         toast.success('Developer added successfully!');

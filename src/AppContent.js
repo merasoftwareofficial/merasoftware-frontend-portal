@@ -29,28 +29,27 @@ const AppContent = () => {
   const [activeProject, setActiveProject] = useState(null);
   const [showQR, setShowQR] = useState(false);
 
+  // Drops everything this browser remembers about the signed-in user.
+  const clearLocalSession = () => {
+    CookieManager.clearAll();
+    // Clear localStorage but preserve essential data
+    StorageService.clearAll();
+    clearOrderSummary();
+    document.cookie = "session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    setWalletBalance(0);
+    dispatch(updateWalletBalance(0));
+    dispatch(logout());
+  };
+
   const handleLogout = async () => {
     try {
       const response = await fetch(SummaryApi.logout.url, {
         method: SummaryApi.logout.method,
         credentials: 'include'
       });
-      
-    
+
       if (response.ok) {
-        // Clear cookies
-        CookieManager.clearAll();
-        
-        // Clear localStorage but preserve essential data
-        StorageService.clearAll();
-        clearOrderSummary();
-
-        // Clear session cookie
-        document.cookie = "session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-
-        setWalletBalance(0);
-      dispatch(updateWalletBalance(0));
-      dispatch(logout());
+        clearLocalSession();
       }
     } catch (error) {
       console.error("Error during logout:", error);
@@ -107,6 +106,12 @@ const AppContent = () => {
           method: SummaryApi.current_user.method,
           credentials: 'include'
         });
+        // 401: the shared cookie is gone or no longer valid (signed out on the website,
+        // banned, deleted) — the cached user must go too. Other failures keep the cache.
+        if (dataResponse.status === 401) {
+          clearLocalSession();
+          return null;
+        }
         if (!dataResponse.ok) {
           return hasUserData ? loadedUser : null;
         }

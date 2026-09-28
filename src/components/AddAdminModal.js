@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
-import SummaryApi from '../common';
+import createAccountWithRole from '../helpers/createAccountWithRole';
 import imageTobase64 from '../helpers/imageTobase64';
 import loginIcons from "../assest/signin.gif";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
@@ -47,21 +47,12 @@ const AddAdminModal = ({ isOpen, onClose, onAdminAdded }) => {
         
         try {
             setLoading(true);
-            const response = await fetch(SummaryApi.signUP.url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    email: data.email,
-                    password: data.password,
-                    name: data.name,
-                    profilePic: data.profilePic,
-                    role: 'admin', // Set role to ADMIN
-                }),
-            });
-            
-            const result = await response.json();
+            const result = await createAccountWithRole({
+                email: data.email,
+                password: data.password,
+                name: data.name,
+                profilePic: data.profilePic,
+            }, 'admin');
             
             if (result.success) {
                 toast.success("Admin added successfully!");
