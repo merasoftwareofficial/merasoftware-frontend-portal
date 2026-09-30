@@ -1,6 +1,0 @@
-@tailwind utilities;
-.g1 { @apply bg-gradient-to-b from-white/[0.12] to-transparent; }
-.g2 { @apply bg-gradient-to-b from-[rgb(var(--g)/0.12)] to-transparent; }
-.g3 { @apply text-[rgb(var(--g)/0.85)]; }
-.g4 { @apply divide-[rgb(var(--g)/0.1)]; }
-.g5 { @apply ring-[rgb(var(--g)/0.2)]; }
