@@ -15,6 +15,7 @@ import AdminFilterDropdown from "../components/admin/AdminFilterDropdown";
 import KeyboardSelect from "../components/KeyboardSelect";
 import KeyboardHint from "../components/KeyboardHint";
 import { adminReturnState } from "../helpers/adminReturnNavigation";
+import leadSourceOptions from "../helpers/leadSourceOptions";
 
 const STATUS_STYLES = {
   New: "bg-slate-100 text-slate-700",
@@ -46,8 +47,6 @@ const sortOptions = [
 const getLeadLastUpdated = (lead) => lead?.updatedAt || lead?.createdAt || null;
 
 const emptyForm = { name: "", phone: "", email: "", source: "", notes: "", referredByUserId: "" };
-
-const SOURCE_OPTIONS = ["Outbound Call", "Facebook", "Instagram", "Google", "WhatsApp", "Reference"];
 
 const AdminLeadsPage = () => {
   const user = useSelector((state) => state?.user?.user);
@@ -694,7 +693,7 @@ const AdminLeadsPage = () => {
                   ref={sourceFieldRef}
                   value={form.source}
                   onChange={(value) => handleFormChange("source", value)}
-                  options={SOURCE_OPTIONS.map((option) => ({ value: option, label: option }))}
+                  options={leadSourceOptions.map((option) => ({ value: option, label: option }))}
                   placeholder="Select source"
                   onConfirm={focusAfterSource}
                 />

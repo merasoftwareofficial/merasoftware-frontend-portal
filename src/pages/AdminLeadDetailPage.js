@@ -11,9 +11,11 @@ import { useOnlineStatus } from "../App";
 import AdminLayout from "../components/AdminLayout";
 import AdminWorkspaceShell, { AdminWorkspaceHeader } from "../components/admin/AdminWorkspaceShell";
 import AdminInfoPill from "../components/admin/AdminInfoPill";
+import EditLeadModal from "../components/admin/EditLeadModal";
 import KeyboardSelect from "../components/KeyboardSelect";
 import KeyboardHint from "../components/KeyboardHint";
 import { goToAdminReturn } from "../helpers/adminReturnNavigation";
+import isAccountEmail from "../helpers/accountEmail";
 
 // "Won" (Matured) is deliberately excluded — it is system-set only on convert,
 // never a manually selectable follow-up badge.
@@ -55,6 +57,9 @@ const AdminLeadDetailPage = () => {
   const [followUpSaving, setFollowUpSaving] = useState(false);
   const [converting, setConverting] = useState(false);
   const [showConvertConfirm, setShowConvertConfirm] = useState(false);
+  const [showUpgradeConfirm, setShowUpgradeConfirm] = useState(false);
+  // null = closed; "edit" = Edit Lead button; "convert" = opened by Convert for a missing field.
+  const [editLeadMode, setEditLeadMode] = useState(null);
   const [editingFollowUpId, setEditingFollowUpId] = useState(null);
   const [editNote, setEditNote] = useState("");
   const [editBadge, setEditBadge] = useState("");
@@ -244,25 +249,37 @@ const AdminLeadDetailPage = () => {
     }
   };
 
+  // A client account needs a phone and a valid email; when either is missing,
+  // Convert opens Edit Lead first and continues to the confirm step on save.
+  const isReadyToConvert = (target) => Boolean(target?.phone?.trim()) && isAccountEmail(target?.email || "");
+
   const requestConvert = () => {
     if (!lead || converting || isConverted) return;
-    if (!lead.phone?.trim()) {
-      toast.error("This lead has no phone number. Add a phone before converting.");
-      return;
-    }
-    if (!lead.email?.trim()) {
-      toast.error("This lead has no email. An email is required to create a client account.");
+    if (!isReadyToConvert(lead)) {
+      setEditLeadMode("convert");
       return;
     }
     setShowConvertConfirm(true);
   };
 
+  const handleLeadSaved = async (savedLead) => {
+    const continueToConvert = editLeadMode === "convert";
+    setEditLeadMode(null);
+    await fetchLead();
+    if (continueToConvert && isReadyToConvert(savedLead)) {
+      setShowConvertConfirm(true);
+    }
+  };
+
   const closeConvertConfirm = () => {
     if (converting) return;
     setShowConvertConfirm(false);
+    setShowUpgradeConfirm(false);
   };
 
-  const handleConvert = async () => {
+  // upgradeExisting: the admin confirmed turning an existing blog-only website
+  // account with this email into the client account (backend code EXISTING_MEMBER).
+  const handleConvert = async (upgradeExisting = false) => {
     if (!lead || converting) return;
 
     try {
@@ -271,14 +288,23 @@ const AdminLeadDetailPage = () => {
         method: SummaryApi.convertLead.method,
         credentials: "include",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ upgradeExisting }),
       });
       const result = await response.json();
       if (!result.success) {
+        if (result.code === "EXISTING_MEMBER") {
+          setShowConvertConfirm(false);
+          setShowUpgradeConfirm(true);
+          return;
+        }
         toast.error(result.message || "Failed to convert lead");
         return;
       }
-      toast.success(`Client created. Login email: ${result.data?.email} · Password: ${result.data?.defaultPassword}`);
+      toast.success(
+        `${result.data?.upgradedExisting ? "Website account turned into a client." : "Client created."} Login email: ${result.data?.email} · Password: ${result.data?.defaultPassword}`
+      );
       setShowConvertConfirm(false);
+      setShowUpgradeConfirm(false);
       await fetchLead();
     } catch (error) {
       console.error("Error converting lead:", error);
@@ -317,6 +343,18 @@ const AdminLeadDetailPage = () => {
               <AdminInfoPill label="Source" value={lead?.source || "N/A"} variant="dark" />
               <AdminInfoPill label="Added" value={lead?.createdAt ? new Date(lead.createdAt).toLocaleDateString("en-IN") : "N/A"} variant="dark" />
             </>
+          }
+          actions={
+            lead && !isConverted ? (
+              <button
+                type="button"
+                onClick={() => setEditLeadMode("edit")}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15 lg:w-auto"
+              >
+                <Pencil size={16} />
+                Edit Lead
+              </button>
+            ) : null
           }
           loadingText={loading ? "Loading lead..." : ""}
         />
@@ -386,15 +424,17 @@ const AdminLeadDetailPage = () => {
                 <button
                   type="button"
                   onClick={requestConvert}
-                  disabled={converting || !lead?.phone?.trim() || !lead?.email?.trim()}
+                  disabled={converting || !lead}
                   className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <UserCheck size={16} />
                   Convert to Client
                 </button>
-                {(!lead?.phone?.trim() || !lead?.email?.trim()) ? (
+                {lead && !isReadyToConvert(lead) ? (
                   <p className="mt-2 text-xs text-amber-600">
-                    {!lead?.email?.trim() ? "Add an email to enable convert." : "Add a phone to enable convert."}
+                    {!lead.phone?.trim()
+                      ? "Phone missing — Convert will ask for it."
+                      : "Valid email missing — Convert will ask for it."}
                   </p>
                 ) : null}
               </div>
@@ -607,7 +647,7 @@ const AdminLeadDetailPage = () => {
               </button>
               <button
                 type="button"
-                onClick={handleConvert}
+                onClick={() => handleConvert(false)}
                 disabled={converting}
                 className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -618,6 +658,53 @@ const AdminLeadDetailPage = () => {
           </div>
         </div>
       )}
+
+      {showUpgradeConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl">
+            <div className="px-6 pt-6">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
+                <UserCheck size={24} />
+              </div>
+              <h2 className="mt-4 text-center text-lg font-bold text-slate-900">Email already has a website account</h2>
+              <p className="mt-2 text-center text-sm text-slate-600">
+                <span className="font-semibold text-slate-900">{lead?.email}</span> already signed up on the website.
+                Turn that account into this client's account? It keeps its website profile, and its password is reset to
+                the default <span className="font-semibold">1234</span> — the client sets their own on first login.
+              </p>
+            </div>
+
+            <div className="flex justify-center gap-3 px-6 py-6">
+              <button
+                type="button"
+                onClick={closeConvertConfirm}
+                disabled={converting}
+                className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleConvert(true)}
+                disabled={converting}
+                className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {converting ? <Loader2 size={16} className="animate-spin" /> : <UserCheck size={16} />}
+                {converting ? "Converting..." : "Use This Account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editLeadMode && lead ? (
+        <EditLeadModal
+          lead={lead}
+          forConvert={editLeadMode === "convert"}
+          onClose={() => setEditLeadMode(null)}
+          onSaved={handleLeadSaved}
+        />
+      ) : null}
     </AdminLayout>
   );
 };

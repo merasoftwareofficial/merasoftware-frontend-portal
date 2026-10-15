@@ -1,6 +1,7 @@
 const backendDomain = process.env.REACT_APP_BACKEND_URL //"http://localhost:8080"
 
 const SummaryApi = {
+    portfolioSource: { url: `${backendDomain}/api/admin/projects`, method: 'patch' },
     createCustomProjectOrder: {
         url: `${backendDomain}/api/customer/custom-project-order`,
         method: "post"

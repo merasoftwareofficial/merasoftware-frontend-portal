@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch, useSelector, useStore } from 'react-redux';
 import { useOnlineStatus } from './App';
 import { setUserDetails, updateWalletBalance, logout } from './store/userSlice';
 import SummaryApi from './common';
@@ -10,6 +10,7 @@ import StorageService from './utils/storageService';
 import ScrollToTop from './helpers/scrollTop';
 import { getOrderCategory, isActiveWorkItem } from './helpers/orderPresentation';
 import { clearOrderSummary, getOrderSummary } from './utils/orderSummaryClient';
+import { createSessionClient } from './utils/sessionClient';
 // import QRModal from './components/QRModal';
 // import socket from './components/socket';
 // import { AnimatePresence } from 'framer-motion';
@@ -23,14 +24,47 @@ const STORAGE_KEYS = {
 
 const AppContent = () => {
   const dispatch = useDispatch();
+  const store = useStore();
   const user = useSelector(state => state?.user?.user);
   const { isOnline, isInitialized } = useOnlineStatus(); 
   const [walletBalance, setWalletBalance] = useState(0);
   const [activeProject, setActiveProject] = useState(null);
   const [showQR, setShowQR] = useState(false);
 
+  const [sessionError, setSessionError] = useState('');
+  const [sessionChecking, setSessionChecking] = useState(false);
+  const [sessionClient] = useState(() => createSessionClient({
+    url: SummaryApi.current_user.url,
+    method: SummaryApi.current_user.method,
+    onChecking: () => {
+      setSessionError('');
+      setSessionChecking(true);
+    },
+    onUser: (details) => {
+      const cached = StorageService.getUserDetails();
+      if (cached?._id !== details._id) clearOrderSummary();
+      CookieManager.setUserDetails(details);
+      StorageService.setUserDetails(details);
+      dispatch(setUserDetails(details));
+      const balance = Number(details.walletBalance || 0);
+      setWalletBalance(balance);
+      dispatch(updateWalletBalance(balance));
+      StorageService.setWalletBalance(balance);
+      setSessionChecking(false);
+    },
+    onSignedOut: () => clearLocalSession(),
+    onError: (message) => {
+      setSessionError(message);
+      setSessionChecking(false);
+    },
+  }));
+  const fetchUserDetails = sessionClient.check;
+
   // Drops everything this browser remembers about the signed-in user.
   const clearLocalSession = () => {
+    sessionClient.cancel();
+    setSessionError('');
+    setSessionChecking(false);
     CookieManager.clearAll();
     // Clear localStorage but preserve essential data
     StorageService.clearAll();
@@ -43,8 +77,8 @@ const AppContent = () => {
 
   const handleLogout = async () => {
     try {
-      const response = await fetch(SummaryApi.logout.url, {
-        method: SummaryApi.logout.method,
+      const response = await fetch(SummaryApi.logout_user.url, {
+        method: SummaryApi.logout_user.method,
         credentials: 'include'
       });
 
@@ -84,71 +118,6 @@ const AppContent = () => {
     }
   };
 
-  const fetchUserDetails = async () => {
-    try {
-      let hasUserData = false;
-      let loadedUser = null;
-
-      // First check localStorage
-      const cachedDetails = StorageService.getUserDetails();
-      if (cachedDetails) {
-        dispatch(setUserDetails(cachedDetails));
-        const cachedWalletBalance = Number(cachedDetails.walletBalance || 0);
-        setWalletBalance(cachedWalletBalance);
-        dispatch(updateWalletBalance(cachedWalletBalance));
-        hasUserData = true;
-        loadedUser = cachedDetails;
-      }
-
-      // If online, fetch fresh data
-      if (isOnline) {
-        const dataResponse = await fetch(SummaryApi.current_user.url, {
-          method: SummaryApi.current_user.method,
-          credentials: 'include'
-        });
-        // 401: the shared cookie is gone or no longer valid (signed out on the website,
-        // banned, deleted) — the cached user must go too. Other failures keep the cache.
-        if (dataResponse.status === 401) {
-          clearLocalSession();
-          return null;
-        }
-        if (!dataResponse.ok) {
-          return hasUserData ? loadedUser : null;
-        }
-        const dataApi = await dataResponse.json();
-        
-        if (dataApi.success && dataApi.data) {
-          // Save to cookies
-          CookieManager.setUserDetails({
-            _id: dataApi.data._id,
-            name: dataApi.data.name,
-            email: dataApi.data.email,
-            role: dataApi.data.role
-          });
-
-          // Save to localStorage
-          StorageService.setUserDetails(dataApi.data);
-          dispatch(setUserDetails(dataApi.data));
-          loadedUser = dataApi.data;
-          
-          // Update wallet balance if it exists
-          if (dataApi.data.walletBalance !== undefined) {
-            const balance = Number(dataApi.data.walletBalance || 0);
-            setWalletBalance(balance);
-            dispatch(updateWalletBalance(balance));
-            StorageService.setWalletBalance(balance);
-          }
-          hasUserData = true;
-        }
-      }
-
-      return hasUserData ? loadedUser : null;
-    } catch (error) {
-      console.error("Error fetching user details:", error);
-      return null;
-    }
-  };
-
    // Add a function to update active project that can be called from child components
  const updateActiveProject = (project) => {
   // console.log("AppContent: updating activeProject:", project);
@@ -156,49 +125,21 @@ const AppContent = () => {
 };
 
   useEffect(() => {
-    const initializeData = async () => {
-      try {
-        console.log("🔵 [AppContent] initializeData() started - isInitialized:", isInitialized);
+    if (!isInitialized) return;
+    void sessionClient.check();
+    // Recheck on connectivity changes, and discard responses after unmount.
+    return () => sessionClient.cancel();
+  }, [isInitialized, isOnline, sessionClient]);
 
-        if (!isInitialized) {
-          console.log("🔴 [AppContent] isInitialized is false, returning early");
-          return;
-        }
-
-        // Try to get user data from localStorage first
-        const cachedUser = StorageService.getUserDetails();
-        console.log("💾 [AppContent] Checking localStorage for userDetails:", cachedUser ? "FOUND" : "NOT FOUND");
-        console.log("💾 [AppContent] Cached user data:", cachedUser);
-
-        if (cachedUser) {
-          console.log("✅ [AppContent] Restoring user from localStorage:", cachedUser.name);
-          await fetchUserDetails();
-          return;
-        }
-
-        if (isOnline) {
-          console.log("🌐 [AppContent] User is online, verifying session with API");
-          const userLoaded = await fetchUserDetails();
-
-          if (!userLoaded) {
-            console.log("❌ [AppContent] API returned not ok, logging out");
-            dispatch(logout());
-            return;
-          }
-        } else {
-          // Offline aur no cached user
-          console.log("📡 [AppContent] Offline aur no cached user, logging out");
-          dispatch(logout());
-        }
-      } catch (error) {
-        console.error("Error during initialization:", error);
-        dispatch(logout());
-      }
-    };
-
-    console.log("🟡 [AppContent] useEffect dependency changed - isInitialized:", isInitialized);
-    initializeData();
-  }, [isInitialized]);
+  useEffect(() => store.subscribe(() => {
+    const session = store.getState().user;
+    // Existing portal screens dispatch logout themselves. Invalidate pending
+    // checks synchronously too, so none can restore a user after that action.
+    if (session.initialized && !session.user) {
+      sessionClient.cancel();
+      setSessionChecking(false);
+    }
+  }), [store, sessionClient]);
 
   // In AppContent.js
 useEffect(() => {
@@ -265,6 +206,8 @@ useEffect(() => {
   return (
      <Context.Provider value={{
         fetchUserDetails,
+        sessionError,
+        sessionChecking,
         walletBalance,
         setWalletBalance,
         fetchWalletBalance,

@@ -45,6 +45,7 @@ import AdminWorkspaceList from "../components/admin/AdminWorkspaceList";
 import AdminWorkspaceShell, { AdminWorkspaceHeader } from "../components/admin/AdminWorkspaceShell";
 import AdminWorkspaceTabs from "../components/admin/AdminWorkspaceTabs";
 import AdminProjectCheckpointDetail from "../components/admin/AdminProjectCheckpointDetail";
+import PortfolioSourceSettings from "../components/admin/PortfolioSourceSettings";
 import ClientSubmissionsPanel from "../components/admin/ClientSubmissionsPanel";
 import {
   formatCurrency,
@@ -5215,6 +5216,8 @@ const WorkspaceDetailSubpage = ({
           )}
         </button>
       </div>
+
+      <PortfolioSourceSettings key={item._id} item={item} onSaved={onSoftRefresh} />
 
       {isProjectDetail && item?.orderVisibility === "pending-approval" && hasPendingTransaction ? (
         <div className="mb-5 rounded-[1.5rem] border border-sky-200 bg-sky-50 p-5">

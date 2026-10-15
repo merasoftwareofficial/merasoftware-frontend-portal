@@ -21,6 +21,11 @@ const postLogin = ({
     isDetailsCompleted,
   };
 
+  // Supersede any check started before this sign-in changed the shared cookie.
+  if (fetchUserDetails) {
+    void fetchUserDetails({ force: true });
+  }
+
   CookieManager.setUserDetails({
     _id: user._id,
     name: user.name,
@@ -46,9 +51,6 @@ const postLogin = ({
     navigate(getPortalHome(user.role), { replace: true });
   }
 
-  if (fetchUserDetails) {
-    void fetchUserDetails();
-  }
 };
 
 export default postLogin;

@@ -1,6 +1,7 @@
 import { Navigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { getPortalHome } from "../helpers/portalHome";
+import SessionPending from './SessionPending';
 
 // Root "/" landing. The public site is gone as an entry point:
 // logged-out users go to /login, logged-in users to their portal home.
@@ -11,7 +12,7 @@ const RoleBasedHome = () => {
   // Someone signed in on the website arrives with the cookie but nothing cached yet:
   // wait for the user check instead of sending them to /login.
   if (!initialized) {
-    return null;
+    return <SessionPending />;
   }
 
   if (!user) {
