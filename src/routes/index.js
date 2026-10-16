@@ -3,8 +3,6 @@ import App from "../App"
 import { publicRoutes } from "./publicRoutes";
 import { customerRoutes } from "./customerRoutes";
 import { adminRoutes } from "./adminRoutes";
-import { Provider } from "react-redux";
-import store from "../store/store";
 import RoleBasedHome from "../components/RoleBasedHome";
 
 // Any unmatched URL (removed public pages like /home, typos, stale links) falls through to

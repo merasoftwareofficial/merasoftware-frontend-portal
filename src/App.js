@@ -1,3 +1,4 @@
+import EmailReviewDialog from './components/EmailReviewDialog';
 // App.js
 import './App.css';
 import AppContent from './AppContent';
@@ -40,6 +41,7 @@ function App() {
       <DraftOrdersProvider>
         <Toaster position="top-center" richColors />
         <AppContent />
+        <EmailReviewDialog />
       </DraftOrdersProvider>
     </OnlineStatusContext.Provider>
   );

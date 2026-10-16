@@ -1,3 +1,4 @@
+import AdminEmailControlPage from '../pages/AdminEmailControlPage';
 import ProtectedRoute from "../components/ProtectedRoute";
 import AdminDashboard from "../pages/AdminDashboard";
 import AdminClientsPage from "../pages/AdminClientsPage";
@@ -14,6 +15,7 @@ import AdminTrashPage from "../pages/AdminTrashPage";
 import AdminMoneyManagementPage from "../pages/AdminMoneyManagementPage";
 
 export const adminRoutes = [
+  { path: 'admin-panel/email-control', element: <ProtectedRoute requireRole={['admin']}><AdminEmailControlPage /></ProtectedRoute> },
   {
     path: "admin-panel/dashboard",
     element: (

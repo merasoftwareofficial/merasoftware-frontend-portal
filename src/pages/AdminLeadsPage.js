@@ -1,3 +1,4 @@
+import { emailApi, reviewEmail } from '../helpers/emailReview';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -295,11 +296,16 @@ const AdminLeadsPage = () => {
 
     try {
       setSaving(true);
+      let emailReview = { choice: 'skip' };
+      if (form.email.trim()) {
+        const preview = await emailApi('/lead-preview', { method: 'POST', body: JSON.stringify({ name: form.name.trim(), email: form.email.trim() }) });
+        if (preview) emailReview = await reviewEmail(preview, 'Choose whether to email this new lead. The lead will be added with either choice; mail sends only if saving succeeds.');
+      }
       const response = await fetch(SummaryApi.createLead.url, {
         method: SummaryApi.createLead.method,
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, emailReview }),
       });
 
       const result = await response.json();
@@ -309,6 +315,8 @@ const AdminLeadsPage = () => {
       }
 
       toast.success("Lead created successfully");
+      if (result.emailStatus === 'sent') toast.success('Welcome email sent');
+      if (['failed', 'unavailable'].includes(result.emailStatus)) toast.error('Lead saved. Email was not confirmed as sent; check Email Control.');
       setShowAddModal(false);
       setReferenceQuery("");
       setReferenceResults([]);
