@@ -223,7 +223,6 @@ const AdminLayout = ({
     <>
       <PortalHeader
         user={user}
-        portalLabel="Admin Portal"
         dashboardTo="/admin-panel/dashboard"
         onLogout={onLogout}
         showProfileLink={false}

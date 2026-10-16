@@ -8,6 +8,7 @@ import SummaryApi from "../common";
 import Context from "../context";
 import postLogin from "../helpers/postLogin";
 import GuestLoginModal from "../components/GuestLoginModal";
+import BrandLogo from "../components/BrandLogo";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -78,14 +79,8 @@ const Login = () => {
         <div className="absolute bottom-20 left-10 w-40 h-40 bg-blue-600 rounded-full opacity-10 blur-3xl"></div>
 
         <div className="relative z-10 text-center">
-          <div className="mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500 rounded-xl mb-6">
-              <span className="text-white text-2xl font-bold">M</span>
-            </div>
-          </div>
-
-          <h1 className="text-4xl font-bold text-white mb-4">
-            MeraSoftware
+          <h1 className="mb-6 flex justify-center">
+            <BrandLogo onDark className="h-14" />
           </h1>
           <p className="text-lg text-blue-200 mb-8 leading-relaxed max-w-sm">
             We Build Software That Fits Your Business
@@ -112,11 +107,8 @@ const Login = () => {
       <div className="w-full lg:w-1/2 flex items-center justify-center px-6 py-12 lg:px-12">
         <div className="w-full max-w-md">
           {/* Mobile Logo */}
-          <div className="lg:hidden mb-8 text-center">
-            <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-500 rounded-lg mb-4">
-              <span className="text-white text-xl font-bold">M</span>
-            </div>
-            <h1 className="text-2xl font-bold text-slate-900">MeraSoftware</h1>
+          <div className="lg:hidden mb-8 flex justify-center">
+            <BrandLogo className="h-10" />
           </div>
 
           <div>

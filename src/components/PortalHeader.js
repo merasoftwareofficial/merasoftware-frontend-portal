@@ -3,9 +3,11 @@ import { Link, useLocation } from "react-router-dom";
 import { ChevronDown, HelpCircle } from "lucide-react";
 
 import ThemeSwitch from "./ThemeSwitch";
+import BrandLogo from "./BrandLogo";
+import { useTheme } from "../context/ThemeContext";
 
 /**
- * Slim portal top bar: MeraSoftware logo (left) + profile dropdown (right).
+ * Slim portal top bar: the website's logo (left, links to the website) + profile dropdown (right).
  * No nav links or cart here — navigation lives in the sidebar. Reuses the
  * logo block + profile dropdown from the removed public SharedHeader
  * (backup-publicremoval-phase4A/components/SharedHeader.js), stripped down.
@@ -13,7 +15,7 @@ import ThemeSwitch from "./ThemeSwitch";
  * Rendered full-width at the very top of both portals, above the sidebar
  * (height h-16 = 64px, which is why the sidebars sit at top-16).
  */
-const PortalHeader = ({ user, portalLabel = "Portal", dashboardTo = "/dashboard", onLogout, showProfileLink = true, showThemeSwitch = false, links = [] }) => {
+const PortalHeader = ({ user, dashboardTo = "/dashboard", onLogout, showProfileLink = true, showThemeSwitch = false, links = [] }) => {
   const menuRef = useRef(null);
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -24,6 +26,10 @@ const PortalHeader = ({ user, portalLabel = "Portal", dashboardTo = "/dashboard"
   // nothing and so keeps the original fixed-dark classes untouched.
   const themed = showThemeSwitch;
   const c = (adminClass, themedClass) => (themed ? themedClass : adminClass);
+  // The header is light only in the customer portal's light theme; the admin panel's header
+  // and the dark/immersive themes are navy, so they take the logo made for dark backgrounds.
+  const { theme } = useTheme();
+  const logoOnDark = !themed || theme !== "light";
 
   const isLinkActive = (to) =>
     location.pathname === to || location.pathname.startsWith(`${to}/`);
@@ -41,15 +47,8 @@ const PortalHeader = ({ user, portalLabel = "Portal", dashboardTo = "/dashboard"
   return (
     <header className={`sticky top-0 z-50 border-b backdrop-blur ${c("border-white/10 bg-slate-950/95", "border-[var(--glass-border)] bg-[var(--header-bg)]")}`}>
       <div className="mx-auto flex h-16 max-w-[120rem] items-center justify-between gap-6 px-4 sm:px-6 lg:px-8">
-        <Link to={dashboardTo} className="flex shrink-0 items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500 font-bold text-white">
-            M
-          </span>
-          <div className="hidden sm:block">
-            <p className={`text-sm font-bold leading-tight ${c("text-white", "text-[var(--text-primary)]")}`}>MeraSoftware</p>
-            <p className={`text-[11px] leading-tight ${c("text-slate-400", "text-[var(--text-muted)]")}`}>{portalLabel}</p>
-          </div>
-        </Link>
+        {/* Opens the website's homepage, exactly like the website's own admin panel logo. */}
+        <BrandLogo onDark={logoOnDark} />
 
         {user?.isGuest ? (
           <div

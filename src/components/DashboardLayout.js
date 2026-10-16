@@ -258,7 +258,6 @@ const DashboardLayout = ({ children, user, walletBalance, cartCount, isLoading, 
     <ThemeProvider>
       <PortalHeader
         user={currentUser}
-        portalLabel="Customer Portal"
         dashboardTo="/dashboard"
         onLogout={handleLogoutClick}
         showThemeSwitch
