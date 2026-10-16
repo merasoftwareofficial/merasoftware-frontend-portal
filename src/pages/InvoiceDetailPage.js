@@ -15,7 +15,7 @@ import Modal from '../components/Modal';
 import { getOrderDisplayName } from '../helpers/orderPresentation';
 import { isPlanItem } from '../helpers/orderType';
 import { goToCustomerReturn } from '../helpers/customerReturnNavigation';
-import { getInvoiceStatusText, isStatementInvoice, getPaymentMethodText } from '../helpers/invoicePresentation';
+import { getInvoiceStatusText, isStatementInvoice, getPaymentMethodText, isFreeInvoice } from '../helpers/invoicePresentation';
 
 const generateTransactionId = () =>
   `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`;
@@ -296,7 +296,7 @@ const InvoiceDetailPage = () => {
             <div className="relative space-y-2">
               <div className="flex items-center justify-between rounded-2xl bg-[var(--glass-bg-subtle)] px-4 py-2.5 text-base">
                 <span className="text-[var(--text-secondary)]">Amount</span>
-                <span className="font-semibold text-[var(--text-primary)]">₹{invoice.amount.toLocaleString()}</span>
+                <span className="font-semibold text-[var(--text-primary)]">{isFreeInvoice(invoice) ? 'FREE' : `₹${invoice.amount.toLocaleString()}`}</span>
               </div>
               <div className="flex items-center justify-between rounded-2xl bg-[var(--glass-bg-subtle)] px-4 py-2.5 text-base">
                 <span className="text-[var(--text-secondary)]">Invoice Date</span>

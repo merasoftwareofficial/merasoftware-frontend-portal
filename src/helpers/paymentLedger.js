@@ -1,5 +1,5 @@
 import { getOrderDisplayName } from "./orderPresentation";
-import { getPaymentMethodText } from "./invoicePresentation";
+import { getPaymentMethodText, isFreeInvoice } from "./invoicePresentation";
 
 const safeDateTime = (value) => {
   if (!value) return null;
@@ -44,6 +44,7 @@ const getPaymentMethodLabel = (paymentMethod) => {
     wallet: "Wallet",
     cash: "Cash",
     bank_transfer: "Bank Transfer",
+    cheque: "Cheque",
     combined: "Combined",
     reward: "Referral Reward",
   };
@@ -119,7 +120,8 @@ export const buildLedgerItems = (transactions = [], invoices = []) => {
           label: invoiceLabel,
           status: invoice.status,
           amount: invoice.amount,
-          method: getPaymentMethodText(invoice.paymentMethod),
+          // A FREE invoice was never paid by any method.
+          method: isFreeInvoice(invoice) ? "Free" : getPaymentMethodText(invoice.paymentMethod),
           date: invoice.paidDate || invoice.invoiceDate || invoice.createdAt,
           raw: invoice,
           sortDate: safeDateTime(invoice.paidDate || invoice.invoiceDate || invoice.createdAt)?.getTime() || 0,

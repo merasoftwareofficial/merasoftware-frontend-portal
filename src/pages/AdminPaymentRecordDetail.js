@@ -7,7 +7,9 @@ import { downloadAuthenticatedFile } from "../helpers/downloadFile";
 import AdminLayout from "../components/AdminLayout";
 import { getTransactionPaymentLabel } from "../helpers/paymentLedger";
 import { getOrderDisplayName } from "../helpers/orderPresentation";
-import { getPaymentMethodText } from "../helpers/invoicePresentation";
+import { getPaymentMethodText, isFreeInvoice } from "../helpers/invoicePresentation";
+import PaymentMethodFields from "../components/PaymentMethodFields";
+import { createPaymentEntry, getPaymentEntryError, toPaymentRequest } from "../helpers/paymentMethodRules";
 import { adminReturnState, getAdminReturnTarget } from "../helpers/adminReturnNavigation";
 
 const safeDateTime = (value) => {
@@ -82,8 +84,7 @@ const SinglePaymentRecordDetail = () => {
   const [actionLoading, setActionLoading] = useState("");
   const [template, setTemplate] = useState("gentle");
   const [customMessage, setCustomMessage] = useState(reminderTemplates.gentle);
-  const [markPaidMethod, setMarkPaidMethod] = useState("upi");
-  const [markPaidReference, setMarkPaidReference] = useState("");
+  const [markPaidEntry, setMarkPaidEntry] = useState(() => createPaymentEntry());
   const [markPaidNote, setMarkPaidNote] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
   const [confirmAction, setConfirmAction] = useState(null);
@@ -145,8 +146,7 @@ const SinglePaymentRecordDetail = () => {
 
   useEffect(() => {
     if (!invoice) return;
-    setMarkPaidMethod(invoice.paymentMethod || "upi");
-    setMarkPaidReference(invoice.transactionReference || "");
+    setMarkPaidEntry(createPaymentEntry(invoice.paymentMethod || "upi", invoice.transactionReference || ""));
     setMarkPaidNote(invoice.internalNote || "");
   }, [invoice]);
 
@@ -265,6 +265,12 @@ const SinglePaymentRecordDetail = () => {
 
   const handleMarkPaid = async () => {
     if (!canMarkPaid || actionLoading) return;
+    const entryError = getPaymentEntryError(markPaidEntry);
+    if (entryError) {
+      toast.error(entryError);
+      return;
+    }
+    const payment = toPaymentRequest(markPaidEntry);
 
     try {
       setActionLoading("markPaid");
@@ -273,8 +279,9 @@ const SinglePaymentRecordDetail = () => {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          paymentMethod: markPaidMethod,
-          transactionReference: markPaidReference.trim(),
+          paymentMethod: payment.paymentMethod,
+          transactionReference: payment.reference,
+          paymentDetails: payment.paymentDetails,
           internalNote: markPaidNote.trim(),
         }),
       });
@@ -388,7 +395,7 @@ const SinglePaymentRecordDetail = () => {
                     <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getBadgeClassName(primaryStatus)}`}>
                       {primaryStatus}
                     </span>
-                    <p className="mt-3 text-3xl font-bold text-slate-900">{formatCurrency(amount)}</p>
+                    <p className="mt-3 text-3xl font-bold text-slate-900">{!transaction && isFreeInvoice(invoice) ? "FREE" : formatCurrency(amount)}</p>
                   </div>
                 </div>
               </section>
@@ -492,31 +499,12 @@ const SinglePaymentRecordDetail = () => {
                       </div>
                     ) : canMarkPaid ? (
                       <div className="mt-4 space-y-4">
-                        <label className="block">
-                          <span className="text-sm font-semibold text-slate-700">Payment method</span>
-                          <select
-                            value={markPaidMethod}
-                            onChange={(event) => setMarkPaidMethod(event.target.value)}
-                            disabled={Boolean(actionLoading)}
-                            className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            <option value="upi">UPI</option>
-                            <option value="bank_transfer">Bank transfer</option>
-                            <option value="cash">Cash</option>
-                            <option value="wallet">Wallet</option>
-                          </select>
-                        </label>
-                        <label className="block">
-                          <span className="text-sm font-semibold text-slate-700">Transaction reference</span>
-                          <input
-                            type="text"
-                            value={markPaidReference}
-                            onChange={(event) => setMarkPaidReference(event.target.value)}
-                            disabled={Boolean(actionLoading)}
-                            placeholder="UPI ID or bank reference"
-                            className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
-                          />
-                        </label>
+                        <PaymentMethodFields
+                          entry={markPaidEntry}
+                          onChange={setMarkPaidEntry}
+                          disabled={Boolean(actionLoading)}
+                          inputClassName="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                        />
                         <label className="block">
                           <span className="text-sm font-semibold text-slate-700">Admin note (internal only, not shown to customer)</span>
                           <textarea
@@ -664,8 +652,7 @@ const PaymentOrderHistory = ({ customerId, orderId }) => {
   const [reloadKey, setReloadKey] = useState(0);
   const [actionTarget, setActionTarget] = useState(null);
   const [actionSubmitting, setActionSubmitting] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("upi");
-  const [paymentReference, setPaymentReference] = useState("");
+  const [paymentEntry, setPaymentEntry] = useState(() => createPaymentEntry());
   const [paymentNote, setPaymentNote] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
   const [finalInvoiceAction, setFinalInvoiceAction] = useState("");
@@ -818,8 +805,10 @@ const PaymentOrderHistory = ({ customerId, orderId }) => {
 
   const openAction = (type, record) => {
     setActionTarget({ type, record });
-    setPaymentMethod(record?.paymentMethod || "upi");
-    setPaymentReference(record?.transactionReference || record?.upiTransactionId || "");
+    setPaymentEntry(createPaymentEntry(
+      record?.paymentMethod || "upi",
+      record?.transactionReference || record?.upiTransactionId || ""
+    ));
     setPaymentNote("");
     setRejectionReason("");
   };
@@ -836,6 +825,15 @@ const PaymentOrderHistory = ({ customerId, orderId }) => {
       toast.error("Rejection reason is required");
       return;
     }
+
+    // Recording a payment (plan invoice, or a project approval) needs that method's own details.
+    const recordsPayment = type !== "transaction" && decision !== "reject";
+    const entryError = recordsPayment ? getPaymentEntryError(paymentEntry) : "";
+    if (entryError) {
+      toast.error(entryError);
+      return;
+    }
+    const payment = toPaymentRequest(paymentEntry);
 
     try {
       setActionSubmitting(true);
@@ -862,8 +860,9 @@ const PaymentOrderHistory = ({ customerId, orderId }) => {
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            paymentMethod,
-            transactionReference: paymentReference.trim(),
+            paymentMethod: payment.paymentMethod,
+            transactionReference: payment.reference,
+            paymentDetails: payment.paymentDetails,
             internalNote: paymentNote.trim(),
           }),
         });
@@ -876,8 +875,9 @@ const PaymentOrderHistory = ({ customerId, orderId }) => {
             decision === "record"
               ? {
                   mode: "approve_with_payment",
-                  paymentMethod,
-                  transactionReference: paymentReference.trim(),
+                  paymentMethod: payment.paymentMethod,
+                  transactionReference: payment.reference,
+                  paymentDetails: payment.paymentDetails,
                   notes: paymentNote.trim(),
                 }
               : { mode: "reject", rejectionReason: rejectionReason.trim() }
@@ -1059,19 +1059,12 @@ const PaymentOrderHistory = ({ customerId, orderId }) => {
 
                     {actionTarget.type !== "transaction" ? (
                       <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <label>
-                          <span className="text-sm font-semibold text-slate-700">Payment method</span>
-                          <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} disabled={actionSubmitting} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-400">
-                            <option value="upi">UPI</option>
-                            <option value="bank_transfer">Bank transfer</option>
-                            <option value="cash">Cash</option>
-                            <option value="wallet">Wallet</option>
-                          </select>
-                        </label>
-                        <label>
-                          <span className="text-sm font-semibold text-slate-700">Reference</span>
-                          <input value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} disabled={actionSubmitting} placeholder="UPI or bank reference" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-400" />
-                        </label>
+                        <PaymentMethodFields
+                          entry={paymentEntry}
+                          onChange={setPaymentEntry}
+                          disabled={actionSubmitting}
+                          fieldClassName=""
+                        />
                         <label className="sm:col-span-2">
                           <span className="text-sm font-semibold text-slate-700">Internal note</span>
                           <textarea value={paymentNote} onChange={(event) => setPaymentNote(event.target.value)} disabled={actionSubmitting} rows={3} placeholder="Optional internal verification note" className="mt-2 w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-400" />

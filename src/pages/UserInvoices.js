@@ -5,7 +5,7 @@ import SummaryApi from '../common';
 import { toast } from 'sonner';
 import CustomerWorkspaceTabs from '../components/CustomerWorkspaceTabs';
 import Badge from '../components/Badge';
-import { getInvoiceStatusText, getInvoicePurposeText } from '../helpers/invoicePresentation';
+import { getInvoiceStatusText, getInvoicePurposeText, isFreeInvoice } from '../helpers/invoicePresentation';
 import { getOrderDisplayName } from '../helpers/orderPresentation';
 
 const UserInvoices = () => {
@@ -179,7 +179,7 @@ const UserInvoices = () => {
                                                 <div className="text-right">
                                                     <p className="text-sm text-[var(--text-secondary)]">Amount</p>
                                                     <p className="text-2xl font-bold text-[var(--text-primary)]">
-                                                        ₹{invoice.amount.toLocaleString()}
+                                                        {isFreeInvoice(invoice) ? 'FREE' : `₹${invoice.amount.toLocaleString()}`}
                                                     </p>
                                                 </div>
 

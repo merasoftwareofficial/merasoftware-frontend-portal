@@ -98,9 +98,18 @@ export const getPaymentMethodText = (method) => ({
   wallet: 'Wallet',
   cash: 'Cash',
   bank_transfer: 'Bank transfer',
+  cheque: 'Cheque',
   combined: 'Wallet + UPI',
   reward: 'Referral Reward',
 }[method] || 'UPI');
+
+/**
+ * A FREE invoice: the ₹0 invoice of a free project (100% discount / offer). It is created
+ * already settled (adminCreateProjectOrder.js), so it never asks for money and its amount
+ * reads FREE rather than ₹0 everywhere an invoice amount is shown.
+ */
+export const isFreeInvoice = (invoice) =>
+  Boolean(invoice) && Number(invoice.amount) === 0 && invoice.status === 'paid';
 
 /**
  * Can the customer still pay something on this invoice?

@@ -56,7 +56,9 @@ import {
 import { adminReturnState, getAdminReturnTarget, goToAdminReturn } from "../helpers/adminReturnNavigation";
 import focusFirstInteractiveElement, { getInteractiveElements } from "../utils/focusFirstInteractiveElement";
 import { getOrderDisplayName } from "../helpers/orderPresentation";
-import { getPaymentMethodText } from "../helpers/invoicePresentation";
+import { getPaymentMethodText, isFreeInvoice } from "../helpers/invoicePresentation";
+import PaymentMethodFields from "../components/PaymentMethodFields";
+import { createPaymentEntry, getPaymentEntryError, toPaymentRequest } from "../helpers/paymentMethodRules";
 
 const CANCEL_REFUND_MODE_OPTIONS = [
   { key: "source", label: "To source", hint: "Same proportion it was paid" },
@@ -3054,16 +3056,14 @@ const PaymentInvoicesPanel = ({
   // Admin wallet recharge — instant credit (creditWalletInstant), shows up in the same ledger.
   const [showRecharge, setShowRecharge] = useState(false);
   const [rechargeAmount, setRechargeAmount] = useState("");
-  const [rechargeMethod, setRechargeMethod] = useState("upi");
-  const [rechargeReference, setRechargeReference] = useState("");
+  const [rechargeEntry, setRechargeEntry] = useState(() => createPaymentEntry());
   const [rechargeNote, setRechargeNote] = useState("");
   const [recharging, setRecharging] = useState(false);
 
   const resetRecharge = () => {
     setShowRecharge(false);
     setRechargeAmount("");
-    setRechargeMethod("upi");
-    setRechargeReference("");
+    setRechargeEntry(createPaymentEntry());
     setRechargeNote("");
   };
 
@@ -3073,6 +3073,12 @@ const PaymentInvoicesPanel = ({
       toast.error("Enter a valid amount");
       return;
     }
+    const entryError = getPaymentEntryError(rechargeEntry);
+    if (entryError) {
+      toast.error(entryError);
+      return;
+    }
+    const payment = toPaymentRequest(rechargeEntry);
     try {
       setRecharging(true);
       const response = await fetch(
@@ -3083,8 +3089,9 @@ const PaymentInvoicesPanel = ({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             amount,
-            paymentMethod: rechargeMethod,
-            reference: rechargeReference.trim(),
+            paymentMethod: payment.paymentMethod,
+            reference: payment.reference,
+            paymentDetails: payment.paymentDetails,
             note: rechargeNote.trim(),
           }),
         }
@@ -3207,28 +3214,14 @@ const PaymentInvoicesPanel = ({
                   className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-400"
                 />
               </label>
-              <label className="block">
-                <span className="text-sm font-semibold text-slate-700">Method</span>
-                <select
-                  value={rechargeMethod}
-                  onChange={(e) => setRechargeMethod(e.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-400"
-                >
-                  <option value="upi">UPI</option>
-                  <option value="cash">Cash</option>
-                  <option value="bank_transfer">Bank transfer</option>
-                </select>
-              </label>
-              <label className="block">
-                <span className="text-sm font-semibold text-slate-700">Reference (optional)</span>
-                <input
-                  type="text"
-                  value={rechargeReference}
-                  onChange={(e) => setRechargeReference(e.target.value)}
-                  placeholder="UPI ID / bank reference"
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-400"
-                />
-              </label>
+              {/* Wallet is not offered: a wallet cannot be recharged from itself. */}
+              <PaymentMethodFields
+                entry={rechargeEntry}
+                onChange={setRechargeEntry}
+                methods={["upi", "bank_transfer", "cheque", "cash"]}
+                disabled={recharging}
+                inputClassName="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-400"
+              />
               <label className="block">
                 <span className="text-sm font-semibold text-slate-700">Note (internal, optional)</span>
                 <textarea
@@ -3367,8 +3360,7 @@ const PaymentOrderHistorySubpage = ({ customerId, orderId, onBack }) => {
   const [reloadKey, setReloadKey] = useState(0);
   const [actionTarget, setActionTarget] = useState(null);
   const [actionSubmitting, setActionSubmitting] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("upi");
-  const [paymentReference, setPaymentReference] = useState("");
+  const [paymentEntry, setPaymentEntry] = useState(() => createPaymentEntry());
   const [paymentNote, setPaymentNote] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
   const [finalInvoiceAction, setFinalInvoiceAction] = useState("");
@@ -3598,8 +3590,10 @@ const PaymentOrderHistorySubpage = ({ customerId, orderId, onBack }) => {
 
   const openAction = (type, record) => {
     setActionTarget({ type, record });
-    setPaymentMethod(record?.paymentMethod || "upi");
-    setPaymentReference(record?.transactionReference || record?.upiTransactionId || "");
+    setPaymentEntry(createPaymentEntry(
+      record?.paymentMethod || "upi",
+      record?.transactionReference || record?.upiTransactionId || ""
+    ));
     setPaymentNote("");
     setRejectionReason("");
   };
@@ -3616,6 +3610,15 @@ const PaymentOrderHistorySubpage = ({ customerId, orderId, onBack }) => {
       toast.error("Rejection reason is required");
       return;
     }
+
+    // Recording a payment (plan invoice, or a project approval) needs that method's own details.
+    const recordsPayment = type !== "transaction" && decision !== "reject";
+    const entryError = recordsPayment ? getPaymentEntryError(paymentEntry) : "";
+    if (entryError) {
+      toast.error(entryError);
+      return;
+    }
+    const payment = toPaymentRequest(paymentEntry);
 
     try {
       setActionSubmitting(true);
@@ -3641,8 +3644,9 @@ const PaymentOrderHistorySubpage = ({ customerId, orderId, onBack }) => {
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            paymentMethod,
-            transactionReference: paymentReference.trim(),
+            paymentMethod: payment.paymentMethod,
+            transactionReference: payment.reference,
+            paymentDetails: payment.paymentDetails,
             internalNote: paymentNote.trim(),
           }),
         });
@@ -3655,8 +3659,9 @@ const PaymentOrderHistorySubpage = ({ customerId, orderId, onBack }) => {
             decision === "record"
               ? {
                   mode: "approve_with_payment",
-                  paymentMethod,
-                  transactionReference: paymentReference.trim(),
+                  paymentMethod: payment.paymentMethod,
+                  transactionReference: payment.reference,
+                  paymentDetails: payment.paymentDetails,
                   notes: paymentNote.trim(),
                 }
               : { mode: "reject", rejectionReason: rejectionReason.trim() }
@@ -3770,7 +3775,7 @@ const PaymentOrderHistorySubpage = ({ customerId, orderId, onBack }) => {
                   <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4">
                     <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">{finalInvoice.invoiceType === "service_statement" ? "Total for this plan" : "Total for this project"}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <p className="text-base font-bold text-slate-900">{formatCurrency(finalInvoice.amount)}</p>
+                      <p className="text-base font-bold text-slate-900">{isFreeInvoice(finalInvoice) ? "FREE" : formatCurrency(finalInvoice.amount)}</p>
                       <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getBadgeClassName(getLedgerStatusLabel(finalInvoice.status))}`}>{getLedgerStatusLabel(finalInvoice.status)}</span>
                     </div>
                     <p className="mt-2 text-xs font-semibold text-emerald-700">
@@ -3831,7 +3836,7 @@ const PaymentOrderHistorySubpage = ({ customerId, orderId, onBack }) => {
                           {transaction?.rejectionReason ? <p className="mt-1 text-xs text-rose-700">Reason: {transaction.rejectionReason}</p> : null}
 
                           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                            <p className="text-base font-bold text-slate-900">{formatCurrency(displayAmount)}</p>
+                            <p className="text-base font-bold text-slate-900">{!transaction && isFreeInvoice(invoice) ? "FREE" : formatCurrency(displayAmount)}</p>
                             <div className="flex flex-wrap justify-end gap-2">
                               {canReviewTransaction ? (
                                 <button type="button" onClick={() => openAction("transaction", transaction)} className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800">Review Payment</button>
@@ -3911,19 +3916,12 @@ const PaymentOrderHistorySubpage = ({ customerId, orderId, onBack }) => {
 
                 {actionTarget.type !== "transaction" ? (
                   <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <label>
-                      <span className="text-sm font-semibold text-slate-700">Payment method</span>
-                      <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} disabled={actionSubmitting} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-400">
-                        <option value="upi">UPI</option>
-                        <option value="bank_transfer">Bank transfer</option>
-                        <option value="cash">Cash</option>
-                        <option value="wallet">Wallet</option>
-                      </select>
-                    </label>
-                    <label>
-                      <span className="text-sm font-semibold text-slate-700">Reference</span>
-                      <input value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} disabled={actionSubmitting} placeholder="UPI or bank reference" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-400" />
-                    </label>
+                    <PaymentMethodFields
+                      entry={paymentEntry}
+                      onChange={setPaymentEntry}
+                      disabled={actionSubmitting}
+                      fieldClassName=""
+                    />
                     <label className="sm:col-span-2">
                       <span className="text-sm font-semibold text-slate-700">Internal note</span>
                       <textarea value={paymentNote} onChange={(event) => setPaymentNote(event.target.value)} disabled={actionSubmitting} rows={3} placeholder="Optional internal verification note" className="mt-2 w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-400" />
@@ -4158,13 +4156,6 @@ const projectFormInputClassName =
   "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-black outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100";
 const projectFormLabelClassName = "mb-1.5 block text-base font-semibold text-slate-700";
 
-const PAYMENT_METHOD_OPTIONS = [
-  { value: "upi", label: "UPI" },
-  { value: "bank_transfer", label: "Bank transfer" },
-  { value: "cash", label: "Cash" },
-  { value: "wallet", label: "Wallet" },
-];
-
 const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreated }) => {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -4176,9 +4167,14 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
   const [installmentCount, setInstallmentCount] = useState("2");
 
   const [paymentAction, setPaymentAction] = useState("record");
-  const [paymentMethod, setPaymentMethod] = useState("upi");
-  const [transactionReference, setTransactionReference] = useState("");
+  const [paymentEntry, setPaymentEntry] = useState(() => createPaymentEntry());
   const [paymentNotes, setPaymentNotes] = useState("");
+
+  // Optional website offer this project is sold under (published + not expired only).
+  const [offerSlug, setOfferSlug] = useState("");
+  const [offers, setOffers] = useState([]);
+  const [offersLoading, setOffersLoading] = useState(true);
+  const [offersError, setOffersError] = useState("");
 
   const [basePrice, setBasePrice] = useState(0);
   const [basePriceLoading, setBasePriceLoading] = useState(false);
@@ -4211,6 +4207,28 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
       }
     };
     fetchFeatures();
+  }, []);
+
+  useEffect(() => {
+    const fetchOffers = async () => {
+      setOffersLoading(true);
+      setOffersError("");
+      try {
+        const response = await fetch(SummaryApi.adminWebsiteOffers.url, {
+          method: SummaryApi.adminWebsiteOffers.method.toUpperCase(),
+          credentials: "include",
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message || "Offers could not be loaded");
+        setOffers(result.data || []);
+      } catch (fetchError) {
+        console.error("Error fetching website offers:", fetchError);
+        setOffersError(fetchError.message || "Offers could not be loaded");
+      } finally {
+        setOffersLoading(false);
+      }
+    };
+    fetchOffers();
   }, []);
 
   useEffect(() => {
@@ -4291,34 +4309,55 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
   }, 0);
   const referenceTotal = Number(basePrice) + featuresTotal;
 
+  const hasSellingPrice = sellingPrice !== "" && Number(sellingPrice) >= 0;
+  // ₹0 is a FREE project (100% discount): nothing to collect, so there is no payment step,
+  // no installments, and its invoice is created already settled and reads FREE.
+  const isFree = hasSellingPrice && Number(sellingPrice) === 0;
+
   const firstInstallmentAmount = paymentType === "partial" && sellingPrice
     ? buildInstallmentPreview(Number(sellingPrice), installmentCount)[0]?.amount || 0
     : Number(sellingPrice) || 0;
 
-  const handleGoToPaymentStep = () => {
-    if (!category || !sellingPrice) {
+  const validateStepOne = () => {
+    if (!category || !hasSellingPrice) {
       toast.error("Category and selling price are required.");
-      return;
+      return false;
     }
+    return true;
+  };
+
+  const handleGoToPaymentStep = () => {
+    if (!validateStepOne()) return;
     setStep(2);
   };
 
   const handleSubmit = async (event) => {
-    event.preventDefault();
+    event?.preventDefault();
+    if (!validateStepOne()) return;
+
+    const recordsPayment = !isFree && paymentAction === "record";
+    const entryError = recordsPayment ? getPaymentEntryError(paymentEntry) : "";
+    if (entryError) {
+      toast.error(entryError);
+      return;
+    }
+    const payment = toPaymentRequest(paymentEntry);
 
     const formData = {
       projectName: projectName.trim() || null,
       startingNodeTitle: startingNodeTitle.trim() || null,
       category,
-      sellingPrice,
+      sellingPrice: Number(sellingPrice),
       featureIds: selectedFeatureIds,
       featureQuantities,
-      paymentType,
-      installmentCount: paymentType === "partial" ? installmentCount : null,
-      recordPayment: paymentAction === "record"
+      paymentType: isFree ? "full" : paymentType,
+      installmentCount: !isFree && paymentType === "partial" ? installmentCount : null,
+      offerSlug: offerSlug || null,
+      recordPayment: recordsPayment
         ? {
-            paymentMethod,
-            transactionReference: transactionReference.trim(),
+            paymentMethod: payment.paymentMethod,
+            transactionReference: payment.reference,
+            paymentDetails: payment.paymentDetails,
             notes: paymentNotes.trim(),
           }
         : null,
@@ -4553,12 +4592,44 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
             onChange={(event) => setSellingPrice(event.target.value)}
             placeholder="e.g. 12000"
           />
-          {sellingPrice && Number(sellingPrice) < referenceTotal ? (
+          {hasSellingPrice && Number(sellingPrice) < referenceTotal ? (
             <p className="mt-1.5 text-sm font-semibold text-emerald-600">
               Discount: ₹{(referenceTotal - Number(sellingPrice)).toLocaleString("en-IN")}
+              {isFree ? " (100% — FREE project)" : ""}
+            </p>
+          ) : null}
+          {isFree ? (
+            <p className="mt-1 text-sm text-slate-500">
+              Nothing to collect — the project starts right away with a FREE invoice.
             </p>
           ) : null}
         </div>
+        </div>
+
+        <div className="md:col-span-2">
+          <label className={projectFormLabelClassName}>
+            Offer <span className="font-normal normal-case tracking-normal text-slate-400">(optional)</span>
+          </label>
+          <select
+            className={projectFormInputClassName}
+            value={offerSlug}
+            onChange={(event) => setOfferSlug(event.target.value)}
+            disabled={offersLoading || Boolean(offersError)}
+          >
+            <option value="">
+              {offersLoading
+                ? "Loading website offers…"
+                : offers.length === 0 && !offersError
+                ? "No live offers on the website"
+                : "No offer"}
+            </option>
+            {offers.map((offer) => (
+              <option key={offer.slug} value={offer.slug}>{offer.title}</option>
+            ))}
+          </select>
+          {offersError ? (
+            <p className="mt-1.5 text-xs text-red-500">{offersError} — the project can still be created without an offer.</p>
+          ) : null}
         </div>
       </div>
 
@@ -4568,6 +4639,7 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
         </p>
       </div>
 
+      {!isFree ? (
       <div className="mt-6 border-t border-slate-200 pt-5">
         <label className={projectFormLabelClassName}>Payment Type</label>
         <div className="flex flex-wrap gap-3">
@@ -4611,6 +4683,7 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
           </div>
         ) : null}
       </div>
+      ) : null}
 
       <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <button
@@ -4621,13 +4694,34 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
         >
           Cancel
         </button>
-        <button
-          type="button"
-          onClick={handleGoToPaymentStep}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-        >
-          Next: Payment Settings
-        </button>
+        {isFree ? (
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isSubmitting ? (
+              <>
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <Save size={16} />
+                Create FREE Project
+              </>
+            )}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleGoToPaymentStep}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            Next: Payment Settings
+          </button>
+        )}
       </div>
       </>
       ) : (
@@ -4672,28 +4766,13 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
 
         {paymentAction === "record" ? (
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            <div>
-              <label className={projectFormLabelClassName}>Payment Method</label>
-              <select
-                className={projectFormInputClassName}
-                value={paymentMethod}
-                onChange={(event) => setPaymentMethod(event.target.value)}
-              >
-                {PAYMENT_METHOD_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={projectFormLabelClassName}>Transaction Reference</label>
-              <input
-                type="text"
-                className={projectFormInputClassName}
-                value={transactionReference}
-                onChange={(event) => setTransactionReference(event.target.value)}
-                placeholder="UPI ID or bank reference"
-              />
-            </div>
+            <PaymentMethodFields
+              entry={paymentEntry}
+              onChange={setPaymentEntry}
+              disabled={isSubmitting}
+              labelClassName={projectFormLabelClassName}
+              inputClassName={projectFormInputClassName}
+            />
             <div className="md:col-span-2">
               <label className={projectFormLabelClassName}>
                 Note <span className="font-normal normal-case tracking-normal text-slate-400">(internal only, not shown to client)</span>
@@ -4840,13 +4919,18 @@ const WorkspaceDetailSubpage = ({
   const hasPendingTransaction = orderTransactions.some((txn) => txn.status === "pending");
   const isPendingApproval = item?.orderVisibility === "pending-approval" && !hasPendingTransaction;
   const [approvalMode, setApprovalMode] = useState(null); // null | "record" | "reject"
-  const [approvalMethod, setApprovalMethod] = useState("upi");
-  const [approvalReference, setApprovalReference] = useState("");
+  const [approvalEntry, setApprovalEntry] = useState(() => createPaymentEntry());
   const [approvalNotes, setApprovalNotes] = useState("");
   const [approvalRejectReason, setApprovalRejectReason] = useState("");
   const [approvalSubmitting, setApprovalSubmitting] = useState(false);
 
   const submitApproval = async (mode) => {
+    const entryError = mode === "approve_with_payment" ? getPaymentEntryError(approvalEntry) : "";
+    if (entryError) {
+      toast.error(entryError);
+      return;
+    }
+    const payment = toPaymentRequest(approvalEntry);
     setApprovalSubmitting(true);
     try {
       const response = await fetch(`${SummaryApi.approveProjectOrder.url}/${item._id}/approval`, {
@@ -4855,8 +4939,9 @@ const WorkspaceDetailSubpage = ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode,
-          paymentMethod: mode === "approve_with_payment" ? approvalMethod : undefined,
-          transactionReference: mode === "approve_with_payment" ? approvalReference : undefined,
+          paymentMethod: mode === "approve_with_payment" ? payment.paymentMethod : undefined,
+          transactionReference: mode === "approve_with_payment" ? payment.reference : undefined,
+          paymentDetails: mode === "approve_with_payment" ? payment.paymentDetails : undefined,
           notes: mode === "approve_with_payment" ? approvalNotes : undefined,
           rejectionReason: mode === "reject" ? approvalRejectReason : undefined,
         }),
@@ -4865,7 +4950,7 @@ const WorkspaceDetailSubpage = ({
       if (!result.success) throw new Error(result.message || "Approval action failed");
       toast.success(result.message || "Done");
       setApprovalMode(null);
-      setApprovalReference("");
+      setApprovalEntry(createPaymentEntry());
       setApprovalNotes("");
       setApprovalRejectReason("");
       onSoftRefresh?.();
@@ -4894,8 +4979,7 @@ const WorkspaceDetailSubpage = ({
     setNodeActionNotice("");
     setEditingNodeKey(null);
     setApprovalMode(null);
-    setApprovalMethod("upi");
-    setApprovalReference("");
+    setApprovalEntry(createPaymentEntry());
     setApprovalNotes("");
     setApprovalRejectReason("");
   }, [item?._id]);
@@ -5279,28 +5363,13 @@ const WorkspaceDetailSubpage = ({
               {approvalMode === "record" ? (
                 <div className="mt-4 rounded-2xl border border-emerald-200 bg-white p-4">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div>
-                      <label className={projectFormLabelClassName}>Payment Method</label>
-                      <select
-                        className={projectFormInputClassName}
-                        value={approvalMethod}
-                        onChange={(event) => setApprovalMethod(event.target.value)}
-                      >
-                        {PAYMENT_METHOD_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>{option.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className={projectFormLabelClassName}>Transaction Reference</label>
-                      <input
-                        type="text"
-                        className={projectFormInputClassName}
-                        value={approvalReference}
-                        onChange={(event) => setApprovalReference(event.target.value)}
-                        placeholder="UPI ID or bank reference"
-                      />
-                    </div>
+                    <PaymentMethodFields
+                      entry={approvalEntry}
+                      onChange={setApprovalEntry}
+                      disabled={approvalSubmitting}
+                      labelClassName={projectFormLabelClassName}
+                      inputClassName={projectFormInputClassName}
+                    />
                   </div>
                   <div className="mt-4">
                     <label className={projectFormLabelClassName}>Note (optional)</label>
@@ -5400,7 +5469,7 @@ const WorkspaceDetailSubpage = ({
                           </div>
                           <div className="text-right">
                             <p className="text-xs text-slate-500">Amount</p>
-                            <p className="text-base font-bold text-slate-900">{formatCurrency(led.amount)}</p>
+                            <p className="text-base font-bold text-slate-900">{led.kind === "invoice" && isFreeInvoice(led.raw) ? "FREE" : formatCurrency(led.amount)}</p>
                           </div>
                         </div>
                       </div>

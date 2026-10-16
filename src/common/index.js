@@ -676,6 +676,11 @@ const SummaryApi = {
         url: `${backendDomain}/api/admin/clients`,
         method: "post"
     },
+    // Live (published, not expired) website offers for the Create Project form's Offer dropdown.
+    adminWebsiteOffers: {
+        url: `${backendDomain}/api/admin/website-offers`,
+        method: "get"
+    },
     // Account & Access (admin) — caller appends `/:customerId/<action>`.
     clientCredentials: {
         url: `${backendDomain}/api/admin/clients`,

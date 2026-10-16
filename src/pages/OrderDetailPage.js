@@ -13,7 +13,7 @@ import {
   customerChildState,
   goToCustomerReturn,
 } from '../helpers/customerReturnNavigation';
-import { getInvoiceStatusText, isStatementInvoice, getInvoicePurposeText } from '../helpers/invoicePresentation';
+import { getInvoiceStatusText, isStatementInvoice, getInvoicePurposeText, isFreeInvoice } from '../helpers/invoicePresentation';
 
 const formatDate = (date) => {
   if (!date) return 'N/A';
@@ -369,7 +369,7 @@ const OrderDetailPage = () => {
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-base font-semibold text-[var(--text-primary)]">₹{invoice.amount.toLocaleString()}</span>
+                            <span className="text-base font-semibold text-[var(--text-primary)]">{isFreeInvoice(invoice) ? 'FREE' : `₹${invoice.amount.toLocaleString()}`}</span>
                             <ChevronRight className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" />
                           </div>
                         </div>
