@@ -66,7 +66,9 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
         legacyWrites++;
         const record = {mode,status:'processing',completedFiles:0};
         records.set(id,record);
-        setTimeout(()=>{record.status='succeeded';record.completedFiles=2;record.result={success:true,data:{requestId:'legacy-request'}};json(record.result);},500);
+        // Server saves files to Drive one by one after the request body has arrived.
+        setTimeout(()=>{record.completedFiles=1;},300);
+        setTimeout(()=>{record.status='succeeded';record.completedFiles=2;record.result={success:true,data:{requestId:'legacy-request'}};json(record.result);},2500);
       });return;
     }
     if (url.pathname.startsWith('/progress/')) {
@@ -195,14 +197,20 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     await page.getByRole('button',{name:'Dismiss',exact:true}).click();
     for (const mode of ['legacy','older']) {
       await page.getByRole('button',{name:mode,exact:true}).click();
+      await page.waitForFunction(()=>window.uploadTask?.status==='saving' && window.uploadTask.percent===50);
+      assert.equal(await page.evaluate(()=>window.uploadTask.transferPercent),100,'Request body fully sent');
+      await page.getByText('Saving files — 1 of 2',{exact:true}).waitFor({timeout:1000});
       await page.waitForFunction(()=>window.uploadTask?.status==='complete');
       assert.equal(await page.evaluate(()=>window.uploadTask.mode),'legacy');
       const legacyId = await page.evaluate(()=>window.uploadTask.id);
+      const legacySamples = await page.evaluate(id=>window.samples.filter(sample=>sample.id===id),legacyId);
+      assert.ok(legacySamples.filter(sample=>sample.status!=='complete').every(sample=>sample.percent<100),'Total reaches 100% only with the last saved file');
+      assert.equal(legacySamples.at(-1).percent,100);
       assert.equal(records.get(legacyId).mode,mode);
       await page.getByRole('button',{name:'Dismiss',exact:true}).click();
     }
     assert.equal(legacyWrites,2);
-    console.log('PASS: staging disabled and older backend both retain working multipart uploads');
+    console.log('PASS: staging disabled and older backend both retain working multipart uploads; total % follows saved files to 100% with the last file');
     await page.getByRole('button',{name:'caperror',exact:true}).click();
     await page.waitForFunction(()=>window.uploadTask?.status==='failed');
     const failedId = await page.evaluate(()=>window.uploadTask.id);
