@@ -18,7 +18,7 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
         const paragraph = (...content) => ({ type: 'doc', content: [{ type: 'paragraph', content }] });
         if (String(url).endsWith('/drafts/draft2')) return json({ data: { _id: 'draft2', to: ['client@example.test'], subject: 'Project Cancelled', text: 'Hello Ravi', html: '<p>prepared mail</p>',
           doc: paragraph({ type: 'text', text: 'Hello ' }, { type: 'emailVariable', attrs: { key: 'name' } }),
-          editorFields: { variables: [{ key: 'name', label: 'Customer name', hint: 'The customer’s name' }], blocks: [] },
+          editorFields: { variables: [{ key: 'name', label: 'Customer name', hint: 'The customer’s name', value: 'Ravi' }], blocks: [] },
           templateOptions: [{ id: 'sys1', name: 'Standard', system: true }, { id: 'short1', name: 'Short', system: false }] } });
         if (String(url).endsWith('/drafts/draft2/preview')) {
           const body = JSON.parse(options.body);
@@ -88,17 +88,28 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     // A detail shows as a named chip; no {{ }} is visible.
     assert.equal(await message.locator('[data-email-variable="name"]').innerText(), 'Customer name');
     assert.doesNotMatch(await message.innerText(), /\{\{/);
+    // The details guide explains every detail with this email's own value.
+    const guideName = page.getByRole('region', { name: 'Available details for Message' }).getByRole('listitem').filter({ hasText: 'Customer name' });
+    await guideName.getByText('The customer’s name', { exact: true }).waitFor();
+    await guideName.getByText('In this email: Ravi', { exact: true }).waitFor();
     assert.deepEqual(await page.getByLabel('Template', { exact: true }).locator('option').allTextContents(), ['Current draft', 'Standard (built-in)', 'Short']);
     await page.getByLabel('Template', { exact: true }).selectOption('short1');
     await page.waitForFunction(() => document.getElementById('email-review-subject').value === 'Short subject');
     await page.waitForFunction(() => document.getElementById('email-review-message').innerText.trim() === 'Short text');
+    // The editor is read-only while the template preview loads; edit only once it is editable again.
+    await page.waitForFunction(() => document.getElementById('email-review-message').getAttribute('contenteditable') === 'true');
     assert.match(await srcdoc(), /short mail/);
     await message.click(); await page.keyboard.press('Control+A');
     await page.getByRole('button', { name: 'B Bold', exact: true }).click();
+    await page.waitForFunction(() => document.activeElement?.id === 'email-review-message');
     await page.getByRole('button', { name: '• List', exact: true }).click();
     assert.equal(await message.locator('ul li strong').innerText(), 'Short text');
+    // Toolbar buttons hand focus back to the editor a moment later; type only once it has it.
+    await page.waitForFunction(() => document.activeElement?.id === 'email-review-message');
     await page.keyboard.press('End'); await page.keyboard.type(' for ');
     await page.getByLabel('Insert detail into Message').selectOption({ label: 'Customer name' });
+    await page.keyboard.type(' and ');
+    await guideName.getByRole('button', { name: 'Customer name', exact: true }).click();
     await page.getByRole('button', { name: 'Update preview', exact: true }).click();
     await page.waitForFunction(() => /edited preview/.test(document.querySelector('iframe[title="Email preview"]').getAttribute('srcdoc')));
     await page.getByRole('button', { name: 'Send Mail', exact: true }).click();
@@ -109,7 +120,8 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     assert.equal(item.type, 'bulletList');
     const nodes = item.content[0].content[0].content;
     assert.deepEqual(nodes[0], { type: 'text', text: 'Short text for ', marks: [{ type: 'bold' }] });
-    assert.equal(nodes[1].type, 'emailVariable'); assert.equal(nodes[1].attrs.key, 'name'); assert.equal(nodes.length, 2);
+    assert.equal(nodes[1].type, 'emailVariable'); assert.equal(nodes[1].attrs.key, 'name');
+    assert.equal(nodes[2].text, ' and '); assert.equal(nodes[3].type, 'emailVariable'); assert.equal(nodes[3].attrs.key, 'name'); assert.equal(nodes.length, 4);
     assert.deepEqual(errors, []);
     console.log('PASS: visual editor (chips, Bold, List, Insert detail), Send, Don’t Send, Escape, attachment preview, shared action interception, admin template choice and live preview.');
   } finally { await browser?.close(); await new Promise(resolve => app.close(resolve)); }

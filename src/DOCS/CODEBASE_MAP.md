@@ -295,6 +295,8 @@ One route serves every "Upload Data" action: `POST /api/user-request-update` →
 
 - Upload diagnosis: backend `helpers/uploadTiming.js` (`UPLOAD_TIMING_ENABLED=true`) and frontend `utils/uploadTiming.js` (`REACT_APP_UPLOAD_TIMING_ENABLED=true` at build time) log correlated stage timings for portal and external uploads. Both default off. Procedure/boundaries: `backend/docs/upload-measurements.md`. The owner excluded background upload work; this instrumentation adds no background jobs or speed changes.
 
+- Upload execution: `backend/helpers/uploadConcurrency.js` bounds three files per submission/six Drive pipelines per Node process; `googleDriveService.js` reuses folder/client lookups for five minutes and retains sharing calls pending live access verification. New frontend `context/UploadContext.js` owns XHR byte progress, authenticated save-count polling, minimize/navigation and same-id retries. `UploadSubmission` provides owner/link-scoped replay and transactionally commits request, allowance and link consumption; it is not a background job. Details/rollout: `backend/docs/upload-flow.md`. Browser closure/mobile background continuation remains excluded.
+
 **The kind of upload decides where its allowance is read from — `backend/helpers/uploadType.js` is the only place that decides which:**
 
 | Kind | Test | Allowance source | Counter spent |

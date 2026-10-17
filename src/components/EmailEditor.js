@@ -93,7 +93,33 @@ export default function EmailEditor({ id, label, value, onChange, disabled, vari
         </div>
         <EditorContent editor={editor} />
       </div>
+      {!!choices.length && <DetailsGuide label={label} choices={choices} disabled={disabled || !editor} onInsert={choice => editor.chain().focus().insertContent({ type: choice.kind, attrs: { key: choice.key } }).run()} />}
     </>
+  );
+}
+
+// Always-visible list of the details this email can hold: what each one is filled with, an
+// example (or, in a review, this email's own value), and a click inserts it at the cursor.
+// Same as DetailsGuide in the website's email-editor.tsx.
+function DetailsGuide({ label, choices, disabled, onInsert }) {
+  const example = row => (row.value !== undefined ? (row.value ? `In this email: ${row.value}` : 'Empty in this email') : row.sample ? `e.g. ${row.sample}` : '');
+  return (
+    <section aria-label={`Available details for ${label}`} className="mt-2 rounded border p-3 text-sm">
+      <h3 className="font-semibold">Available details</h3>
+      <p className="opacity-75">Click a detail to put it where the cursor is. When the email is prepared, each detail is replaced by the real value — for example the client's own name. A line whose details are all empty is left out.</p>
+      <ul className="mt-2 grid gap-1.5">
+        {choices.map(row => (
+          <li key={`${row.kind}:${row.key}`} className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+            <button type="button" disabled={disabled} className={`${row.kind === 'emailSection' ? 'rounded-lg border border-dashed border-cyan-700 bg-cyan-700/10 px-2.5 font-semibold' : CHIP} cursor-pointer disabled:cursor-default disabled:opacity-60`}
+              onMouseDown={event => event.preventDefault()} onClick={() => onInsert(row)}>
+              {row.kind === 'emailSection' ? `▦ ${row.label}` : row.label}
+            </button>
+            <span>{row.hint || (row.kind === 'emailSection' ? 'A section this action builds; keep it on its own line' : 'Filled in automatically')}</span>
+            {example(row) && <span className="opacity-75">{example(row)}</span>}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

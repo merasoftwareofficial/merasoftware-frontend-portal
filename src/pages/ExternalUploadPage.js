@@ -2,13 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { FileText, LockKeyhole, ShieldCheck, Upload, X } from 'lucide-react';
 import { ThemeProvider } from '../context/ThemeContext';
 import SummaryApi from '../common';
-import { startUploadTiming } from '../utils/uploadTiming';
+import { useUploads } from '../context/UploadContext';
 
-const requestJson = async (url, options = {}, timing) => {
+const requestJson = async (url, options = {}) => {
   const response = await fetch(url, { credentials: 'include', ...options });
-  timing?.response(response);
   const payload = await response.json().catch(() => ({}));
-  timing?.mark('response_body_parsed');
   if (!response.ok || !payload.success) throw new Error(payload.message || 'Request failed');
   return payload;
 };
@@ -22,6 +20,8 @@ const ExternalUploadContent = () => {
   const [files, setFiles] = useState([]);
   const [instructions, setInstructions] = useState('');
   const [busy, setBusy] = useState(false);
+  const { startUpload, task } = useUploads();
+  const [uploadId, setUploadId] = useState(null);
   const fileInputRef = useRef(null);
 
   const loadSession = async () => {
@@ -100,35 +100,36 @@ const ExternalUploadContent = () => {
     event.target.value = '';
   };
 
-  const submit = async (event) => {
+  const submit = (event) => {
     event.preventDefault();
-    if (busy || (!files.length && !instructions.trim())) return;
-    const uploadTiming = startUploadTiming('external_submit', {
-      fileCount: files.length, fileBytes: files.reduce((sum, file) => sum + file.size, 0),
-    });
-    let uploadOutcome = 'failed';
-    setBusy(true);
+    if (busy || uploadId || (!files.length && !instructions.trim())) return;
     setError('');
     try {
       const formData = new FormData();
       const notes = instructions.trim() ? [{ text: instructions.trim(), timestamp: new Date().toISOString() }] : [];
       formData.append('instructions', JSON.stringify(notes));
-      files.forEach((file) => formData.append('files', file, file.name));
-      uploadTiming.mark('request_started');
-      const payload = await requestJson(SummaryApi.externalUploadSubmit.url, {
-        method: SummaryApi.externalUploadSubmit.method,
-        body: formData,
-      }, uploadTiming);
-      setContext((current) => ({ ...current, requestId: payload.data?.requestId }));
-      uploadOutcome = 'success';
-      setStage('success');
-    } catch (requestError) {
-      setError(requestError.message || 'Upload could not be submitted');
-    } finally {
-      uploadTiming.finish(uploadOutcome);
-      setBusy(false);
-    }
+      files.forEach(file => formData.append('files', file, file.name));
+      const id = startUpload({
+        url: SummaryApi.externalUploadSubmit.url,
+        progressUrl: SummaryApi.externalUploadProgress.url,
+        formData, surface: 'external', label: context.target.name,
+        totalFiles: files.length, fileBytes: files.reduce((sum, file) => sum + file.size, 0),
+      });
+      setUploadId(id);
+      setStage('submitting');
+    } catch (error) { setError(error.message || 'Could not start the upload'); }
   };
+
+  useEffect(() => {
+    if (uploadId && task?.id === uploadId && task.status === 'complete') {
+      setStage('success');
+      setFiles([]);
+    }
+    if (uploadId && !task && stage === 'submitting') {
+      setUploadId(null);
+      setStage('upload');
+    }
+  }, [uploadId, task, stage]);
 
   return (
     <main className="min-h-screen bg-[var(--page-bg)] text-[var(--text-primary)] px-4 py-10">
@@ -170,6 +171,8 @@ const ExternalUploadContent = () => {
             </>}
           </form>
         )}
+
+        {stage === 'submitting' && <p className="py-12 text-center">Follow your upload in the progress panel. Keep this page open until completion.</p>}
 
         {stage === 'success' && <div className="py-12 text-center"><ShieldCheck className="mx-auto text-emerald-500" size={44} /><h2 className="mt-4 text-xl font-bold">Data submitted successfully</h2><p className="mt-2 text-sm text-[var(--text-secondary)]">The submission is now available to the admin.</p></div>}
       </div>

@@ -2,12 +2,11 @@ import React, { useEffect, useState, useRef } from 'react';
 import { X, Upload, Send, FileText, Image } from 'lucide-react';
 import SummaryApi from '../common';
 import { toast } from 'sonner';
-import TriangleMazeLoader from '../components/TriangleMazeLoader';
 import imageCompression from 'browser-image-compression'; // You'll need to install this package
-import SpinningLoader from './SpinningLoader';
 import Modal from './Modal';
 import GlassButton from './GlassButton';
 import { startUploadTiming } from '../utils/uploadTiming';
+import { useUploads } from '../context/UploadContext';
 
 const LEGACY_MAX_FILE_COUNT = 20;
 // A project's own per-request cap, matching backend/config/uploadLimits.js
@@ -22,7 +21,7 @@ const UpdateRequestModal = ({ plan, onClose, onSubmitSuccess }) => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const { startUpload } = useUploads();
   const [uploadServices, setUploadServices] = useState(plan?.isServicePlan ? [plan] : []);
   const [selectedServiceId, setSelectedServiceId] = useState(plan?.isServicePlan ? plan._id : '');
   const fileInputRef = useRef(null);
@@ -193,96 +192,27 @@ const UpdateRequestModal = ({ plan, onClose, onSubmitSuccess }) => {
   
   // Final submission
   // Modified submitUpdateRequest function for UpdateRequestModal.js
-  const submitUpdateRequest = async () => {
+  const submitUpdateRequest = () => {
     if (loading) return;
-    const uploadTiming = startUploadTiming('portal_submit', {
-      fileCount: files.length, fileBytes: files.reduce((sum, file) => sum + file.file.size, 0),
-    });
-    let uploadOutcome = 'failed';
-    
     try {
       setLoading(true);
-      setIsUploading(true);
-      
-      // Create form data for the files
       const formData = new FormData();
-      // The upload is recorded against whichever order supplies the allowance: the chosen
-      // service when there is one, otherwise the order this modal was opened on — which for
-      // a project is the project itself, since no service is ever selected for it.
       formData.append('planId', selectedService?._id || plan._id);
       if (selectedService) formData.append('serviceOrderId', selectedService._id);
-      
-      // Add all instructions as a JSON string
       formData.append('instructions', JSON.stringify(messages));
-      
-      // Add each file separately with the same field name 'files'
-      files.forEach((fileObj) => {
-        formData.append('files', fileObj.file, fileObj.name);
+      files.forEach(file => formData.append('files', file.file, file.name));
+      startUpload({
+        url: SummaryApi.requestUpdate.url,
+        progressUrl: SummaryApi.uploadProgress.url,
+        formData, surface: 'portal', label: 'Your data submission',
+        totalFiles: files.length, fileBytes: files.reduce((sum, file) => sum + file.file.size, 0),
+        onSuccess: () => onSubmitSuccess?.(),
       });
-      
-      console.log("Submitting update request...");
-      uploadTiming.mark('request_started');
-      
-      // Submit the request
-      try {
-        const response = await fetch(SummaryApi.requestUpdate.url, {
-          method: SummaryApi.requestUpdate.method,
-          credentials: 'include',
-          body: formData
-        });
-        uploadTiming.response(response);
-        
-        // First check if response is ok
-        if (!response.ok) {
-          let errorMsg = `Server returned ${response.status}: ${response.statusText}`;
-          
-          try {
-            // Try to parse the error response as JSON
-            const errorData = await response.json();
-            errorMsg = errorData.message || errorMsg;
-          } catch (parseError) {
-            // If we can't parse the error as JSON, try to get the text
-            try {
-              const errorText = await response.text();
-              errorMsg = errorText || errorMsg;
-            } catch (textError) {
-              // Fall back to the default error message
-            }
-          }
-          
-          throw new Error(errorMsg);
-        }
-        
-        // Now parse the successful response
-        const data = await response.json();
-        uploadTiming.mark('response_body_parsed');
-        
-        if (data.success) {
-          uploadOutcome = 'success';
-          toast.success('Update request submitted successfully');
-          onSubmitSuccess?.();
-          onClose();
-        } else {
-          toast.error(data.message || 'Failed to submit update request');
-          setShowConfirmation(false);
-        }
-      } catch (error) {
-        console.error('Error submitting update request:', error);
-        toast.error(error.message || 'Failed to submit update request');
-        setShowConfirmation(false);
-      } finally {
-        setIsUploading(false);
-        setLoading(false);
-      }
+      files.forEach(file => { if (file.preview) URL.revokeObjectURL(file.preview); });
+      onClose();
     } catch (error) {
-      console.error('Error preparing update request:', error);
-      toast.error(error.message || 'Failed to submit update request');
-      setShowConfirmation(false);
-      setIsUploading(false);
+      toast.error(error.message || 'Could not start the upload');
       setLoading(false);
-    }
-    finally {
-      uploadTiming.finish(uploadOutcome);
     }
   };
   
@@ -324,18 +254,6 @@ const getFileIcon = (fileType) => {
     // never had. Modal renders its own header from `title`/`onClose`, so the hand-built
     // header row and close button go with it.
     <Modal open onClose={loading ? undefined : onClose} title="Upload Data" size="lg">
-        {loading && (
-  <>
-    {isUploading ? (
-      <SpinningLoader totalFiles={files.length} />
-    ) : (
-      <div className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center">
-        <TriangleMazeLoader />
-      </div>
-    )}
-  </>
-)}
-        
         {showConfirmation ? (
           /* Confirmation Screen */
           <div className="relative flex-1 overflow-auto p-6 flex flex-col items-center">

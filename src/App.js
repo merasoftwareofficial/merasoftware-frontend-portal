@@ -5,6 +5,7 @@ import AppContent from './AppContent';
 import { Toaster } from 'sonner';
 import { createContext, useContext, useState, useEffect } from 'react';
 import { DraftOrdersProvider } from './context/DraftOrdersContext';
+import { UploadProvider } from './context/UploadContext';
 
 // Create a simple context for online status
 export const OnlineStatusContext = createContext();
@@ -39,9 +40,11 @@ function App() {
   return (
     <OnlineStatusContext.Provider value={{ isOnline, isInitialized }}>
       <DraftOrdersProvider>
+        <UploadProvider>
         <Toaster position="top-center" richColors />
         <AppContent />
         <EmailReviewDialog />
+        </UploadProvider>
       </DraftOrdersProvider>
     </OnlineStatusContext.Provider>
   );
