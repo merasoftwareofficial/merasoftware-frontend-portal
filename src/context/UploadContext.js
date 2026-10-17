@@ -3,9 +3,10 @@ import { useSelector } from 'react-redux';
 import { toast } from 'sonner';
 import { startUploadTiming } from '../utils/uploadTiming';
 import { sendUpload } from '../utils/uploadTransport';
+import Modal from '../components/Modal';
 
 const UploadContext = createContext(null);
-const activeStatuses = ['preparing', 'connecting', 'transferring', 'confirming_file', 'confirming', 'checking'];
+const activeStatuses = ['preparing', 'connecting', 'transferring', 'confirming_file', 'confirming', 'checking', 'saving'];
 
 export function UploadProvider({ children }) {
   const [task, setTask] = useState(null);
@@ -58,7 +59,75 @@ export function UploadProvider({ children }) {
     return false;
   }, [finish, patch]);
 
-  const execute = useCallback(async entry => {
+  const pollLegacy = useCallback(async (entry, version = entry.version) => {
+    if (current.current !== entry || entry.finished || version !== entry.version) return;
+    entry.pollController = new AbortController();
+    const pollTimeout = setTimeout(() => entry.pollController?.abort(), 10000);
+    try {
+      const response = await fetch(entry.progressUrl, { credentials: 'include', cache: 'no-store', signal: entry.pollController.signal });
+      const payload = await response.json();
+      if (current.current !== entry || entry.finished || version !== entry.version) return;
+      if (response.ok && payload.success) {
+        const data = payload.data;
+        patch(entry.id, { completedFiles: data.completedFiles, phase: data.phase });
+        if (data.status === 'succeeded') { finish(entry, data.result); return; }
+        if (data.status === 'failed' || data.status === 'needs_review') {
+          entry.finished = true;
+          entry.timing?.finish('failed');
+          patch(entry.id, { status: data.status === 'failed' ? 'failed' : 'needs_review', message: data.status === 'failed' ? 'Upload could not be saved. Retry uses the same submission.' : 'This upload needs a status check. Contact support before submitting again.' });
+          return;
+        }
+      } else if (entry.transportEnded) {
+        entry.finished = true;
+        entry.timing?.finish('status_unavailable');
+        patch(entry.id, { status: response.status === 404 ? 'failed' : 'unknown', message: response.status === 404 ? 'Upload was not received yet. Retry keeps the same submission identifier.' : 'Upload status is unavailable. Check status before starting another submission.' });
+        return;
+      }
+    } catch (error) {
+      if (current.current !== entry || entry.finished || version !== entry.version) return;
+      if (entry.transportEnded) {
+        entry.finished = true;
+        patch(entry.id, { status: 'unknown', message: 'Connection unavailable. Check status when you are online.' });
+        return;
+      }
+    } finally { clearTimeout(pollTimeout); }
+    if (!entry.finished && current.current === entry && version === entry.version) entry.pollTimer = setTimeout(() => pollLegacy(entry, version), 1500);
+  }, [finish, patch]);
+
+  const executeLegacy = useCallback(async entry => {
+    const version = entry.version = (entry.version || 0) + 1;
+    entry.finished = false;
+    entry.transportEnded = false;
+    entry.timing = startUploadTiming(`${entry.surface}_submit`, { fileCount: entry.totalFiles, fileBytes: entry.fileBytes });
+    patch(entry.id, { status: 'transferring', percent: 0, completedFiles: 0, message: '' });
+    let polling = false;
+    const startPolling = () => { if (!polling) { polling = true; void pollLegacy(entry); } };
+    try {
+      const { status, payload } = await sendUpload({ url: entry.url, formData: entry.formData, timing: entry.timing,
+        onTransfer: percent => {
+          if (entry.finished || current.current !== entry || version !== entry.version) return;
+          patch(entry.id, { percent, status: percent === 100 ? 'saving' : 'transferring' });
+          if (percent === 100) startPolling();
+        },
+      });
+      if (entry.finished || current.current !== entry || version !== entry.version) return;
+      entry.transportEnded = true;
+      if (payload.success) { finish(entry, payload); return; }
+      if (status === 202 || status >= 500) { patch(entry.id, { status: 'checking' }); startPolling(); return; }
+      entry.finished = true;
+      clearTimeout(entry.pollTimer);
+      entry.pollController?.abort();
+      entry.timing.finish('failed');
+      patch(entry.id, { status: 'failed', message: payload.message || 'Upload was refused. Please check your files and access.' });
+    } catch (error) {
+      if (entry.finished || current.current !== entry || version !== entry.version) return;
+      entry.transportEnded = true;
+      patch(entry.id, { status: 'checking', message: error.message });
+      startPolling();
+    }
+  }, [finish, patch, pollLegacy]);
+
+  const executeStaged = useCallback(async entry => {
     const version = entry.version = (entry.version || 0) + 1;
     entry.finished = false;
     entry.timing = startUploadTiming(`${entry.surface}_submit`, { fileCount: entry.totalFiles, fileBytes: entry.fileBytes });
@@ -136,6 +205,35 @@ export function UploadProvider({ children }) {
     }
   }, [applyStatus, finish, patch, readStatus]);
 
+  // Select once, before any submission write. Never switch an existing attempt.
+  const execute = useCallback(async entry => {
+    if (!entry.mode) {
+      entry.finished = false;
+      patch(entry.id, { status: 'connecting', message: '' });
+      try {
+        const response = await fetch(entry.sessionUrl, { credentials: 'include', cache: 'no-store', signal: AbortSignal.timeout(15000) });
+        if (response.status === 404) {
+          // Backend versions predating capability negotiation support the old endpoint.
+          entry.mode = 'legacy';
+        } else {
+          const payload = await response.json();
+          if (!response.ok || !payload.success || payload.data?.protocol !== 1 || !['legacy', 'staged'].includes(payload.data.mode)) {
+            throw new Error(payload.message || 'Could not verify the upload connection. Please retry.');
+          }
+          entry.mode = payload.data.mode;
+        }
+      } catch (error) {
+        entry.finished = true;
+        patch(entry.id, { status: 'failed', message: error.message || 'Could not establish the upload connection.' });
+        return;
+      }
+    }
+    if (current.current !== entry) return;
+    patch(entry.id, { mode: entry.mode });
+    if (entry.mode === 'legacy') return executeLegacy(entry);
+    return executeStaged(entry);
+  }, [executeLegacy, executeStaged, patch]);
+
   const startUpload = useCallback(options => {
     if (current.current && !current.current.finished) throw new Error('An upload is already running. Open the upload panel to check it.');
     if (current.current && !['complete', 'failed'].includes(current.current.displayStatus)) {
@@ -163,6 +261,17 @@ export function UploadProvider({ children }) {
   const checkStatus = async () => {
     const entry = current.current;
     if (!entry) return;
+    if (entry.mode === 'legacy') {
+      clearTimeout(entry.pollTimer);
+      entry.pollController?.abort();
+      entry.finished = false;
+      entry.version = (entry.version || 0) + 1;
+      entry.transportEnded = true;
+      patch(entry.id, { status: 'checking' });
+      void pollLegacy(entry);
+      return;
+    }
+    if (!entry.mode) { void execute(entry); return; }
     entry.finished = false;
     patch(entry.id, { status: 'checking' });
     try {
@@ -191,13 +300,15 @@ export function UploadProvider({ children }) {
   const active = task && activeStatuses.includes(task.status);
   const label = task?.status === 'preparing' ? 'Preparing files…'
     : task?.status === 'connecting' ? 'Connecting…'
+    : task?.status === 'transferring' && task.mode === 'legacy' ? `Uploading files — ${task.percent}%`
+    : task?.status === 'saving' ? 'Processing uploaded files…'
     : task?.status === 'transferring' ? `Uploading file ${task.currentFile} of ${task.totalFiles} — ${task.currentPercent}%`
     : task?.status === 'confirming_file' ? `Confirming file ${task.currentFile} of ${task.totalFiles}…`
     : task?.status === 'confirming' || task?.status === 'checking' ? 'Confirming upload…'
     : task?.status === 'complete' ? 'Upload finished ✓' : 'Upload needs attention';
-  return <UploadContext.Provider value={{ startUpload, task }}>
-    {children}
-    {visible && <section aria-label="Upload progress" style={{ maxHeight: 'calc(100dvh - 7rem)', overflowY: 'auto' }} className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-3 z-[100] w-[calc(100%-1.5rem)] max-w-sm rounded-2xl border border-[var(--glass-border)] bg-[var(--menu-bg)] p-4 text-[var(--text-primary)] shadow-2xl sm:bottom-5 sm:right-5">
+  const minimize = useCallback(() => setMinimized(true), []);
+  const panel = task && <section aria-label="Upload progress" style={minimized ? { maxHeight: 'calc(100dvh - 7rem)', overflowY: 'auto' } : undefined}
+    className={minimized ? "fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-3 z-[100] w-[calc(100%-1.5rem)] max-w-sm rounded-2xl border border-[var(--glass-border)] bg-[var(--menu-bg)] p-4 text-[var(--text-primary)] shadow-2xl sm:bottom-5 sm:right-5" : "text-[var(--text-primary)]"}>
       <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="font-semibold" role="status">{label}</p>{!minimized && <p className="mt-1 truncate text-sm text-[var(--text-secondary)]">{task.label}</p>}</div>
         <button type="button" onClick={() => setMinimized(value => !value)} className="rounded-lg border border-[var(--glass-border)] px-3 py-1 text-sm">{minimized ? 'Expand' : 'Minimize'}</button>
       </div>
@@ -213,11 +324,15 @@ export function UploadProvider({ children }) {
         {task.message && <p className="mt-3 text-sm">{task.message}</p>}
         <div className="mt-3 flex flex-wrap gap-2">
           {task.status === 'failed' && <button type="button" onClick={retry} className="rounded-lg bg-teal-700 px-3 py-2 text-white">Retry same upload</button>}
-          {task.status === 'failed' && <button type="button" onClick={checkStatus} className="rounded-lg border border-[var(--glass-border)] px-3 py-2">Check status</button>}
+          {['failed', 'unknown', 'needs_review'].includes(task.status) && <button type="button" onClick={checkStatus} className="rounded-lg border border-[var(--glass-border)] px-3 py-2">Check status</button>}
           {['complete', 'failed'].includes(task.status) && <button type="button" onClick={() => { current.current = null; setTask(null); }} className="rounded-lg border border-[var(--glass-border)] px-3 py-2">Dismiss</button>}
         </div>
       </>}
-    </section>}
+    </section>;
+  return <UploadContext.Provider value={{ startUpload, task }}>
+    {children}
+    {visible && (minimized ? panel : <Modal placement="center" title="Upload progress" size="sm"
+      onClose={minimize} closeLabel="Minimize upload" closeOnBackdrop={false}>{panel}</Modal>)}
   </UploadContext.Provider>;
 }
 

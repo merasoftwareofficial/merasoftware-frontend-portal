@@ -56,6 +56,8 @@ const Modal = ({
   footer,
   size = 'sm',
   closeOnBackdrop = true,
+  placement = 'sheet',
+  closeLabel = 'Close',
   children,
   className = '',
 }) => {
@@ -78,6 +80,7 @@ const Modal = ({
   return createPortal(
     <div
       className="modal-backdrop fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
+      style={placement === 'center' ? { alignItems: 'center', padding: '1rem' } : undefined}
       onClick={closeOnBackdrop && onClose ? onClose : undefined}
       role="presentation"
     >
@@ -88,7 +91,7 @@ const Modal = ({
         role="dialog"
         aria-modal="true"
         aria-label={typeof title === 'string' ? title : undefined}
-        style={{ maxHeight: '92dvh' }}
+        style={{ maxHeight: '92dvh', ...(placement === 'center' ? { borderRadius: 'var(--surface-radius-lg)' } : {}) }}
         onClick={(e) => e.stopPropagation()}
         className={[
           // The sheet sits flush to the bottom edge on phones, so its lower
@@ -119,7 +122,7 @@ const Modal = ({
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="Close"
+                aria-label={closeLabel}
                 className="-mr-1 shrink-0 rounded-full p-2 text-[var(--text-muted)] transition hover:bg-[var(--glass-bg-hover)] hover:text-[var(--text-primary)]"
               >
                 <X size={18} />
