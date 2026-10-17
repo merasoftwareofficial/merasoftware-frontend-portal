@@ -32,7 +32,7 @@ const FloatingCartButton = () => {
       }`}
     >
       <ShoppingCart className="h-6 w-6" />
-      <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-xs font-bold text-white">
+      <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-accent-solid text-xs font-bold text-accent-on-solid">
         {draftOrders.length}
       </span>
     </button>

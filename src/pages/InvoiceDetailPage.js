@@ -423,7 +423,7 @@ const InvoiceDetailPage = () => {
               value={upiRef}
               onChange={(event) => setUpiRef(event.target.value)}
               placeholder="Enter the UPI reference after paying"
-              className="mt-1.5 w-full rounded-xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg-subtle)] px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--badge-success-border)] focus:outline-none focus:ring-4 focus:ring-[var(--badge-success-bg)]"
+              className="mt-1.5 w-full rounded-xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg-subtle)] px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-soft-border)] focus:outline-none focus:ring-4 focus:ring-[var(--accent-soft-bg)]"
             />
           </>
         )}

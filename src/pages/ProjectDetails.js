@@ -240,7 +240,7 @@ const TimelineCheckpointItem = ({
                     <span>{formatDateTimeValue(message.timestamp)}</span>
                   ) : null}
                   {(message.fileName || message.fileSize) ? (
-                    <span className={isGlass ? 'text-[var(--badge-success-fg)]' : 'text-emerald-700'}>
+                    <span className={isGlass ? 'text-[var(--accent-soft-fg)]' : 'text-emerald-700'}>
                       {message.fileName || 'Attachment'}
                       {message.fileSize ? ` · ${message.fileSize}` : ''}
                     </span>
@@ -780,7 +780,7 @@ const ProjectDetails = ({ isAdminView = false }) => {
             <p className="text-base text-[var(--text-primary)] mb-4">The project you're looking for doesn't exist or you don't have access to it.</p>
             <button
                     onClick={handleBack}
-              className="px-4 py-2 bg-emerald-600 text-[var(--text-primary)] rounded-lg hover:bg-emerald-700 text-base font-semibold"
+              className={g('px-4 py-2 bg-emerald-600 text-[var(--text-primary)] rounded-lg hover:bg-emerald-700 text-base font-semibold', 'px-4 py-2 bg-accent-solid text-accent-on-solid rounded-lg hover:bg-accent-solid-hover text-base font-semibold')}
             >
               Back
             </button>
@@ -1104,7 +1104,7 @@ const ProjectDetails = ({ isAdminView = false }) => {
                               onClick={() => setUpdateModalOpen(true)}
                               disabled={isUploadLocked}
                               title={uploadLockMeta.title}
-                              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-2.5 text-base font-semibold text-[var(--text-primary)] transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:hover:bg-slate-400"
+                              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-accent-solid px-4 py-2.5 text-base font-semibold text-accent-on-solid transition hover:bg-accent-solid-hover disabled:cursor-not-allowed disabled:bg-slate-400 disabled:hover:bg-slate-400"
                             >
                               {/* A completed project says so instead of offering an upload it
                                   will not accept. Payment locks keep their own wording. */}
@@ -1278,7 +1278,7 @@ const ProjectDetails = ({ isAdminView = false }) => {
                       <button
                         type="button"
                         onClick={() => setUpdateModalOpen(true)}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-base font-semibold text-[var(--text-primary)] transition hover:bg-emerald-700"
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-accent-solid px-4 py-3 text-base font-semibold text-accent-on-solid transition hover:bg-accent-solid-hover"
                       >
                         <Upload className="h-4 w-4" />
                         Upload Data

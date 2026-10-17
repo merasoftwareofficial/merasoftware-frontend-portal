@@ -408,7 +408,7 @@ const TicketDetail = ({ isAdmin = false }) => {
                       value={replyMessage}
                       onChange={(e) => setReplyMessage(e.target.value)}
                       placeholder="Type your reply here..."
-                      className="flex-grow rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] p-2 text-base text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--badge-success-border)] focus:outline-none focus:ring-4 focus:ring-[var(--badge-success-bg)]"
+                      className="flex-grow rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] p-2 text-base text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-soft-border)] focus:outline-none focus:ring-4 focus:ring-[var(--accent-soft-bg)]"
                       rows={3}
                     ></textarea>
                     <GlassButton

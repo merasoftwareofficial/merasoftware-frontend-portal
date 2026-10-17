@@ -28,7 +28,7 @@ const CustomerWorkspaceTabs = ({ tabs, activeTab, onChange, ariaLabel = 'Workspa
               className={[
                 'relative -mb-px inline-flex shrink-0 cursor-pointer items-center justify-center border-b-2 px-1 py-4 text-base font-semibold transition',
                 isActive
-                  ? 'border-emerald-500 text-emerald-500'
+                  ? 'border-accent-text text-accent-text'
                   : 'border-transparent text-[var(--text-secondary)] hover:border-[var(--glass-border-strong)] hover:text-[var(--text-primary)]',
               ].join(' ')}
             >

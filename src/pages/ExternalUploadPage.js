@@ -136,7 +136,7 @@ const ExternalUploadContent = () => {
     <main className="min-h-screen bg-[var(--page-bg)] text-[var(--text-primary)] px-4 py-10">
       <div className="mx-auto max-w-2xl rounded-3xl border border-[var(--glass-border)] bg-[var(--glass-bg)] p-6 shadow-[var(--card-shadow)] backdrop-blur-xl sm:p-8">
         <div className="flex items-start gap-3 border-b border-[var(--divider)] pb-5">
-          <ShieldCheck className="mt-0.5 text-emerald-500" size={26} />
+          <ShieldCheck className="mt-0.5 text-accent-text" size={26} />
           <div><h1 className="text-xl font-bold">Secure Data Upload</h1><p className="mt-1 text-sm text-[var(--text-secondary)]">Restricted upload access only. This link does not open the client portal.</p></div>
         </div>
 
@@ -151,7 +151,7 @@ const ExternalUploadContent = () => {
             <label className="block"><span className="mb-1 block text-sm font-semibold">Email</span><input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} className="w-full rounded-xl border border-[var(--field-border)] bg-[var(--field-bg)] px-3 py-2.5" /></label>
             <label className="block"><span className="mb-1 block text-sm font-semibold">Password</span><input type="password" required value={password} onChange={(event) => setPassword(event.target.value)} className="w-full rounded-xl border border-[var(--field-border)] bg-[var(--field-bg)] px-3 py-2.5" /></label>
             {error && <p className="text-sm text-rose-500">{error}</p>}
-            <button disabled={busy} className="w-full rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white disabled:opacity-60">{busy ? 'Verifying…' : 'Verify and continue'}</button>
+            <button disabled={busy} className="w-full rounded-xl bg-accent-solid px-4 py-3 font-semibold text-accent-on-solid hover:bg-accent-solid-hover disabled:opacity-60">{busy ? 'Verifying…' : 'Verify and continue'}</button>
           </form>
         )}
 
@@ -160,15 +160,15 @@ const ExternalUploadContent = () => {
             <div><p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Selected {context.target.kind}</p><h2 className="mt-1 text-lg font-bold">{context.target.name}</h2></div>
             {!context.canUpload ? <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">{context.refusal}</div> : <>
               <label className="block rounded-2xl border-2 border-dashed border-[var(--glass-border-strong)] p-6 text-center">
-                <Upload className="mx-auto text-emerald-500" size={32} />
+                <Upload className="mx-auto text-accent-text" size={32} />
                 <span className="mt-2 block text-sm font-semibold">Choose files ({files.length}/{context.limits.maxFiles})</span>
                 <span className="mt-1 block text-xs text-[var(--text-muted)]">JPG, TXT, RTF, PDF, DOC or DOCX · maximum 5 MB each</span>
                 <input ref={fileInputRef} type="file" multiple accept={context.limits.extensions.join(',')} onChange={selectFiles} className="hidden" />
               </label>
-              {files.length > 0 && <div className="divide-y divide-[var(--divider)] rounded-2xl border border-[var(--glass-border)]">{files.map((file, index) => <div key={`${file.name}-${file.lastModified}-${index}`} className="flex items-center gap-3 p-3"><FileText size={17} className="text-emerald-500" /><span className="min-w-0 flex-1 truncate text-sm">{file.name}</span><button type="button" aria-label={`Remove ${file.name}`} onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}><X size={17} /></button></div>)}</div>}
+              {files.length > 0 && <div className="divide-y divide-[var(--divider)] rounded-2xl border border-[var(--glass-border)]">{files.map((file, index) => <div key={`${file.name}-${file.lastModified}-${index}`} className="flex items-center gap-3 p-3"><FileText size={17} className="text-accent-text" /><span className="min-w-0 flex-1 truncate text-sm">{file.name}</span><button type="button" aria-label={`Remove ${file.name}`} onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}><X size={17} /></button></div>)}</div>}
               <label className="block"><span className="mb-1 block text-sm font-semibold">Instructions</span><textarea rows={5} value={instructions} onChange={(event) => setInstructions(event.target.value)} className="w-full rounded-xl border border-[var(--field-border)] bg-[var(--field-bg)] px-3 py-2.5" placeholder="Add instructions for the admin" /></label>
               {error && <p className="text-sm text-rose-500">{error}</p>}
-              <button disabled={busy || (!files.length && !instructions.trim())} className="w-full rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white disabled:opacity-60">{busy ? 'Submitting…' : 'Submit data securely'}</button>
+              <button disabled={busy || (!files.length && !instructions.trim())} className="w-full rounded-xl bg-accent-solid px-4 py-3 font-semibold text-accent-on-solid hover:bg-accent-solid-hover disabled:opacity-60">{busy ? 'Submitting…' : 'Submit data securely'}</button>
             </>}
           </form>
         )}

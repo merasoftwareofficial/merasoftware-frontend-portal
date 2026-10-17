@@ -167,7 +167,7 @@ const ProjectDetailView = ({ project, onBack, onProceedWithPayment, onProceedWit
                 and on the light card it was invisible (1.00:1). The state now
                 reads from the border + ring, which works on both grounds. */}
             {addPageFeature && (
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--badge-success-border)] bg-[var(--badge-success-bg)] px-4 py-3.5 ring-1 ring-[var(--badge-success-border)]">
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--accent-soft-border)] bg-[var(--accent-soft-bg)] px-4 py-3.5 ring-1 ring-[var(--accent-soft-border)]">
                 <div>
                   <p className="text-base font-semibold text-[var(--text-primary)]">Add More Pages</p>
                   <p className="mt-0.5 text-sm text-[var(--text-primary)]">
@@ -217,7 +217,7 @@ const ProjectDetailView = ({ project, onBack, onProceedWithPayment, onProceedWit
                     key={featureId}
                     className={`flex cursor-pointer items-start justify-between gap-3 rounded-2xl border px-4 py-3.5 transition ${
                       isChecked
-                        ? 'border-[var(--badge-success-border)] bg-[var(--badge-success-bg)] ring-1 ring-[var(--badge-success-border)]'
+                        ? 'border-[var(--accent-soft-border)] bg-[var(--accent-soft-bg)] ring-1 ring-[var(--accent-soft-border)]'
                         : 'border-[var(--glass-border)] bg-[var(--glass-bg)] hover:border-[var(--glass-border-strong)] hover:bg-[var(--glass-bg-hover)]'
                     }`}
                   >
@@ -231,7 +231,7 @@ const ProjectDetailView = ({ project, onBack, onProceedWithPayment, onProceedWit
                       type="checkbox"
                       checked={isChecked}
                       onChange={() => toggleFeature(featureId)}
-                      className="mt-1 h-5 w-5 shrink-0 rounded border-[var(--glass-border-strong)] text-[var(--badge-success-fg)] focus:ring-[var(--badge-success-border)]"
+                      className="mt-1 h-5 w-5 shrink-0 rounded border-[var(--glass-border-strong)] text-[var(--accent-soft-fg)] focus:ring-[var(--accent-soft-border)]"
                     />
                   </label>
                 );

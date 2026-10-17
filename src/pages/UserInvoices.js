@@ -73,7 +73,7 @@ const UserInvoices = () => {
             >
                 <div className="pointer-events-none absolute inset-0 bg-[var(--scrim)]" />
                 <div className="relative text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-400 mx-auto"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent-text mx-auto"></div>
                     <p className="mt-4 text-base text-[var(--text-primary)]">Loading invoices...</p>
                 </div>
             </div>
@@ -186,10 +186,10 @@ const UserInvoices = () => {
                                                 {['unpaid', 'partially_paid', 'overdue'].includes(invoice.status) ? (
                                                     <button
                                                         onClick={() => navigate(`/invoice-detail/${invoice._id}`)}
-                                                        className={`px-6 py-2 rounded-lg font-medium transition-colors text-[var(--text-primary)] ${
+                                                        className={`px-6 py-2 rounded-lg font-medium transition-colors ${
                                                             invoice.status === 'overdue'
-                                                                ? 'bg-red-600 hover:bg-red-700'
-                                                                : 'bg-emerald-600 hover:bg-emerald-700'
+                                                                ? 'bg-red-600 hover:bg-red-700 text-[var(--text-primary)]'
+                                                                : 'bg-accent-solid hover:bg-accent-solid-hover text-accent-on-solid'
                                                         }`}
                                                     >
                                                         View bill

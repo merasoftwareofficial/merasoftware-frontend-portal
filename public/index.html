@@ -27,17 +27,24 @@
     -->
     <title>Mera Software</title>
     <script>
-      // Apply the saved portal theme before first paint so the page never
-      // flashes the default and then repaint. Mirrors DEFAULT_THEME/THEMES in
-      // src/context/ThemeContext.js — keep the two in step.
+      // Apply the saved portal theme and accent before first paint so the page
+      // never flashes the default and then repaint. Mirrors DEFAULT_THEME/THEMES
+      // and DEFAULT_ACCENT/ACCENTS in src/context/ThemeContext.js — keep them in step.
       (function () {
+        var accents = ['cyan', 'red', 'green', 'purple', 'yellow', 'orange', 'magenta', 'pink'];
+        var t = 'light';
+        var a = 'cyan';
         try {
-          var t = localStorage.getItem('theme');
+          t = localStorage.getItem('theme');
           if (t !== 'light' && t !== 'dark' && t !== 'immersive') t = 'light';
-          document.documentElement.setAttribute('data-theme', t);
+          a = localStorage.getItem('accent');
+          if (accents.indexOf(a) === -1) a = 'cyan';
         } catch (e) {
-          document.documentElement.setAttribute('data-theme', 'light');
+          t = 'light';
+          a = 'cyan';
         }
+        document.documentElement.setAttribute('data-theme', t);
+        document.documentElement.setAttribute('data-accent', a);
       })();
     </script>
   </head>

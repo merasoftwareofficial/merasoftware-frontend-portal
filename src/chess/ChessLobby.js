@@ -34,7 +34,7 @@ const COLOR_OPTIONS = [
    from <Surface> because that is the shape the converted choice-card already
    has; see the note on the glow below for the one deliberate difference. */
 const CHOICE_CARD =
-  'group relative w-full overflow-hidden rounded-3xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] p-6 text-left shadow-[var(--card-shadow)] backdrop-blur-2xl backdrop-saturate-150 transition-all duration-300 hover:-translate-y-1.5 hover:border-[var(--badge-success-border)] hover:bg-[var(--glass-bg-strong)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--badge-success-fg)]';
+  'group relative w-full overflow-hidden rounded-3xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] p-6 text-left shadow-[var(--card-shadow)] backdrop-blur-2xl backdrop-saturate-150 transition-all duration-300 hover:-translate-y-1.5 hover:border-[var(--accent-soft-border)] hover:bg-[var(--glass-bg-strong)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-soft-fg)]';
 
 export default function ChessLobby({ onCreateRoom, onJoinByCode, onFindRandomMatch, onExit, status }) {
   const [mode, setMode] = useState(null);
@@ -80,7 +80,7 @@ export default function ChessLobby({ onCreateRoom, onJoinByCode, onFindRandomMat
       <button
         type="button"
         onClick={handleBack}
-        className="absolute left-0 inline-flex items-center gap-2 rounded-xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] px-5 py-3 text-lg font-medium text-[var(--text-primary)] shadow-[var(--card-shadow)] backdrop-blur-2xl transition-all duration-300 hover:border-[var(--badge-success-border)] hover:bg-[var(--glass-bg-strong)]"
+        className="absolute left-0 inline-flex items-center gap-2 rounded-xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] px-5 py-3 text-lg font-medium text-[var(--text-primary)] shadow-[var(--card-shadow)] backdrop-blur-2xl transition-all duration-300 hover:border-[var(--accent-soft-border)] hover:bg-[var(--glass-bg-strong)]"
       >
         <ArrowLeft className="h-5 w-5" strokeWidth={2} />
         Back
@@ -121,11 +121,11 @@ export default function ChessLobby({ onCreateRoom, onJoinByCode, onFindRandomMat
                       in light and 1.27 in dark, so it renders as nothing on the
                       light page. The lift, border and fill change carry the
                       hover instead, and those measure 17.53 / 14.03. */}
-                  <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-[var(--glass-border)] transition-all duration-300 group-hover:ring-[var(--badge-success-border)]" />
+                  <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-[var(--glass-border)] transition-all duration-300 group-hover:ring-[var(--accent-soft-border)]" />
 
-                  <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-colors duration-300 group-hover:border-[var(--badge-success-border)] group-hover:bg-[var(--badge-success-bg)]">
+                  <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-colors duration-300 group-hover:border-[var(--accent-soft-border)] group-hover:bg-[var(--accent-soft-bg)]">
                     <Icon
-                      className="h-7 w-7 text-[var(--text-primary)] transition-colors duration-300 group-hover:text-[var(--badge-success-fg)]"
+                      className="h-7 w-7 text-[var(--text-primary)] transition-colors duration-300 group-hover:text-[var(--accent-soft-fg)]"
                       strokeWidth={1.75}
                     />
                   </div>
@@ -135,7 +135,7 @@ export default function ChessLobby({ onCreateRoom, onJoinByCode, onFindRandomMat
                     {option.description}
                   </p>
 
-                  <div className="relative mt-5 inline-flex items-center gap-2 rounded-xl border border-[var(--badge-success-border)] bg-[var(--badge-success-bg)] px-4 py-2 text-base font-medium text-[var(--text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-all duration-300 group-hover:gap-3 group-hover:bg-[var(--glass-bg-strong)]">
+                  <div className="relative mt-5 inline-flex items-center gap-2 rounded-xl border border-[var(--accent-soft-border)] bg-[var(--accent-soft-bg)] px-4 py-2 text-base font-medium text-[var(--text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-all duration-300 group-hover:gap-3 group-hover:bg-[var(--glass-bg-strong)]">
                     Select
                     <ArrowRight className="h-4 w-4" strokeWidth={2} />
                   </div>
@@ -166,9 +166,9 @@ export default function ChessLobby({ onCreateRoom, onJoinByCode, onFindRandomMat
               key={key}
               className={`h-1.5 rounded-full transition-all duration-500 ${
                 i === step
-                  ? 'w-10 bg-[var(--badge-success-fg)]'
+                  ? 'w-10 bg-[var(--accent-soft-fg)]'
                   : i < step
-                    ? 'w-6 bg-[var(--badge-success-border)]'
+                    ? 'w-6 bg-[var(--accent-soft-border)]'
                     : 'w-6 bg-[var(--glass-bg-strong)]'
               }`}
             />
@@ -188,7 +188,7 @@ export default function ChessLobby({ onCreateRoom, onJoinByCode, onFindRandomMat
                 className={CHOICE_CARD}
               >
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-[var(--glass-sheen)] to-transparent" />
-                <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-[var(--glass-border)] transition-all duration-300 group-hover:ring-[var(--badge-success-border)]" />
+                <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-[var(--glass-border)] transition-all duration-300 group-hover:ring-[var(--accent-soft-border)]" />
 
                 <h3 className="relative text-lg font-semibold text-[var(--text-primary)]">{option.title}</h3>
                 <p className="relative mt-1 text-sm text-[var(--text-secondary)]">{option.description}</p>
@@ -205,7 +205,7 @@ export default function ChessLobby({ onCreateRoom, onJoinByCode, onFindRandomMat
             {Object.entries(BOARD_PALETTES).map(([key, palette]) => (
               <button key={key} type="button" onClick={() => handleSelectPalette(key)} className={CHOICE_CARD}>
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-[var(--glass-sheen)] to-transparent" />
-                <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-[var(--glass-border)] transition-all duration-300 group-hover:ring-[var(--badge-success-border)]" />
+                <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-[var(--glass-border)] transition-all duration-300 group-hover:ring-[var(--accent-soft-border)]" />
 
                 <span className="relative flex items-center gap-3">
                   {/* The swatch shows the real board colours, so these two fills
@@ -240,7 +240,7 @@ export default function ChessLobby({ onCreateRoom, onJoinByCode, onFindRandomMat
             type="button"
             onClick={() => onJoinByCode(joinCode)}
             disabled={!joinCode}
-            className="relative mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--badge-success-border)] bg-[var(--badge-success-bg)] px-6 py-3 text-base font-medium text-[var(--text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-all duration-300 hover:gap-3 hover:bg-[var(--glass-bg-strong)] disabled:opacity-50"
+            className="relative mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--accent-soft-border)] bg-[var(--accent-soft-bg)] px-6 py-3 text-base font-medium text-[var(--text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-all duration-300 hover:gap-3 hover:bg-[var(--glass-bg-strong)] disabled:opacity-50"
           >
             Join Room
             <ArrowRight className="h-4 w-4" strokeWidth={2} />
@@ -258,7 +258,7 @@ export default function ChessLobby({ onCreateRoom, onJoinByCode, onFindRandomMat
           <button
             type="button"
             onClick={onFindRandomMatch}
-            className="relative mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--badge-success-border)] bg-[var(--badge-success-bg)] px-6 py-3 text-base font-medium text-[var(--text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-all duration-300 hover:gap-3 hover:bg-[var(--glass-bg-strong)]"
+            className="relative mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--accent-soft-border)] bg-[var(--accent-soft-bg)] px-6 py-3 text-base font-medium text-[var(--text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-all duration-300 hover:gap-3 hover:bg-[var(--glass-bg-strong)]"
           >
             Find Opponent
             <ArrowRight className="h-4 w-4" strokeWidth={2} />

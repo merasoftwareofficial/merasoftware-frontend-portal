@@ -327,7 +327,7 @@ const getFileIcon = (fileType) => {
                     {/* `text-emerald-400` is a dark-theme shade — on the light panel the
                         drop-zone icon washed out. The success badge foreground is the
                         per-theme version of the same "ready / go ahead" colour. */}
-                    <Upload className={`w-10 h-10 mb-2 ${files.length >= maxFileCount ? 'text-[var(--text-muted)]' : 'text-[var(--badge-success-fg)]'}`} />
+                    <Upload className={`w-10 h-10 mb-2 ${files.length >= maxFileCount ? 'text-[var(--text-muted)]' : 'text-[var(--accent-soft-fg)]'}`} />
                     <p className={`text-sm ${files.length >= maxFileCount ? 'text-[var(--text-muted)]' : 'text-[var(--text-secondary)]'}`}>
                       {files.length >= maxFileCount ? `Maximum files reached (${maxFileCount}/${maxFileCount})` : `Click to upload or drag and drop (${files.length}/${maxFileCount})`}
                     </p>
@@ -422,7 +422,7 @@ const getFileIcon = (fileType) => {
                         }
                       }}
                       placeholder="Type your instructions here... (Enter to add, Shift+Enter for new line)"
-                      className="w-full rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] p-3 min-h-[80px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--badge-success-fg)] resize-none"
+                      className="w-full rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] p-3 min-h-[80px] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-soft-fg)] resize-none"
                     ></textarea>
                     <div className="absolute bottom-2 right-2 text-xs text-[var(--text-muted)] tabular-nums">
                       {message.length} characters

@@ -328,13 +328,13 @@ const ServicePlanDetail = () => {
                 <ul className="mt-3 space-y-2">
                   {portalAccessLine && (
                     <li className="flex items-start gap-2.5 text-base text-[var(--text-secondary)]">
-                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--badge-success-fg)]" />
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-soft-fg)]" />
                       {portalAccessLine}
                     </li>
                   )}
                   {servicePlan.filesLimit && (
                     <li className="flex items-start gap-2.5 text-base text-[var(--text-secondary)]">
-                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--badge-success-fg)]" />
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-soft-fg)]" />
                       Up to {servicePlan.filesLimit} file(s) per request
                     </li>
                   )}
@@ -348,13 +348,13 @@ const ServicePlanDetail = () => {
                 <ul className="mt-3 space-y-2">
                   {validityLine && (
                     <li className="flex items-start gap-2.5 text-base text-[var(--text-secondary)]">
-                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--badge-success-fg)]" />
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-soft-fg)]" />
                       Valid for {validityLine}
                     </li>
                   )}
                   {billingCycleLabel && (
                     <li className="flex items-start gap-2.5 text-base text-[var(--text-secondary)]">
-                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--badge-success-fg)]" />
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-soft-fg)]" />
                       {billingCycleLabel}
                     </li>
                   )}
@@ -467,7 +467,7 @@ const ServicePlanDetail = () => {
                     UPI Reference Number
                   </span>
                   <input
-                    className="w-full rounded-xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] px-4 py-3 text-base text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--badge-success-fg)] focus:ring-4 focus:ring-[var(--badge-success-bg)]"
+                    className="w-full rounded-xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] px-4 py-3 text-base text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--accent-soft-fg)] focus:ring-4 focus:ring-[var(--accent-soft-bg)]"
                     type="text"
                     inputMode="numeric"
                     placeholder="12-digit reference number"

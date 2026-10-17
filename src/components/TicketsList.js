@@ -135,7 +135,7 @@ const TicketsList = () => {
           onClick={() => handlePageChange(i)}
           className={`relative inline-flex items-center border px-4 py-2 backdrop-blur-md ${
             i === currentPage
-              ? 'z-10 border-[var(--badge-success-border)] bg-[var(--badge-success-bg)] text-[var(--text-primary)]'
+              ? 'z-10 border-[var(--accent-soft-border)] bg-[var(--accent-soft-bg)] text-[var(--text-primary)]'
               : 'border-[var(--glass-border-strong)] bg-[var(--glass-bg)] text-[var(--text-secondary)] hover:bg-[var(--glass-bg-strong)]'
           }`}
         >
@@ -196,7 +196,7 @@ const TicketsList = () => {
                 setStatusFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="rounded-xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] py-1.5 pl-9 pr-3 text-sm text-[var(--text-primary)] backdrop-blur-md focus:border-[var(--badge-success-border)] focus:outline-none focus:ring-4 focus:ring-[var(--badge-success-bg)]"
+              className="rounded-xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] py-1.5 pl-9 pr-3 text-sm text-[var(--text-primary)] backdrop-blur-md focus:border-[var(--accent-soft-border)] focus:outline-none focus:ring-4 focus:ring-[var(--accent-soft-bg)]"
             >
               <option className="bg-[var(--menu-bg)] text-[var(--text-primary)]" value="">All Tickets</option>
               <option className="bg-[var(--menu-bg)] text-[var(--text-primary)]" value="pending">Pending</option>
@@ -293,7 +293,7 @@ const TicketsList = () => {
                       {formatDate(ticket.updatedAt)}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
-                      <span className="flex items-center justify-end gap-1 font-medium text-[var(--badge-success-fg)]">
+                      <span className="flex items-center justify-end gap-1 font-medium text-[var(--accent-soft-fg)]">
                         View <ArrowRight className="h-4 w-4" />
                       </span>
                     </td>

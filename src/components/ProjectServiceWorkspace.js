@@ -65,7 +65,7 @@ const ProjectServiceWorkspace = ({ project, onAddService, onBack, onOpenService,
             <button
               type="button"
               onClick={onOpenProject}
-              className="group flex w-full items-center gap-4 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] p-4 text-left transition hover:border-[var(--badge-success-border)] hover:bg-[var(--glass-bg)] sm:p-5"
+              className="group flex w-full items-center gap-4 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] p-4 text-left transition hover:border-[var(--accent-soft-border)] hover:bg-[var(--glass-bg)] sm:p-5"
             >
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--eyebrow-fg)]">Project workspace</p>
@@ -78,7 +78,7 @@ const ProjectServiceWorkspace = ({ project, onAddService, onBack, onOpenService,
 
           <div className="border-t border-[var(--glass-border)] p-5 sm:p-6">
             <div className="flex items-center gap-3">
-              <Layers3 className="h-5 w-5 text-[var(--badge-success-fg)]" />
+              <Layers3 className="h-5 w-5 text-[var(--accent-soft-fg)]" />
               <div>
                 <h2 className="text-lg font-bold text-[var(--text-primary)]">Linked services</h2>
                 <p className="text-sm text-[var(--text-secondary)]">Active services appear first; their history remains attached to this project.</p>
@@ -93,9 +93,9 @@ const ProjectServiceWorkspace = ({ project, onAddService, onBack, onOpenService,
                     key={service._id}
                     type="button"
                     onClick={() => onOpenService(service._id)}
-                    className="flex w-full items-center gap-4 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] p-4 text-left transition hover:border-[var(--badge-success-border)] hover:bg-[var(--glass-bg)]"
+                    className="flex w-full items-center gap-4 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] p-4 text-left transition hover:border-[var(--accent-soft-border)] hover:bg-[var(--glass-bg)]"
                   >
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--badge-success-border)] bg-[var(--badge-success-bg)] text-[var(--badge-success-fg)]"><ShieldCheck className="h-5 w-5" /></span>
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--accent-soft-border)] bg-[var(--accent-soft-bg)] text-[var(--accent-soft-fg)]"><ShieldCheck className="h-5 w-5" /></span>
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-2">
                         <span className="truncate text-base font-semibold text-[var(--text-primary)]">{name}</span>

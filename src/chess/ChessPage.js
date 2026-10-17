@@ -112,7 +112,7 @@ export default function ChessPage() {
                     <span className="text-[var(--text-primary)]">
                       vs {game.opponentName || 'Unknown player'} <span className="text-[var(--text-muted)]">— playing {game.color}</span>
                     </span>
-                    <span className="text-sm text-[var(--badge-success-fg)] underline">Resume</span>
+                    <span className="text-sm text-[var(--accent-soft-fg)] underline">Resume</span>
                   </button>
                 ))}
               </div>
@@ -175,7 +175,7 @@ export default function ChessPage() {
                   <button
                     type="button"
                     onClick={() => copyToClipboard(roomCode, 'Room code')}
-                    className="text-sm underline text-emerald-300"
+                    className="text-sm underline text-accent-text"
                   >
                     Copy
                   </button>
@@ -186,7 +186,7 @@ export default function ChessPage() {
                     <button
                       type="button"
                       onClick={() => copyToClipboard(shareLink, 'Link')}
-                      className="text-sm underline text-emerald-300 shrink-0"
+                      className="text-sm underline text-accent-text shrink-0"
                     >
                       Copy
                     </button>
@@ -220,7 +220,7 @@ export default function ChessPage() {
                 <div className="flex justify-center gap-3">
                   <button
                     onClick={() => respondReset(true)}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 text-[var(--text-primary)] hover:bg-emerald-700"
+                    className="px-4 py-2 rounded-xl bg-accent-solid text-accent-on-solid hover:bg-accent-solid-hover"
                   >
                     Accept
                   </button>

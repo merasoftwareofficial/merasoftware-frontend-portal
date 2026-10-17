@@ -74,7 +74,7 @@ const DraftOrderCard = ({
             checked={isSelectedForCheckout}
             onChange={() => onToggleCheckoutSelection(draft.draftOrderId)}
             aria-label="Select for combined checkout"
-            className="mt-1 h-5 w-5 shrink-0 rounded border-slate-400 text-emerald-600 focus:ring-emerald-500"
+            className="mt-1 h-5 w-5 shrink-0 rounded border-slate-400 text-accent-600 focus:ring-accent-500"
           />
         )}
         <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${style.bg}`}>
@@ -97,7 +97,7 @@ const DraftOrderCard = ({
       </div>
 
       {draft.pageSelection && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500 bg-emerald-50/60 px-3 py-2.5">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent-500 bg-accent-50/60 px-3 py-2.5">
           <div>
             <p className="text-sm font-semibold text-black">Add More Pages</p>
             <p className="mt-0.5 text-xs text-black">
@@ -151,7 +151,7 @@ const DraftOrderCard = ({
           {selectedFeatures.map((feature) => (
             <span
               key={feature.id}
-              className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"
+              className="rounded-full bg-accent-50 px-2.5 py-1 text-xs font-medium text-accent-700"
             >
               {feature.name}
             </span>
@@ -181,7 +181,7 @@ const DraftOrderCard = ({
                       type="checkbox"
                       checked={isChecked}
                       onChange={() => onToggleFeature(draft.draftOrderId, feature.id)}
-                      className="h-4 w-4 rounded border-slate-400 text-emerald-600 focus:ring-emerald-500"
+                      className="h-4 w-4 rounded border-slate-400 text-accent-600 focus:ring-accent-500"
                     />
                   </div>
                 </label>

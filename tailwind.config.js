@@ -1,4 +1,19 @@
 /** @type {import('tailwindcss').Config} */
+
+// Portal accent colour. Values live in src/index.css (ACCENT SSOT) as "R G B"
+// triplets; this only names them, so `bg-accent-solid` or `bg-accent-500/20`
+// follows whatever accent the customer picked. <alpha-value> is how Tailwind
+// v3 (the copy react-scripts actually compiles with) applies an opacity
+// modifier to a variable colour.
+const accentVar = (name) => `rgb(var(--accent-${name}) / <alpha-value>)`;
+const accent = Object.fromEntries(
+  [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].map((shade) => [shade, accentVar(shade)])
+);
+accent.solid = accentVar('solid');
+accent['solid-hover'] = accentVar('solid-hover');
+accent['on-solid'] = accentVar('on-solid');
+accent.text = accentVar('text');
+
 module.exports = {
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
@@ -6,6 +21,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        accent,
         'jasmeet': {
           'pink': {
             DEFAULT: '#e91e63',

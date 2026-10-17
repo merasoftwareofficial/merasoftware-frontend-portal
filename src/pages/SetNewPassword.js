@@ -57,7 +57,7 @@ const SetNewPassword = () => {
     <div className="portal-surface flex min-h-screen items-center justify-center px-4 py-10">
       <div className="glass-panel w-full max-w-md rounded-3xl p-8">
         <div className="flex flex-col items-center text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-300">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-500/15 text-accent-text">
             <KeyRound size={26} />
           </div>
           <h1 className="mt-4 text-xl font-bold text-[var(--text-primary)]">Set your password</h1>
@@ -74,7 +74,7 @@ const SetNewPassword = () => {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="Enter new password"
-              className="w-full rounded-2xl border border-[var(--field-border)] bg-[var(--field-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-emerald-400/50 focus:bg-[var(--glass-bg)]"
+              className="w-full rounded-2xl border border-[var(--field-border)] bg-[var(--field-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-accent-text/50 focus:bg-[var(--glass-bg)]"
             />
           </div>
           <div>
@@ -84,14 +84,14 @@ const SetNewPassword = () => {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Re-enter new password"
-              className="w-full rounded-2xl border border-[var(--field-border)] bg-[var(--field-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-emerald-400/50 focus:bg-[var(--glass-bg)]"
+              className="w-full rounded-2xl border border-[var(--field-border)] bg-[var(--field-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-accent-text/50 focus:bg-[var(--glass-bg)]"
             />
           </div>
 
           <button
             type="submit"
             disabled={saving}
-            className="w-full rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-emerald-700 disabled:opacity-60"
+            className="w-full rounded-2xl bg-accent-solid px-4 py-3 text-sm font-semibold text-accent-on-solid transition hover:bg-accent-solid-hover disabled:opacity-60"
           >
             {saving ? "Saving..." : "Save Password"}
           </button>

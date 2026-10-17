@@ -69,7 +69,10 @@ export function UploadProvider({ children }) {
       if (current.current !== entry || entry.finished || version !== entry.version) return;
       if (response.ok && payload.success) {
         const data = payload.data;
-        patch(entry.id, { completedFiles: data.completedFiles, phase: data.phase });
+        // Total % follows files the server has saved, so 100% arrives with the last file.
+        const totalFiles = data.totalFiles || entry.totalFiles;
+        patch(entry.id, { completedFiles: data.completedFiles, phase: data.phase,
+          ...(totalFiles ? { percent: Math.floor((data.completedFiles || 0) * 100 / totalFiles) } : {}) });
         if (data.status === 'succeeded') { finish(entry, data.result); return; }
         if (data.status === 'failed' || data.status === 'needs_review') {
           entry.finished = true;
@@ -99,14 +102,14 @@ export function UploadProvider({ children }) {
     entry.finished = false;
     entry.transportEnded = false;
     entry.timing = startUploadTiming(`${entry.surface}_submit`, { fileCount: entry.totalFiles, fileBytes: entry.fileBytes });
-    patch(entry.id, { status: 'transferring', percent: 0, completedFiles: 0, message: '' });
+    patch(entry.id, { status: 'transferring', percent: 0, transferPercent: 0, completedFiles: 0, phase: undefined, message: '' });
     let polling = false;
     const startPolling = () => { if (!polling) { polling = true; void pollLegacy(entry); } };
     try {
       const { status, payload } = await sendUpload({ url: entry.url, formData: entry.formData, timing: entry.timing,
         onTransfer: percent => {
           if (entry.finished || current.current !== entry || version !== entry.version) return;
-          patch(entry.id, { percent, status: percent === 100 ? 'saving' : 'transferring' });
+          patch(entry.id, { transferPercent: percent, status: percent === 100 ? 'saving' : 'transferring' });
           if (percent === 100) startPolling();
         },
       });
@@ -300,8 +303,9 @@ export function UploadProvider({ children }) {
   const active = task && activeStatuses.includes(task.status);
   const label = task?.status === 'preparing' ? 'Preparing files…'
     : task?.status === 'connecting' ? 'Connecting…'
-    : task?.status === 'transferring' && task.mode === 'legacy' ? `Uploading files — ${task.percent}%`
-    : task?.status === 'saving' ? 'Processing uploaded files…'
+    : task?.status === 'transferring' && task.mode === 'legacy' ? `Sending files to server — ${task.transferPercent || 0}%`
+    : task?.status === 'saving' && task.phase === 'finalizing' ? 'Finishing upload…'
+    : task?.status === 'saving' ? `Saving files — ${task.completedFiles || 0} of ${task.totalFiles}`
     : task?.status === 'transferring' ? `Uploading file ${task.currentFile} of ${task.totalFiles} — ${task.currentPercent}%`
     : task?.status === 'confirming_file' ? `Confirming file ${task.currentFile} of ${task.totalFiles}…`
     : task?.status === 'confirming' || task?.status === 'checking' ? 'Confirming upload…'

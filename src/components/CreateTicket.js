@@ -125,7 +125,7 @@ const CreateTicket = ({ show, handleClose, refreshTickets }) => {
     navigate(`/support-tickets/${openTicketId}`, { state: customerReturnState('/support') });
   };
 
-  const fieldClassName = 'w-full rounded-xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg-subtle)] px-3 py-2.5 text-base text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition focus:border-[var(--badge-success-border)] focus:outline-none focus:ring-4 focus:ring-[var(--badge-success-bg)]';
+  const fieldClassName = 'w-full rounded-xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg-subtle)] px-3 py-2.5 text-base text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] transition focus:border-[var(--accent-soft-border)] focus:outline-none focus:ring-4 focus:ring-[var(--accent-soft-bg)]';
 
   return (
     // Was a hand-written dialog. Two things were wrong beyond the shell:

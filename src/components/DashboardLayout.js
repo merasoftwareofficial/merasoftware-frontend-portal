@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'sonner';
 import {
-  Home, ShoppingBag, UserCircle, Wallet, MessageSquare, LogOut,
+  Home, ShoppingBag, Settings, Wallet, MessageSquare, LogOut,
   FileText, PlusCircle, Gamepad2, FileCheck
 } from 'lucide-react';
 import SummaryApi from '../common';
@@ -74,7 +74,7 @@ const DashboardLayout = ({ children, user, walletBalance, cartCount, isLoading, 
     { to: '/documents', label: 'Documents', icon: FileCheck, active: currentPath.startsWith('/documents') },
     { to: '/wallet', label: 'Wallet', icon: Wallet, active: currentPath.startsWith('/wallet') },
     { to: '/games', label: 'Games', icon: Gamepad2, active: gamesActive },
-    { to: '/profile', label: 'Settings', icon: UserCircle, active: currentPath.startsWith('/profile') },
+    { to: '/settings', label: 'Settings', icon: Settings, active: currentPath.startsWith('/settings') },
     { to: '/support', label: 'Support', icon: MessageSquare, active: currentPath.startsWith('/support') },
   ];
 

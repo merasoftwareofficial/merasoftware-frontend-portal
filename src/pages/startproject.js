@@ -68,15 +68,15 @@ const StartProject = () => {
                   <button
                     type="button"
                     onClick={() => handleSelect(category)}
-                    className="group relative w-full overflow-hidden rounded-3xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] p-6 text-left shadow-[var(--card-shadow)] backdrop-blur-2xl backdrop-saturate-150 transition-all duration-300 hover:-translate-y-1.5 hover:border-emerald-300/60 hover:bg-[var(--glass-bg-strong)] hover:shadow-[0_24px_48px_rgba(16,185,129,0.28)] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                    className="group relative w-full overflow-hidden rounded-3xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] p-6 text-left shadow-[var(--card-shadow)] backdrop-blur-2xl backdrop-saturate-150 transition-all duration-300 hover:-translate-y-1.5 hover:border-accent-300/60 hover:bg-[var(--glass-bg-strong)] hover:shadow-[0_24px_48px_rgb(var(--accent-500)/0.28)] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-text"
                   >
                   {/* glass sheen */}
                   <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-[var(--glass-sheen)] to-transparent" />
-                  <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-emerald-300/30 opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-100" />
-                  <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-[var(--glass-border)] transition-all duration-300 group-hover:ring-emerald-300/40" />
+                  <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-accent-300/30 opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-100" />
+                  <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-[var(--glass-border)] transition-all duration-300 group-hover:ring-accent-300/40" />
 
-                  <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-colors duration-300 group-hover:border-emerald-400/50 group-hover:bg-emerald-500/15">
-                    <Icon className="h-7 w-7 text-[var(--text-primary)] transition-colors duration-300 group-hover:text-emerald-400" strokeWidth={1.75} />
+                  <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-colors duration-300 group-hover:border-accent-400/50 group-hover:bg-accent-500/15">
+                    <Icon className="h-7 w-7 text-[var(--text-primary)] transition-colors duration-300 group-hover:text-accent-text" strokeWidth={1.75} />
                   </div>
 
                   <h3 className="relative mt-5 text-xl font-semibold text-[var(--text-primary)]">
@@ -86,7 +86,7 @@ const StartProject = () => {
                     {category.description}
                   </p>
 
-                  <div className="relative mt-5 inline-flex items-center gap-2 rounded-xl border border-emerald-400/40 bg-emerald-500/20 px-4 py-2 text-base font-medium text-[var(--text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-all duration-300 group-hover:gap-3 group-hover:border-emerald-300/60 group-hover:bg-emerald-500/35">
+                  <div className="relative mt-5 inline-flex items-center gap-2 rounded-xl border border-accent-400/40 bg-accent-500/20 px-4 py-2 text-base font-medium text-[var(--text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-all duration-300 group-hover:gap-3 group-hover:border-accent-300/60 group-hover:bg-accent-500/35">
                     {category.action}
                     <ArrowRight className="h-4 w-4" strokeWidth={2} />
                   </div>
@@ -110,7 +110,7 @@ const StartProject = () => {
             <button
               type="button"
               onClick={() => setServiceChoiceOpen(false)}
-              className="absolute right-4 top-4 rounded-lg border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] p-1.5 text-[var(--text-primary)] transition-colors duration-200 hover:border-emerald-300/60 hover:bg-[var(--glass-bg-strong)]"
+              className="absolute right-4 top-4 rounded-lg border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] p-1.5 text-[var(--text-primary)] transition-colors duration-200 hover:border-accent-300/60 hover:bg-[var(--glass-bg-strong)]"
             >
               <X className="h-4 w-4" strokeWidth={2} />
             </button>
@@ -123,8 +123,8 @@ const StartProject = () => {
             </p>
 
             <div className="relative mt-6 grid gap-3 sm:grid-cols-2">
-              <button type="button" onClick={() => navigate('/start-new-project/services?tab=services')} className="rounded-2xl border border-emerald-400/40 bg-emerald-500/20 p-4 text-left text-[var(--text-primary)] transition hover:border-emerald-300/70 hover:bg-emerald-500/30">
-                <Layers3 className="h-6 w-6 text-emerald-200" strokeWidth={1.75} />
+              <button type="button" onClick={() => navigate('/start-new-project/services?tab=services')} className="rounded-2xl border border-accent-400/40 bg-accent-500/20 p-4 text-left text-[var(--text-primary)] transition hover:border-accent-300/70 hover:bg-accent-500/30">
+                <Layers3 className="h-6 w-6 text-accent-text" strokeWidth={1.75} />
                 <span className="mt-3 block text-base font-semibold">Start a Service</span>
                 <span className="mt-1 block text-sm text-[var(--text-secondary)]">Browse services that can begin without a project.</span>
               </button>

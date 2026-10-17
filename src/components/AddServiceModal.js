@@ -459,7 +459,7 @@ const AddServiceModal = ({
                           // the same fix 2A.2 applied to ProjectDetailView's feature
                           // cards, where an opaque emerald fill measured 1.00:1 in light
                           // mode and the customer could not see what they had picked.
-                          ? 'border-[var(--badge-success-border)] bg-[var(--badge-success-bg)] ring-1 ring-[var(--badge-success-fg)]'
+                          ? 'border-[var(--accent-soft-border)] bg-[var(--accent-soft-bg)] ring-1 ring-[var(--accent-soft-fg)]'
                           : 'border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] hover:bg-[var(--glass-bg)]',
                       ].join(' ')}
                     >

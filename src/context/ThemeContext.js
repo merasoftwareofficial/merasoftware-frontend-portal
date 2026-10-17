@@ -38,27 +38,63 @@ export const THEME_LABELS = {
   immersive: 'Immersive',
 };
 
-const isValid = (value) => THEMES.includes(value);
+/**
+ * Accent colour — the portal's brand colour (buttons, selected nav, focus,
+ * highlights), chosen independently of the theme. Applied as `data-accent` on
+ * <html>; the colour values live in index.css (ACCENT SSOT). Cyan is the
+ * default because it is the website's brand colour.
+ *
+ * ACCENTS is also the picker order. Adding one needs a CSS preset block, an
+ * entry here, and the allow-list in the index.html pre-paint script.
+ * Status colours (Paid / Pending / Error) never follow the accent.
+ * Persisted under 'accent', which DatabaseContext preserves across its logout
+ * cache clear alongside 'theme'.
+ */
+export const ACCENTS = ['cyan', 'red', 'green', 'purple', 'yellow', 'orange', 'magenta', 'pink'];
+export const DEFAULT_ACCENT = 'cyan';
+const ACCENT_STORAGE_KEY = 'accent';
 
-/** Read the stored choice. Private-mode browsers throw on localStorage. */
-export const readStoredTheme = () => {
+export const ACCENT_LABELS = {
+  cyan: 'Cyan',
+  red: 'Red',
+  green: 'Green',
+  purple: 'Purple',
+  yellow: 'Yellow',
+  orange: 'Orange',
+  magenta: 'Magenta',
+  pink: 'Pink',
+};
+
+const isValid = (value) => THEMES.includes(value);
+const isValidAccent = (value) => ACCENTS.includes(value);
+
+/** Read a stored choice. Private-mode browsers throw on localStorage. */
+const readStored = (key, valid, fallback) => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return isValid(stored) ? stored : DEFAULT_THEME;
+    const stored = localStorage.getItem(key);
+    return valid(stored) ? stored : fallback;
   } catch {
-    return DEFAULT_THEME;
+    return fallback;
   }
 };
+
+export const readStoredTheme = () => readStored(STORAGE_KEY, isValid, DEFAULT_THEME);
+export const readStoredAccent = () => readStored(ACCENT_STORAGE_KEY, isValidAccent, DEFAULT_ACCENT);
 
 const ThemeContext = createContext({
   theme: DEFAULT_THEME,
   setTheme: () => {},
   themes: THEMES,
   labels: THEME_LABELS,
+  accent: DEFAULT_ACCENT,
+  setAccent: () => {},
+  accents: ACCENTS,
+  accentLabels: ACCENT_LABELS,
 });
 
 export const ThemeProvider = ({ children }) => {
   const [theme, setThemeState] = useState(readStoredTheme);
+  const [accent, setAccentState] = useState(readStoredAccent);
 
   // The inline script in index.html has already set this before first paint;
   // re-applying keeps the attribute correct after every later change.
@@ -71,13 +107,35 @@ export const ThemeProvider = ({ children }) => {
     }
   }, [theme]);
 
+  useEffect(() => {
+    document.documentElement.setAttribute('data-accent', accent);
+    try {
+      localStorage.setItem(ACCENT_STORAGE_KEY, accent);
+    } catch {
+      /* private mode — the accent still applies for this session */
+    }
+  }, [accent]);
+
   const setTheme = useCallback((next) => {
     if (isValid(next)) setThemeState(next);
   }, []);
 
+  const setAccent = useCallback((next) => {
+    if (isValidAccent(next)) setAccentState(next);
+  }, []);
+
   const value = useMemo(
-    () => ({ theme, setTheme, themes: THEMES, labels: THEME_LABELS }),
-    [theme, setTheme]
+    () => ({
+      theme,
+      setTheme,
+      themes: THEMES,
+      labels: THEME_LABELS,
+      accent,
+      setAccent,
+      accents: ACCENTS,
+      accentLabels: ACCENT_LABELS,
+    }),
+    [theme, setTheme, accent, setAccent]
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

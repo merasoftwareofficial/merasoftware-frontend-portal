@@ -257,7 +257,7 @@ const StartNewWebsiteBuild = () => {
             <button
               type="button"
               onClick={handleBack}
-              className="absolute left-0 inline-flex items-center gap-2 rounded-xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] px-5 py-3 text-lg font-medium text-[var(--text-primary)] shadow-[var(--card-shadow)] backdrop-blur-2xl transition-all duration-300 hover:border-[var(--badge-success-border)] hover:bg-[var(--glass-bg-strong)]"
+              className="absolute left-0 inline-flex items-center gap-2 rounded-xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] px-5 py-3 text-lg font-medium text-[var(--text-primary)] shadow-[var(--card-shadow)] backdrop-blur-2xl transition-all duration-300 hover:border-[var(--accent-soft-border)] hover:bg-[var(--glass-bg-strong)]"
             >
               <ArrowLeft className="h-5 w-5" strokeWidth={2} />
               Back
@@ -274,9 +274,9 @@ const StartNewWebsiteBuild = () => {
                   key={key}
                   className={`h-1.5 rounded-full transition-all duration-500 ${
                     i === step
-                      ? 'w-10 bg-[var(--badge-success-fg)]'
+                      ? 'w-10 bg-[var(--accent-soft-fg)]'
                       : i < step
-                      ? 'w-6 bg-[var(--badge-success-border)]'
+                      ? 'w-6 bg-[var(--accent-soft-border)]'
                       : 'w-6 bg-[var(--glass-bg-strong)]'
                   }`}
                 />
@@ -287,7 +287,7 @@ const StartNewWebsiteBuild = () => {
           {!submitted ? (
             <div key={currentQuestion.key} className={`mt-8 ${animationClass}`}>
               <div className="text-center">
-                <span className="inline-flex items-center rounded-full border border-[var(--badge-success-border)] bg-[var(--badge-success-bg)] px-3 py-1 text-xs font-medium text-[var(--badge-success-fg)]">
+                <span className="inline-flex items-center rounded-full border border-[var(--accent-soft-border)] bg-[var(--accent-soft-bg)] px-3 py-1 text-xs font-medium text-[var(--accent-soft-fg)]">
                   {currentQuestion.eyebrow}
                 </span>
                 <h1 className="mt-4 text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">
@@ -313,14 +313,14 @@ const StartNewWebsiteBuild = () => {
                       <button
                         type="button"
                         onClick={() => handleSelect(currentQuestion.key, option.value)}
-                        className="group relative w-full overflow-hidden rounded-3xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] p-6 text-left shadow-[var(--card-shadow)] backdrop-blur-2xl backdrop-saturate-150 transition-all duration-300 hover:-translate-y-1.5 hover:border-[var(--badge-success-border)] hover:bg-[var(--glass-bg-strong)] hover:shadow-[0_24px_48px_rgba(16,185,129,0.28)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--badge-success-fg)]"
+                        className="group relative w-full overflow-hidden rounded-3xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] p-6 text-left shadow-[var(--card-shadow)] backdrop-blur-2xl backdrop-saturate-150 transition-all duration-300 hover:-translate-y-1.5 hover:border-[var(--accent-soft-border)] hover:bg-[var(--glass-bg-strong)] hover:shadow-[0_24px_48px_rgb(var(--accent-500)/0.28)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-soft-fg)]"
                       >
                         <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-[var(--glass-sheen)] to-transparent" />
-                        <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[var(--badge-success-bg)] opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-100" />
-                        <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-[var(--glass-border)] transition-all duration-300 group-hover:ring-[var(--badge-success-border)]" />
+                        <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[var(--accent-soft-bg)] opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-100" />
+                        <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-[var(--glass-border)] transition-all duration-300 group-hover:ring-[var(--accent-soft-border)]" />
 
-                        <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-colors duration-300 group-hover:border-[var(--badge-success-border)] group-hover:bg-[var(--badge-success-bg)]">
-                          <Icon className="h-7 w-7 text-[var(--text-primary)] transition-colors duration-300 group-hover:text-[var(--badge-success-fg)]" strokeWidth={1.75} />
+                        <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-colors duration-300 group-hover:border-[var(--accent-soft-border)] group-hover:bg-[var(--accent-soft-bg)]">
+                          <Icon className="h-7 w-7 text-[var(--text-primary)] transition-colors duration-300 group-hover:text-[var(--accent-soft-fg)]" strokeWidth={1.75} />
                         </div>
 
                         <h3 className="relative mt-5 text-xl font-semibold text-[var(--text-primary)]">
@@ -332,7 +332,7 @@ const StartNewWebsiteBuild = () => {
                           </p>
                         )}
 
-                        <div className="relative mt-5 inline-flex items-center gap-2 rounded-xl border border-[var(--badge-success-border)] bg-[var(--badge-success-bg)] px-4 py-2 text-base font-medium text-[var(--text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-all duration-300 group-hover:gap-3 group-hover:border-[var(--badge-success-border)] group-hover:bg-[var(--glass-bg-strong)]">
+                        <div className="relative mt-5 inline-flex items-center gap-2 rounded-xl border border-[var(--accent-soft-border)] bg-[var(--accent-soft-bg)] px-4 py-2 text-base font-medium text-[var(--text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-all duration-300 group-hover:gap-3 group-hover:border-[var(--accent-soft-border)] group-hover:bg-[var(--glass-bg-strong)]">
                           Select
                           <ArrowRight className="h-4 w-4" strokeWidth={2} />
                         </div>
@@ -403,7 +403,7 @@ const StartNewWebsiteBuild = () => {
                         name="name"
                         value={contactDetails.name}
                         onChange={handleContactChange}
-                        className="w-full border-0 border-b border-[var(--glass-border-strong)] bg-transparent px-0 py-2 text-base text-[var(--text-primary)] outline-none transition focus:border-[var(--badge-success-fg)] focus:ring-0"
+                        className="w-full border-0 border-b border-[var(--glass-border-strong)] bg-transparent px-0 py-2 text-base text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-soft-fg)] focus:ring-0"
                       />
                     </label>
                     <label className="block">
@@ -428,7 +428,7 @@ const StartNewWebsiteBuild = () => {
                         pattern="[0-9]*"
                         value={contactDetails.phone}
                         onChange={handleContactChange}
-                        className="w-full border-0 border-b border-[var(--glass-border-strong)] bg-transparent px-0 py-2 text-base text-[var(--text-primary)] outline-none transition focus:border-[var(--badge-success-fg)] focus:ring-0"
+                        className="w-full border-0 border-b border-[var(--glass-border-strong)] bg-transparent px-0 py-2 text-base text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-soft-fg)] focus:ring-0"
                       />
                     </label>
                   </div>
@@ -437,7 +437,7 @@ const StartNewWebsiteBuild = () => {
                 <button
                   type="button"
                   onClick={() => {}}
-                  className="relative mt-8 inline-flex items-center gap-2 rounded-xl border border-[var(--badge-success-border)] bg-[var(--badge-success-bg)] px-6 py-3 text-base font-medium text-[var(--text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-all duration-300 hover:gap-3 hover:border-[var(--badge-success-border)] hover:bg-[var(--glass-bg-strong)]"
+                  className="relative mt-8 inline-flex items-center gap-2 rounded-xl border border-[var(--accent-soft-border)] bg-[var(--accent-soft-bg)] px-6 py-3 text-base font-medium text-[var(--text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-all duration-300 hover:gap-3 hover:border-[var(--accent-soft-border)] hover:bg-[var(--glass-bg-strong)]"
                 >
                   Submit Request
                   <ArrowRight className="h-4 w-4" strokeWidth={2} />

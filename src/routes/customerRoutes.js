@@ -1,3 +1,4 @@
+import { Navigate } from "react-router-dom";
 import ProtectedRoute from "../components/ProtectedRoute";
 import CustomerDashboard from "../pages/CustomerDashboard";
 import OrderPage from "../pages/OrderPage";
@@ -11,7 +12,7 @@ import UserInvoices from "../pages/UserInvoices";
 import DirectPayment from "../pages/DirectPayment";
 import ContactSupport from "../pages/ContactSupport";
 import InstallmentPayment from "../pages/InstallmentPayment";
-import Profile from "../pages/Profile";
+import SettingsPage from "../pages/SettingsPage";
 import TicketDetail from "../pages/TicketDetail";
 import CompleteProfile from "../pages/CompleteProfile";
 import ProjectsAndPlans from "../pages/ProjectsAndPlans";
@@ -211,10 +212,19 @@ export const customerRoutes = [
     )
   },
   {
+    path: "settings",
+    element: (
+      <CustomerProtectedRoute>
+        <SettingsPage/>
+      </CustomerProtectedRoute>
+    )
+  },
+  {
+    // Profile is now a section of Settings; kept so old links still land.
     path: "profile",
     element: (
       <CustomerProtectedRoute>
-        <Profile/>
+        <Navigate to="/settings" replace />
       </CustomerProtectedRoute>
     )
   },

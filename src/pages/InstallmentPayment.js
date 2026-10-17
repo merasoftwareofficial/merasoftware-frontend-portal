@@ -490,7 +490,7 @@ const InstallmentPayment = () => {
                   value={upiTransactionId}
                   onChange={(event) => setUpiTransactionId(event.target.value)}
                   placeholder="Enter the UPI reference after paying"
-                  className="mt-1.5 w-full rounded-lg border border-[var(--glass-border-strong)] bg-[var(--glass-bg-subtle)] px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--badge-success-fg)] focus:outline-none"
+                  className="mt-1.5 w-full rounded-lg border border-[var(--glass-border-strong)] bg-[var(--glass-bg-subtle)] px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-soft-fg)] focus:outline-none"
                 />
                 <p className="mt-1.5 text-xs text-[var(--text-muted)]">
                   Find this in your UPI app payment history. It is required for verification.

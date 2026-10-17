@@ -101,7 +101,7 @@ const PortalHeader = ({ user, dashboardTo = "/dashboard", onLogout, showProfileL
                 to={to}
                 className={`whitespace-nowrap rounded-xl px-3 py-2 text-sm font-semibold transition ${
                   isLinkActive(to)
-                    ? "bg-emerald-500 text-black"
+                    ? c("bg-emerald-500 text-black", "bg-[var(--nav-active-bg)] text-[var(--nav-active-fg)]")
                     : c("text-slate-300 hover:bg-white/10 hover:text-white", "text-[var(--text-secondary)] hover:bg-[var(--glass-bg-hover)] hover:text-[var(--text-primary)]")
                 }`}
               >
@@ -148,7 +148,7 @@ const PortalHeader = ({ user, dashboardTo = "/dashboard", onLogout, showProfileL
           ) : (
             <Link
               to="/login"
-              className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-emerald-400"
+              className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${c("bg-emerald-500 text-black hover:bg-emerald-400", "bg-accent-solid text-accent-on-solid hover:bg-accent-solid-hover")}`}
             >
               Sign in
             </Link>
@@ -179,11 +179,11 @@ const PortalHeader = ({ user, dashboardTo = "/dashboard", onLogout, showProfileL
               </Link>
               {showProfileLink ? (
                 <Link
-                  to="/profile"
+                  to="/settings"
                   className={`mt-1 block rounded-xl px-3 py-2 text-sm font-medium ${c("text-slate-200 hover:bg-white/10", "text-[var(--text-secondary)] hover:bg-[var(--glass-bg-hover)]")}`}
                   onClick={() => setMenuOpen(false)}
                 >
-                  Profile
+                  Settings
                 </Link>
               ) : null}
               {onLogout ? (

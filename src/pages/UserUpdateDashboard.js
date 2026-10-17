@@ -245,7 +245,7 @@ const UserUpdateDashboard = () => {
       >
         <section className="glass-panel mx-auto max-w-7xl overflow-hidden rounded-[2rem]">
           <div className="rounded-t-[2rem] border-b border-[var(--divider)] bg-[var(--glass-bg-subtle)] px-5 py-5 text-[var(--text-primary)] sm:px-6 lg:px-8">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--badge-success-border)] bg-[var(--badge-success-bg)] px-3 py-1 text-sm font-semibold uppercase text-[var(--badge-success-fg)]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--accent-soft-border)] bg-[var(--accent-soft-bg)] px-3 py-1 text-sm font-semibold uppercase text-[var(--accent-soft-fg)]">
               <Sparkles className="h-3.5 w-3.5" />
               My Updates
             </div>

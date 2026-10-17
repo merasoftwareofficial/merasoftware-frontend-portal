@@ -266,7 +266,7 @@ export function DatabaseProvider({ children }) {
         };
     
         // 2. Clear localStorage except for preserved keys
-        const keysToKeep = ['theme', 'language', 'lastLogoutTimestamp', 'preservedGuestSlides'];
+        const keysToKeep = ['theme', 'accent', 'language', 'lastLogoutTimestamp', 'preservedGuestSlides'];
         Object.keys(localStorage)
           .filter(key => !keysToKeep.includes(key))
           .forEach(key => {

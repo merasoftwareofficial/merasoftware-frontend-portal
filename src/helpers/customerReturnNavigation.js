@@ -28,6 +28,7 @@ const isInternalCustomerPath = (value) => {
     '/my-invoices',
     '/documents',
     '/support',
+    '/settings',
     '/profile',
     '/complete-profile',
     '/games',

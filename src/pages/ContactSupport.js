@@ -72,7 +72,7 @@ const ContactSupportPage = () => {
               </p>
               <button
                 onClick={() => setShowCreateForm(true)}
-                className="relative mt-5 inline-flex items-center gap-2 rounded-xl border border-emerald-400/40 bg-emerald-500/20 px-4 py-2 text-base font-medium text-[var(--text-primary)] backdrop-blur-md transition-all duration-300 hover:bg-emerald-500/35"
+                className="relative mt-5 inline-flex items-center gap-2 rounded-xl border border-accent-400/40 bg-accent-500/20 px-4 py-2 text-base font-medium text-[var(--text-primary)] backdrop-blur-md transition-all duration-300 hover:bg-accent-500/35"
               >
                 Create New Ticket
               </button>
@@ -86,7 +86,7 @@ const ContactSupportPage = () => {
               <p className="relative mt-2 text-base leading-relaxed text-[var(--text-secondary)]">
                 For urgent matters, feel free to call our support team directly.
               </p>
-              <p className="relative mt-4 text-lg font-semibold text-emerald-400">+91 92565 37003</p>
+              <p className="relative mt-4 text-lg font-semibold text-accent-text">+91 92565 37003</p>
               <p className="relative mt-1 text-sm text-[var(--text-muted)]">Monday-Friday: 9AM-6PM IST</p>
             </Surface>
 
@@ -98,7 +98,7 @@ const ContactSupportPage = () => {
               <p className="relative mt-2 text-base leading-relaxed text-[var(--text-secondary)]">
                 You can also reach our support team via email for general inquiries.
               </p>
-              <p className="relative mt-4 text-lg font-semibold text-emerald-400">info@vacomputers.com</p>
+              <p className="relative mt-4 text-lg font-semibold text-accent-text">info@vacomputers.com</p>
               <p className="relative mt-1 text-sm text-[var(--text-muted)]">We typically respond within 24 hours</p>
             </Surface>
           </div>
@@ -111,7 +111,7 @@ const ContactSupportPage = () => {
           {/* FAQs */}
           <div className="mt-12">
             <div className="mb-6 flex items-center">
-              <HelpCircle className="mr-2 h-6 w-6 text-emerald-400" />
+              <HelpCircle className="mr-2 h-6 w-6 text-accent-text" />
               <h2 className="text-xl font-bold text-[var(--text-primary)]">Frequently Asked Questions</h2>
             </div>
 

@@ -14,13 +14,14 @@ import { useTheme } from '../context/ThemeContext';
  */
 
 // Keyed by theme, not ordered — the list order comes from THEMES in ThemeContext.
-const ICONS = {
+// Exported so Settings → Appearance shows the same icon and wording.
+export const THEME_ICONS = {
   light: Sun,
   dark: Moon,
   immersive: Image,
 };
 
-const DESCRIPTIONS = {
+export const THEME_DESCRIPTIONS = {
   light: 'Clean white background',
   dark: 'Solid dark, no background image',
   immersive: 'Background image with glass panels',
@@ -40,7 +41,7 @@ const ThemeSwitch = () => {
   }, []);
 
   // Fallback follows DEFAULT_THEME, which is light.
-  const ActiveIcon = ICONS[theme] || Sun;
+  const ActiveIcon = THEME_ICONS[theme] || Sun;
 
   return (
     <div className="relative shrink-0" ref={boxRef}>
@@ -66,7 +67,7 @@ const ThemeSwitch = () => {
           </p>
 
           {themes.map((option) => {
-            const Icon = ICONS[option];
+            const Icon = THEME_ICONS[option];
             const isActive = option === theme;
 
             return (
@@ -87,10 +88,10 @@ const ThemeSwitch = () => {
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold">{labels[option]}</span>
                   <span className="block text-xs leading-snug text-[var(--text-muted)]">
-                    {DESCRIPTIONS[option]}
+                    {THEME_DESCRIPTIONS[option]}
                   </span>
                 </span>
-                {isActive ? <Check size={16} className="mt-0.5 shrink-0 text-emerald-400" /> : null}
+                {isActive ? <Check size={16} className="mt-0.5 shrink-0 text-accent-text" /> : null}
               </button>
             );
           })}

@@ -345,7 +345,7 @@ const renderCurrentStep = () => {
                                     type="tel"
                                     value={basicDetails.phone}
                                     onChange={(e) => setBasicDetails((prev) => ({ ...prev, phone: e.target.value }))}
-                                    className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-[var(--field-border)] rounded-lg focus:ring-2 focus:ring-[var(--badge-success-fg)] focus:border-transparent"
+                                    className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-[var(--field-border)] rounded-lg focus:ring-2 focus:ring-[var(--accent-soft-fg)] focus:border-transparent"
                                     placeholder="Enter your phone number"
                                     autoComplete="tel"
                                 />
@@ -356,7 +356,7 @@ const renderCurrentStep = () => {
                                     type="date"
                                     value={basicDetails.dob}
                                     onChange={handleDobChange}
-                                    className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-[var(--field-border)] rounded-lg focus:ring-2 focus:ring-[var(--badge-success-fg)] focus:border-transparent"
+                                    className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-[var(--field-border)] rounded-lg focus:ring-2 focus:ring-[var(--accent-soft-fg)] focus:border-transparent"
                                 />
                             </div>
                             <div>
@@ -382,7 +382,7 @@ const renderCurrentStep = () => {
                                     type="text"
                                     value={address.streetAddress}
                                     onChange={(e) => updateAddressField('streetAddress', e.target.value)}
-                                    className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-[var(--field-border)] rounded-lg focus:ring-2 focus:ring-[var(--badge-success-fg)] focus:border-transparent"
+                                    className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-[var(--field-border)] rounded-lg focus:ring-2 focus:ring-[var(--accent-soft-fg)] focus:border-transparent"
                                     placeholder="Enter street address"
                                     autoComplete="street-address"
                                 />
@@ -393,7 +393,7 @@ const renderCurrentStep = () => {
                                     type="text"
                                     value={address.city}
                                     onChange={(e) => updateAddressField('city', e.target.value)}
-                                    className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-[var(--field-border)] rounded-lg focus:ring-2 focus:ring-[var(--badge-success-fg)] focus:border-transparent"
+                                    className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-[var(--field-border)] rounded-lg focus:ring-2 focus:ring-[var(--accent-soft-fg)] focus:border-transparent"
                                     placeholder="Enter city"
                                     autoComplete="address-level2"
                                 />
@@ -404,7 +404,7 @@ const renderCurrentStep = () => {
                                     type="text"
                                     value={address.state}
                                     onChange={(e) => updateAddressField('state', e.target.value)}
-                                    className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-[var(--field-border)] rounded-lg focus:ring-2 focus:ring-[var(--badge-success-fg)] focus:border-transparent"
+                                    className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-[var(--field-border)] rounded-lg focus:ring-2 focus:ring-[var(--accent-soft-fg)] focus:border-transparent"
                                     placeholder="Enter state"
                                     autoComplete="address-level1"
                                 />
@@ -415,7 +415,7 @@ const renderCurrentStep = () => {
                                     type="text"
                                     value={address.pinCode}
                                     onChange={(e) => updateAddressField('pinCode', e.target.value)}
-                                    className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-[var(--field-border)] rounded-lg focus:ring-2 focus:ring-[var(--badge-success-fg)] focus:border-transparent"
+                                    className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-[var(--field-border)] rounded-lg focus:ring-2 focus:ring-[var(--accent-soft-fg)] focus:border-transparent"
                                     placeholder="Enter PIN code"
                                     autoComplete="postal-code"
                                 />
@@ -426,7 +426,7 @@ const renderCurrentStep = () => {
                                     type="text"
                                     value={address.landmark}
                                     onChange={(e) => updateAddressField('landmark', e.target.value)}
-                                    className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-[var(--field-border)] rounded-lg focus:ring-2 focus:ring-[var(--badge-success-fg)] focus:border-transparent"
+                                    className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-[var(--field-border)] rounded-lg focus:ring-2 focus:ring-[var(--accent-soft-fg)] focus:border-transparent"
                                     placeholder="Enter landmark (optional)"
                                     autoComplete="off"
                                 />
@@ -445,7 +445,7 @@ const renderCurrentStep = () => {
                             <select
                                 value={documents.documentType}
                                 onChange={(e) => setDocuments(prev => ({ ...prev, documentType: e.target.value }))}
-                                className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-[var(--field-border)] rounded-lg focus:ring-2 focus:ring-[var(--badge-success-fg)] focus:border-transparent bg-[var(--glass-bg-subtle)] text-[var(--text-primary)]"
+                                className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-[var(--field-border)] rounded-lg focus:ring-2 focus:ring-[var(--accent-soft-fg)] focus:border-transparent bg-[var(--glass-bg-subtle)] text-[var(--text-primary)]"
                             >
                                 <option value="">-- Select --</option>
                                 <option value="aadhar">Aadhaar Card</option>
@@ -474,7 +474,7 @@ const renderCurrentStep = () => {
                                         />
                                         <label
                                             htmlFor="documentFront"
-                                            className="flex flex-col items-center justify-center w-full h-24 sm:h-32 border-2 border-dashed border-[var(--field-border)] rounded-lg cursor-pointer hover:border-[var(--badge-success-border)] hover:bg-[var(--glass-bg)]"
+                                            className="flex flex-col items-center justify-center w-full h-24 sm:h-32 border-2 border-dashed border-[var(--field-border)] rounded-lg cursor-pointer hover:border-[var(--accent-soft-border)] hover:bg-[var(--glass-bg)]"
                                         >
                                             <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-[var(--text-muted)] mb-1 sm:mb-2" />
                                             <span className="text-[var(--text-primary)] text-base text-center px-2">
@@ -505,7 +505,7 @@ const renderCurrentStep = () => {
                                             />
                                             <label
                                                 htmlFor="documentBack"
-                                                className="flex flex-col items-center justify-center w-full h-24 sm:h-32 border-2 border-dashed border-[var(--field-border)] rounded-lg cursor-pointer hover:border-[var(--badge-success-border)] hover:bg-[var(--glass-bg)]"
+                                                className="flex flex-col items-center justify-center w-full h-24 sm:h-32 border-2 border-dashed border-[var(--field-border)] rounded-lg cursor-pointer hover:border-[var(--accent-soft-border)] hover:bg-[var(--glass-bg)]"
                                             >
                                                 <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-[var(--text-muted)] mb-1 sm:mb-2" />
                                                 <span className="text-[var(--text-primary)] text-base text-center px-2">
@@ -537,7 +537,7 @@ const renderCurrentStep = () => {
                                         />
                                         <label
                                             htmlFor="selfie"
-                                            className="flex flex-col items-center justify-center w-full h-24 sm:h-32 border-2 border-dashed border-[var(--field-border)] rounded-lg cursor-pointer hover:border-[var(--badge-success-border)] hover:bg-[var(--glass-bg)]"
+                                            className="flex flex-col items-center justify-center w-full h-24 sm:h-32 border-2 border-dashed border-[var(--field-border)] rounded-lg cursor-pointer hover:border-[var(--accent-soft-border)] hover:bg-[var(--glass-bg)]"
                                         >
                                             <Camera className="w-6 h-6 sm:w-8 sm:h-8 text-[var(--text-muted)] mb-1 sm:mb-2" />
                                             <span className="text-[var(--text-primary)] text-base text-center px-2">
@@ -567,7 +567,7 @@ const renderCurrentStep = () => {
         <div className="mx-auto max-w-4xl">
                 <section className="glass-panel overflow-hidden rounded-[2rem]">
                     <div className="rounded-t-[2rem] border-b border-[var(--divider)] bg-[var(--glass-bg-subtle)] px-5 py-5 text-center text-[var(--text-primary)] sm:px-6 lg:px-8">
-                        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--badge-success-border)] bg-[var(--badge-success-bg)] px-3 py-1 text-sm font-semibold uppercase text-[var(--badge-success-fg)]">
+                        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--accent-soft-border)] bg-[var(--accent-soft-bg)] px-3 py-1 text-sm font-semibold uppercase text-[var(--accent-soft-fg)]">
                             <Sparkles className="h-3.5 w-3.5" />
                             KYC
                         </div>

@@ -34,7 +34,7 @@ const GlassPageState = ({ type = 'loading', message, onRetry }) => {
         {isError ? (
           <AlertTriangle className="mx-auto h-10 w-10 text-[var(--badge-pending-fg)]" />
         ) : (
-          <Loader2 className="mx-auto h-10 w-10 animate-spin text-[var(--badge-success-fg)]" />
+          <Loader2 className="mx-auto h-10 w-10 animate-spin text-[var(--accent-soft-fg)]" />
         )}
         <p className="mt-4 text-base font-semibold text-[var(--text-primary)]">
           {message || (isError ? 'Something went wrong.' : 'Loading…')}
