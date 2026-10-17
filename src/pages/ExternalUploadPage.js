@@ -2,10 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { FileText, LockKeyhole, ShieldCheck, Upload, X } from 'lucide-react';
 import { ThemeProvider } from '../context/ThemeContext';
 import SummaryApi from '../common';
+import { startUploadTiming } from '../utils/uploadTiming';
 
-const requestJson = async (url, options = {}) => {
+const requestJson = async (url, options = {}, timing) => {
   const response = await fetch(url, { credentials: 'include', ...options });
+  timing?.response(response);
   const payload = await response.json().catch(() => ({}));
+  timing?.mark('response_body_parsed');
   if (!response.ok || !payload.success) throw new Error(payload.message || 'Request failed');
   return payload;
 };
@@ -100,6 +103,10 @@ const ExternalUploadContent = () => {
   const submit = async (event) => {
     event.preventDefault();
     if (busy || (!files.length && !instructions.trim())) return;
+    const uploadTiming = startUploadTiming('external_submit', {
+      fileCount: files.length, fileBytes: files.reduce((sum, file) => sum + file.size, 0),
+    });
+    let uploadOutcome = 'failed';
     setBusy(true);
     setError('');
     try {
@@ -107,15 +114,18 @@ const ExternalUploadContent = () => {
       const notes = instructions.trim() ? [{ text: instructions.trim(), timestamp: new Date().toISOString() }] : [];
       formData.append('instructions', JSON.stringify(notes));
       files.forEach((file) => formData.append('files', file, file.name));
+      uploadTiming.mark('request_started');
       const payload = await requestJson(SummaryApi.externalUploadSubmit.url, {
         method: SummaryApi.externalUploadSubmit.method,
         body: formData,
-      });
+      }, uploadTiming);
       setContext((current) => ({ ...current, requestId: payload.data?.requestId }));
+      uploadOutcome = 'success';
       setStage('success');
     } catch (requestError) {
       setError(requestError.message || 'Upload could not be submitted');
     } finally {
+      uploadTiming.finish(uploadOutcome);
       setBusy(false);
     }
   };

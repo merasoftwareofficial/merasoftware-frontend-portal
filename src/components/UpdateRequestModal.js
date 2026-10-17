@@ -7,6 +7,7 @@ import imageCompression from 'browser-image-compression'; // You'll need to inst
 import SpinningLoader from './SpinningLoader';
 import Modal from './Modal';
 import GlassButton from './GlassButton';
+import { startUploadTiming } from '../utils/uploadTiming';
 
 const LEGACY_MAX_FILE_COUNT = 20;
 // A project's own per-request cap, matching backend/config/uploadLimits.js
@@ -56,9 +57,13 @@ const UpdateRequestModal = ({ plan, onClose, onSubmitSuccess }) => {
   // File upload handling
   const handleFileUpload = async (e) => {
     const uploadedFiles = Array.from(e.target.files);
+    const preparationTiming = startUploadTiming('portal_file_preparation', {
+      fileCount: uploadedFiles.length, fileBytes: uploadedFiles.reduce((sum, file) => sum + file.size, 0),
+    });
     const maxFileSize = 5 * 1024 * 1024; // 5MB in bytes
     // Check if adding these files would exceed the limit
     if (files.length + uploadedFiles.length > maxFileCount) {
+      preparationTiming.finish('file_count_rejected');
       toast.error(`Maximum ${maxFileCount} files allowed. You already have ${files.length} file${files.length !== 1 ? 's' : ''} uploaded.`);
       // Reset the file input
       if (fileInputRef.current) {
@@ -148,6 +153,7 @@ const UpdateRequestModal = ({ plan, onClose, onSubmitSuccess }) => {
     
     // Filter out any null values (failed processing)
     const successfullyProcessed = processedFiles.filter(file => file !== null);
+    preparationTiming.finish(successfullyProcessed.length === uploadedFiles.length ? 'prepared' : 'partially_rejected');
     
     setFiles(prevFiles => [...prevFiles, ...successfullyProcessed]);
     
@@ -189,6 +195,10 @@ const UpdateRequestModal = ({ plan, onClose, onSubmitSuccess }) => {
   // Modified submitUpdateRequest function for UpdateRequestModal.js
   const submitUpdateRequest = async () => {
     if (loading) return;
+    const uploadTiming = startUploadTiming('portal_submit', {
+      fileCount: files.length, fileBytes: files.reduce((sum, file) => sum + file.file.size, 0),
+    });
+    let uploadOutcome = 'failed';
     
     try {
       setLoading(true);
@@ -211,6 +221,7 @@ const UpdateRequestModal = ({ plan, onClose, onSubmitSuccess }) => {
       });
       
       console.log("Submitting update request...");
+      uploadTiming.mark('request_started');
       
       // Submit the request
       try {
@@ -219,6 +230,7 @@ const UpdateRequestModal = ({ plan, onClose, onSubmitSuccess }) => {
           credentials: 'include',
           body: formData
         });
+        uploadTiming.response(response);
         
         // First check if response is ok
         if (!response.ok) {
@@ -243,8 +255,10 @@ const UpdateRequestModal = ({ plan, onClose, onSubmitSuccess }) => {
         
         // Now parse the successful response
         const data = await response.json();
+        uploadTiming.mark('response_body_parsed');
         
         if (data.success) {
+          uploadOutcome = 'success';
           toast.success('Update request submitted successfully');
           onSubmitSuccess?.();
           onClose();
@@ -266,6 +280,9 @@ const UpdateRequestModal = ({ plan, onClose, onSubmitSuccess }) => {
       setShowConfirmation(false);
       setIsUploading(false);
       setLoading(false);
+    }
+    finally {
+      uploadTiming.finish(uploadOutcome);
     }
   };
   
