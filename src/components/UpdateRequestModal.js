@@ -203,6 +203,7 @@ const UpdateRequestModal = ({ plan, onClose, onSubmitSuccess }) => {
       files.forEach(file => formData.append('files', file.file, file.name));
       startUpload({
         url: SummaryApi.requestUpdate.url,
+        sessionUrl: SummaryApi.uploadSessions.url,
         progressUrl: SummaryApi.uploadProgress.url,
         formData, surface: 'portal', label: 'Your data submission',
         totalFiles: files.length, fileBytes: files.reduce((sum, file) => sum + file.file.size, 0),

@@ -111,6 +111,7 @@ const ExternalUploadContent = () => {
       files.forEach(file => formData.append('files', file, file.name));
       const id = startUpload({
         url: SummaryApi.externalUploadSubmit.url,
+        sessionUrl: SummaryApi.externalUploadSessions.url,
         progressUrl: SummaryApi.externalUploadProgress.url,
         formData, surface: 'external', label: context.target.name,
         totalFiles: files.length, fileBytes: files.reduce((sum, file) => sum + file.size, 0),

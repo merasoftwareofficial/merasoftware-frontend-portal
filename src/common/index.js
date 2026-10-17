@@ -1,6 +1,8 @@
 const backendDomain = process.env.REACT_APP_BACKEND_URL //"http://localhost:8080"
 
 const SummaryApi = {
+    uploadSessions: { url: `${backendDomain}/api/upload-sessions`, method: 'post' },
+    externalUploadSessions: { url: `${backendDomain}/api/external-upload/uploads`, method: 'post' },
     uploadProgress: { url: `${backendDomain}/api/upload-progress`, method: 'get' },
     externalUploadProgress: { url: `${backendDomain}/api/external-upload/progress`, method: 'get' },
     portfolioSource: { url: `${backendDomain}/api/admin/projects`, method: 'patch' },

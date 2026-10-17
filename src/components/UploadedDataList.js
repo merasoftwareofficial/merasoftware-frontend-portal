@@ -110,7 +110,7 @@ const UploadedDataList = ({
                   </button>
                 ) : (
                   <p className={t('mt-2 text-xs text-slate-500', 'mt-2 text-xs text-[var(--text-muted)]')}>
-                    Files are no longer available.
+                    {attempt.deliveryStatus === 'queued' ? 'Upload received. Files will be available shortly.' : attempt.deliveryStatus === 'needs_review' ? 'Files temporarily unavailable. Please contact support.' : 'Files are no longer available.'}
                   </p>
                 )}
               </div>

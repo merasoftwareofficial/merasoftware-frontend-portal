@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import Surface from './Surface';
 
@@ -74,7 +75,7 @@ const Modal = ({
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
       className="modal-backdrop fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
       onClick={closeOnBackdrop && onClose ? onClose : undefined}
@@ -87,6 +88,7 @@ const Modal = ({
         role="dialog"
         aria-modal="true"
         aria-label={typeof title === 'string' ? title : undefined}
+        style={{ maxHeight: '92dvh' }}
         onClick={(e) => e.stopPropagation()}
         className={[
           // The sheet sits flush to the bottom edge on phones, so its lower
@@ -135,7 +137,7 @@ const Modal = ({
 
         {footer && <div className="mt-6 shrink-0">{footer}</div>}
       </Surface>
-    </div>
+    </div>, document.body
   );
 };
 

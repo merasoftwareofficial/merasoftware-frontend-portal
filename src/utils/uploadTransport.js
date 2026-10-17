@@ -1,4 +1,4 @@
-// Transfer progress comes from bytes sent. Drive save progress is read separately.
+// Byte-transfer progress only. The caller confirms durable receipt separately.
 export function sendUpload({ url, formData, onTransfer, timing, xhrFactory = () => new XMLHttpRequest() }) {
   return new Promise((resolve, reject) => {
     const xhr = xhrFactory();

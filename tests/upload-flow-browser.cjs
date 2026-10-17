@@ -1,11 +1,15 @@
 const assert = require('node:assert/strict');
 const http = require('node:http');
+const fs = require('node:fs');
 const path = require('node:path');
 const { build } = require('../../merasoftware/node_modules/esbuild');
 const { chromium } = require('../../merasoftware/node_modules/playwright');
 
 (async () => {
   const records = new Map();
+  const cssManifest = require('../build/asset-manifest.json');
+  const css = fs.readFileSync(path.join(__dirname, '../build', cssManifest.files['main.css']), 'utf8');
+  // Only bundle the focused test harness. This does not run the application build.
   const script = await build({
     stdin: { resolveDir: path.resolve(__dirname, '..'), loader: 'jsx', contents: `
       import React, {useState, useEffect} from 'react';
@@ -13,116 +17,147 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
       import {Provider} from 'react-redux';
       import {configureStore} from '@reduxjs/toolkit';
       import {UploadProvider, useUploads} from './src/context/UploadContext';
+      import UpdateRequestModal from './src/components/UpdateRequestModal';
+      import {PageTransition} from './src/components/PageMotion';
+      import {ThemeProvider} from './src/context/ThemeContext';
       const store = configureStore({reducer: (state = {user: {user: {_id: 'client-a'}}}, action) => action.type === 'switch' ? {user: {user: {_id: 'client-b'}}} : state});
       window.switchOwner = () => store.dispatch({type:'switch'});
       function Page() {
         const {startUpload, task} = useUploads();
-        const [route, setRoute] = useState('form');
-        useEffect(() => { window.uploadTask = task; }, [task]);
+        const [open,setOpen] = useState(false);
+        const [route,setRoute] = useState('form');
+        useEffect(() => {
+          window.uploadTask = task;
+          if (task) (window.samples ||= []).push(JSON.parse(JSON.stringify(task)));
+        }, [task]);
         const start = mode => {
           const formData = new FormData();
           formData.append('instructions','[]');
-          formData.append('files', new File(['abc'], 'first.txt', {type:'text/plain'}));
-          formData.append('files', new File(['def'], 'second.txt', {type:'text/plain'}));
-          startUpload({url:'/submit/'+mode, progressUrl:'/progress/'+mode, formData, surface:'portal', label:'Test files', totalFiles:2, fileBytes:6, onSuccess:()=>{ window.completions=(window.completions||0)+1; }});
+          formData.append('files', new File([new Uint8Array(128*1024)], 'first.txt', {type:'text/plain'}));
+          formData.append('files', new File([new Uint8Array(64*1024)], 'second.txt', {type:'text/plain'}));
+          startUpload({url:'/unused',sessionUrl:'/sessions/'+mode,formData,surface:'portal',label:'Test files',totalFiles:2,fileBytes:192*1024,onSuccess:()=>{window.completions=(window.completions||0)+1;}});
         };
         return <><h1>{route}</h1><button onClick={()=>{history.pushState(null,'','/other');setRoute('other page');}}>Navigate</button>
-          {['success','drop','retry','owner'].map(mode=><button key={mode} onClick={()=>start(mode)}>{mode}</button>)}</>;
+          <button onClick={()=>setOpen(true)}>Open upload modal</button>
+          {['success','drop','retry','owner'].map(mode=><button key={mode} onClick={()=>start(mode)}>{mode}</button>)}
+          <PageTransition pageKey="upload"><div style={{minHeight:1800}}>
+          {open && <UpdateRequestModal plan={{_id:'project-a',isWebsiteProject:true}} onClose={()=>setOpen(false)}/>}
+          </div></PageTransition></>;
       }
-      createRoot(document.getElementById('root')).render(<Provider store={store}><UploadProvider><Page/></UploadProvider></Provider>);
+      createRoot(document.getElementById('root')).render(<Provider store={store}><ThemeProvider><UploadProvider><Page/></UploadProvider></ThemeProvider></Provider>);
     ` },
     bundle: true, write: false, format: 'iife', loader: { '.js': 'jsx' },
-    define: { 'process.env.NODE_ENV': '"test"', 'process.env.REACT_APP_UPLOAD_TIMING_ENABLED': '"false"' },
+    define: { 'process.env.NODE_ENV': '"test"', 'process.env.REACT_APP_UPLOAD_TIMING_ENABLED': '"false"', 'process.env.REACT_APP_BACKEND_URL': '""' },
   });
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://localhost');
-    const json = (body, status = 200) => { res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify(body)); };
-    if (url.pathname === '/app.js') { res.setHeader('content-type', 'text/javascript'); res.end(script.outputFiles[0].text); return; }
-    if (url.pathname.startsWith('/submit/')) {
-      const mode = url.pathname.split('/')[2];
-      const id = url.searchParams.get('uploadId');
-      const prior = records.get(id);
-      if (prior?.status === 'succeeded') {
-        prior.attempts++;
-        req.resume();
-        req.on('end', () => json(prior.result));
-        return;
+    const json = (body, status = 200) => { res.writeHead(status, {'content-type':'application/json'}); res.end(JSON.stringify(body)); };
+    const status = record => ({success:true,data:{status:record.status,files:record.files,result:record.result}});
+    if (url.pathname === '/app.js') {res.setHeader('content-type','text/javascript');res.end(script.outputFiles[0].text);return;}
+    if (url.pathname === '/app.css') {res.setHeader('content-type','text/css');res.end(css);return;}
+    if (url.pathname.startsWith('/sessions/')) {
+      const [, , mode, id, action, fileId] = url.pathname.split('/');
+      const uploadId = id || url.searchParams.get('uploadId');
+      const prior = records.get(uploadId);
+      if (!id && req.method === 'POST') {
+        let body = ''; req.on('data',chunk=>body+=chunk);
+        req.on('end',()=>{
+          if (!prior) records.set(uploadId,{mode,status:'processing',files:JSON.parse(body).files.map(file=>({...file,received:false})),writes:{},attempts:{},delivery:'queued'});
+          json(status(records.get(uploadId)));
+        }); return;
       }
-      const record = { mode, attempts: (prior?.attempts || 0) + 1, writes: 1, status: 'processing', completedFiles: 0 };
-      records.set(id, record);
+      if (!prior) {json({success:false},404);return;}
+      if (req.method === 'GET') {json(status(prior));return;}
       req.resume();
-      req.on('end', () => {
-        const result = { success: true, data: {requestId:'saved-request'} };
-        if (mode === 'drop') {
-          record.status = 'succeeded'; record.result = result;
-          res.destroy();
-        } else if (mode === 'retry' && record.attempts === 1) {
-          record.status = 'failed'; json({success:false,message:'Controlled Drive failure'},500);
-        } else {
-          record.completedFiles = 1;
-          setTimeout(() => { record.status = 'succeeded'; record.completedFiles = 2; record.result = result; }, 1800);
-          setTimeout(() => json(result), 2800);
+      req.on('end',()=>{
+        if (action === 'files') {
+          prior.attempts[fileId] = (prior.attempts[fileId]||0)+1;
+          const index = prior.files.findIndex(file=>file.id===fileId);
+          if (mode === 'retry' && index === 1 && prior.attempts[fileId] === 1) {json({success:false,message:'Controlled connection failure'},500);return;}
+          if (!prior.files[index].received) {prior.files[index].received=true;prior.writes[fileId]=(prior.writes[fileId]||0)+1;}
+          if (mode === 'drop' && index === 0) {res.destroy();return;}
+          setTimeout(()=>json(status(prior)),150);return;
         }
-      });
-      return;
+        if (action === 'complete') {
+          assert.ok(prior.files.every(file=>file.received));
+          prior.status='succeeded';prior.result={success:true,data:{requestId:'received-request'}};
+          json(prior.result);return;
+        }
+        json({success:false},404);
+      });return;
     }
-    if (url.pathname.startsWith('/progress/')) {
-      const record = records.get(url.pathname.split('/').at(-1));
-      if (!record) { json({success:false},404); return; }
-      json({success:true,data:{status:record.status,phase:'saving_files',completedFiles:record.completedFiles,totalFiles:2,result:record.result}});
-      return;
-    }
-    res.setHeader('content-type', 'text/html');
-    res.end('<!doctype html><meta name="viewport" content="width=device-width"><div id="root"></div><script src="/app.js"></script>');
+    res.setHeader('content-type','text/html');
+    res.end('<!doctype html><meta name="viewport" content="width=device-width"><link rel="stylesheet" href="/app.css"><div id="root"></div><script src="/app.js"></script>');
   });
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: {width:390,height:844} });
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const browser = await chromium.launch({headless:true});
+  const page = await browser.newPage({viewport:{width:390,height:844}});
   const errors = [];
-  page.on('pageerror', error => errors.push(error.message));
+  page.on('pageerror',error=>errors.push(error.message));
   try {
-    const origin = `http://127.0.0.1:${server.address().port}`;
-    await page.goto(origin);
+    await page.goto('http://127.0.0.1:'+server.address().port);
+    for (const viewport of [{width:1366,height:900},{width:390,height:844},{width:360,height:640},{width:844,height:390}]) {
+      await page.setViewportSize(viewport);
+      await page.getByRole('button',{name:'Open upload modal',exact:true}).click();
+      const dialog = page.getByRole('dialog',{name:'Upload Data'});
+      await dialog.waitFor();
+      const bounds = await dialog.boundingBox();
+      assert.ok(bounds.y >= -1 && bounds.y+bounds.height <= viewport.height+1,JSON.stringify({viewport,bounds}));
+      assert.ok(bounds.x >= -1 && bounds.x+bounds.width <= viewport.width+1);
+      await page.locator('input[type=file]').setInputFiles([{name:'check.txt',mimeType:'text/plain',buffer:Buffer.from('test')}]);
+      await page.getByRole('button',{name:'Proceed to Confirmation'}).click();
+      await page.getByRole('button',{name:'Confirm and Submit'}).scrollIntoViewIfNeeded();
+      assert.ok(await page.getByRole('button',{name:'Confirm and Submit'}).isVisible());
+      await page.getByRole('button',{name:'Close',exact:true}).click();
+    }
+    console.log('PASS: actual upload modal, actual CSS and transformed tall-page ancestor fit desktop, phone and landscape; confirmation accessible');
+    await page.setViewportSize({width:390,height:844});
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Network.enable');
+    await cdp.send('Network.emulateNetworkConditions',{offline:false,latency:20,downloadThroughput:1024*1024,uploadThroughput:64*1024});
     await page.getByRole('button',{name:'success',exact:true}).click();
-    await page.waitForFunction(() => window.uploadTask?.percent === 100);
+    await page.waitForFunction(()=>window.samples.some(t=>t.status==='transferring'&&t.currentPercent>0&&t.currentPercent<100));
+    const activeBounds = await page.getByRole('region',{name:'Upload progress'}).boundingBox();
+    assert.ok(activeBounds.y>=0 && activeBounds.y+activeBounds.height<=844);
     await page.getByRole('button',{name:'Minimize',exact:true}).click();
     await page.getByRole('button',{name:'Navigate',exact:true}).click();
-    await page.getByRole('heading',{name:'other page'}).waitFor();
     await page.getByRole('button',{name:'Expand',exact:true}).click();
-    await page.waitForFunction(() => window.uploadTask?.completedFiles === 1);
-    assert.equal(await page.locator('progress[value="100"]').count(),0,'No transfer progress shown as Drive completion');
-    await page.waitForFunction(() => window.uploadTask?.status === 'complete');
-    assert.equal(await page.evaluate(() => window.completions||0),0,'Do not run the old page callback after navigation');
-    console.log('PASS: byte progress, real save count, minimize, navigation and single completion');
+    await page.waitForFunction(()=>window.uploadTask?.status==='complete');
+    const samples = await page.evaluate(()=>window.samples);
+    assert.ok(samples.some(t=>t.currentFile===1)&&samples.some(t=>t.currentFile===2));
+    assert.ok(samples.some(t=>t.completedFiles===1&&t.percent===66),'Total must be weighted by bytes');
+    assert.ok(samples.every(t=>t.percent>=0&&t.percent<=100));
+    assert.equal(await page.evaluate(()=>window.completions||0),0,'No stale page callback');
+    const successId = await page.evaluate(()=>window.uploadTask.id);
+    assert.equal(records.get(successId).delivery,'queued','Finish must not wait for Drive');
+    console.log('PASS: real throttled XHR file percentages, sequential 1/2 to 2/2, weighted total, minimize/navigation and finish before Drive');
+    await cdp.send('Network.emulateNetworkConditions',{offline:false,latency:0,downloadThroughput:-1,uploadThroughput:-1});
     await page.getByRole('button',{name:'Dismiss',exact:true}).click();
-
     await page.getByRole('button',{name:'drop',exact:true}).click();
-    await page.waitForFunction(() => window.uploadTask?.status === 'complete');
-    const dropId = await page.evaluate(() => window.uploadTask.id);
-    assert.equal(records.get(dropId).writes,1);
-    console.log('PASS: lost response keeps one saved submission, including browser transport retries');
+    await page.waitForFunction(()=>window.uploadTask?.status==='complete');
+    const dropId=await page.evaluate(()=>window.uploadTask.id);
+    assert.ok(Object.values(records.get(dropId).writes).every(count=>count===1));
+    console.log('PASS: lost file acknowledgement recovers through status without duplicate writes');
     await page.getByRole('button',{name:'Dismiss',exact:true}).click();
-
     await page.getByRole('button',{name:'retry',exact:true}).click();
-    await page.waitForFunction(() => window.uploadTask?.status === 'failed');
-    const retryId = await page.evaluate(() => window.uploadTask.id);
+    await page.waitForFunction(()=>window.uploadTask?.status==='failed');
+    const retryId=await page.evaluate(()=>window.uploadTask.id);
     await page.getByRole('button',{name:'Retry same upload',exact:true}).click();
-    await page.waitForFunction(() => window.uploadTask?.status === 'complete');
-    assert.equal(await page.evaluate(() => window.uploadTask.id),retryId);
-    assert.equal(records.get(retryId).attempts,2);
-    console.log('PASS: explicit retry retains submission identity and file payload');
+    await page.waitForFunction(()=>window.uploadTask?.status==='complete');
+    const record=records.get(retryId);
+    assert.equal(await page.evaluate(()=>window.uploadTask.id),retryId);
+    assert.equal(record.attempts[record.files[0].id],1);
+    assert.equal(record.attempts[record.files[1].id],2);
+    console.log('PASS: explicit retry keeps identity and sends only the missing file');
     await page.getByRole('button',{name:'Dismiss',exact:true}).click();
-
     await page.getByRole('button',{name:'owner',exact:true}).click();
-    await page.evaluate(() => window.switchOwner());
+    await page.evaluate(()=>window.switchOwner());
     await page.getByRole('region',{name:'Upload progress'}).waitFor({state:'hidden'});
-    await page.waitForFunction(() => window.uploadTask?.status === 'complete');
-    assert.equal(await page.evaluate(() => window.completions),2,'Previous account callback must not run after account changes');
-    console.log('PASS: account switch hides previous upload and suppresses its callback');
+    await page.waitForFunction(()=>window.uploadTask?.status==='complete');
+    assert.equal(await page.evaluate(()=>window.completions),2);
     assert.deepEqual(errors,[]);
+    console.log('PASS: account switch hides previous upload and suppresses its completion callback; no browser errors');
   } finally {
-    await browser.close();
-    server.closeAllConnections();
-    await new Promise(resolve => server.close(resolve));
+    await browser.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
   }
-})().catch(error => { console.error(error); process.exitCode=1; });
+})().catch(error=>{console.error(error);process.exitCode=1;});
