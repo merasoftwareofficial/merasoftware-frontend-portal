@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 import { emailApi, registerEmailReview } from '../helpers/emailReview';
-import EmailTextEditor, { EmailPreview } from './EmailTextEditor';
+import EmailEditor, { docHasContent, EmailPreview, plainDoc } from './EmailEditor';
 
 const optionLabel = option => (option.system && option.id ? `${option.name} (built-in)` : option.name);
 
 export default function EmailReviewDialog() {
   const [draft, setDraft] = useState(null);
   const [subject, setSubject] = useState('');
-  const [text, setText] = useState('');
+  const [reviewDoc, setReviewDoc] = useState(undefined);
   const [templateId, setTemplateId] = useState('current');
   const [html, setHtml] = useState('');
   const [busy, setBusy] = useState(false);
@@ -19,7 +19,7 @@ export default function EmailReviewDialog() {
   useEffect(() => {
     const unregister = registerEmailReview(value => new Promise(resolve => {
       resolver.current = resolve;
-      setSubject(value.subject); setText(value.text); setTemplateId('current'); setHtml(value.html || ''); setPreviewError(''); setDraft(value);
+      setSubject(value.subject); setReviewDoc(value.doc ?? plainDoc(value.text)); setTemplateId('current'); setHtml(value.html || ''); setPreviewError(''); setDraft(value);
     }));
     const error = event => toast.error(`Action saved. Email was not confirmed as sent: ${event.detail}. Open Email Control to review.`);
     const result = event => { if (event.detail === 'sent') toast.success('Email sent'); };
@@ -39,16 +39,16 @@ export default function EmailReviewDialog() {
     finally { setBusy(false); }
   };
   const chooseTemplate = async id => {
-    if (id === 'current') { setSubject(draft.subject); setText(draft.text); setTemplateId(id); setHtml(draft.html || ''); return; }
+    if (id === 'current') { setSubject(draft.subject); setReviewDoc(draft.doc ?? plainDoc(draft.text)); setTemplateId(id); setHtml(draft.html || ''); return; }
     const value = await preview({ templateId: id });
-    if (value) { setSubject(value.subject); setText(value.text); setTemplateId(id); setHtml(value.html); }
+    if (value) { setSubject(value.subject); setReviewDoc(value.doc ?? plainDoc(value.text)); setTemplateId(id); setHtml(value.html); }
   };
   const updatePreview = async () => {
-    const value = await preview({ subject, text });
+    const value = await preview({ subject, doc: reviewDoc });
     if (value) setHtml(value.html);
   };
   const finish = choice => {
-    resolver.current?.({ choice, subject, text, ...(options.length ? { templateId } : {}) }); resolver.current = null;
+    resolver.current?.({ choice, subject, doc: reviewDoc, ...(options.length ? { templateId } : {}) }); resolver.current = null;
     dialogRef.current?.close(); setDraft(null);
   };
   if (!draft) return null;
@@ -67,14 +67,14 @@ export default function EmailReviewDialog() {
       </>}
       <label htmlFor="email-review-subject" className="mt-4 block">Subject</label>
       <input id="email-review-subject" autoFocus maxLength={300} disabled={busy} className="mt-1 w-full rounded border p-2" value={subject} onChange={e => setSubject(e.target.value)} />
-      <EmailTextEditor id="email-review-message" label="Message" value={text} onChange={setText} disabled={busy} />
-      {draft._id && <button type="button" disabled={busy || !subject.trim() || !text.trim()} className="mt-2 rounded border px-3 py-1 text-sm disabled:opacity-40" onClick={() => void updatePreview()}>Update preview</button>}
+      <EmailEditor id="email-review-message" label="Message" value={reviewDoc} onChange={setReviewDoc} disabled={busy} variables={draft.editorFields?.variables} blocks={draft.editorFields?.blocks} />
+      {draft._id && <button type="button" disabled={busy || !subject.trim() || !docHasContent(reviewDoc)} className="mt-2 rounded border px-3 py-1 text-sm disabled:opacity-40" onClick={() => void updatePreview()}>Update preview</button>}
       {html && <EmailPreview html={html} />}
       {previewError && <p role="alert" className="mt-2 text-sm text-red-700">{previewError}</p>}
       <p className="my-3 text-xs text-slate-500">Edits apply to this email only. Change reusable templates in Email Control.</p>
       <div className="flex justify-end gap-3">
         <button type="button" disabled={busy} className="rounded border px-4 py-2 disabled:opacity-40" onClick={() => finish('skip')}>Don’t Send Mail</button>
-        <button type="button" disabled={busy || !subject.trim() || !text.trim()} className="rounded bg-emerald-700 px-4 py-2 text-white disabled:opacity-40" onClick={() => finish('send')}>Send Mail</button>
+        <button type="button" disabled={busy || !subject.trim() || !docHasContent(reviewDoc)} className="rounded bg-emerald-700 px-4 py-2 text-white disabled:opacity-40" onClick={() => finish('send')}>Send Mail</button>
       </div>
     </dialog>, document.body,
   );

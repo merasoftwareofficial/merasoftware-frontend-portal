@@ -15,10 +15,14 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
         const json = data => new Response(JSON.stringify({ success: true, ...data }), { headers: { 'content-type': 'application/json' } });
         if (String(url).endsWith('/api/action')) return json({ emailStatus: 'awaiting-review', emailDraftIds: ['draft1'] });
         if (String(url).endsWith('/api/admin-action')) return json({ emailStatus: 'awaiting-review', emailDraftIds: ['draft2'] });
-        if (String(url).endsWith('/drafts/draft2')) return json({ data: { _id: 'draft2', to: ['client@example.test'], subject: 'Project Cancelled', text: 'Hello Ravi', html: '<p>prepared mail</p>', templateOptions: [{ id: 'sys1', name: 'Standard', system: true }, { id: 'short1', name: 'Short', system: false }] } });
+        const paragraph = (...content) => ({ type: 'doc', content: [{ type: 'paragraph', content }] });
+        if (String(url).endsWith('/drafts/draft2')) return json({ data: { _id: 'draft2', to: ['client@example.test'], subject: 'Project Cancelled', text: 'Hello Ravi', html: '<p>prepared mail</p>',
+          doc: paragraph({ type: 'text', text: 'Hello ' }, { type: 'emailVariable', attrs: { key: 'name' } }),
+          editorFields: { variables: [{ key: 'name', label: 'Customer name', hint: 'The customer’s name' }], blocks: [] },
+          templateOptions: [{ id: 'sys1', name: 'Standard', system: true }, { id: 'short1', name: 'Short', system: false }] } });
         if (String(url).endsWith('/drafts/draft2/preview')) {
           const body = JSON.parse(options.body);
-          return json({ data: body.templateId ? { subject: 'Short subject', text: 'Short text', html: '<p>short mail</p>' } : { html: '<p>edited: ' + body.text + '</p>' } });
+          return json({ data: body.templateId ? { subject: 'Short subject', text: 'Short text', doc: paragraph({ type: 'text', text: 'Short text' }), html: '<p>short mail</p>' } : { html: '<p>edited preview</p>' } });
         }
         if (String(url).endsWith('/drafts/draft1')) return new Response(JSON.stringify({ success: true, data: { _id: 'draft1', to: ['client@example.test'], subject: 'Action invoice', text: 'Invoice message', attachments: [{ filename: 'invoice.pdf' }] } }), { headers: { 'content-type': 'application/json' } });
         return new Response(JSON.stringify({ success: true, data: { status: 'sent' } }), { headers: { 'content-type': 'application/json' } });
@@ -53,7 +57,9 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     await page.getByLabel('Message', { exact: true }).fill('Edited message');
     await page.getByRole('button', { name: 'Send Mail', exact: true }).click();
     await page.waitForFunction(() => window.emailDecision);
-    assert.deepEqual(await page.evaluate(() => window.emailDecision), { choice: 'send', subject: 'Edited welcome', text: 'Edited message' });
+    const leadDecision = await page.evaluate(() => window.emailDecision);
+    assert.equal(leadDecision.choice, 'send'); assert.equal(leadDecision.subject, 'Edited welcome'); assert.equal(leadDecision.text, undefined);
+    assert.deepEqual(leadDecision.doc, { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Edited message' }] }] });
     assert.equal(await page.evaluate(() => window.emailCalls.length), 0, 'Preview never sends');
     await page.evaluate(() => { window.emailDecision = null; window.askEmail(); });
     await page.getByRole('button', { name: 'Don’t Send Mail' }).click();
@@ -78,24 +84,33 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     await page.getByRole('dialog').waitFor();
     const srcdoc = () => page.locator('iframe[title="Email preview"]').getAttribute('srcdoc');
     assert.match(await srcdoc(), /prepared mail/);
+    const message = page.getByLabel('Message', { exact: true });
+    // A detail shows as a named chip; no {{ }} is visible.
+    assert.equal(await message.locator('[data-email-variable="name"]').innerText(), 'Customer name');
+    assert.doesNotMatch(await message.innerText(), /\{\{/);
     assert.deepEqual(await page.getByLabel('Template', { exact: true }).locator('option').allTextContents(), ['Current draft', 'Standard (built-in)', 'Short']);
     await page.getByLabel('Template', { exact: true }).selectOption('short1');
     await page.waitForFunction(() => document.getElementById('email-review-subject').value === 'Short subject');
-    assert.equal(await page.getByLabel('Message', { exact: true }).inputValue(), 'Short text');
+    await page.waitForFunction(() => document.getElementById('email-review-message').innerText.trim() === 'Short text');
     assert.match(await srcdoc(), /short mail/);
-    const message = page.getByLabel('Message', { exact: true });
-    await message.evaluate(element => element.setSelectionRange(0, 5));
+    await message.click(); await page.keyboard.press('Control+A');
     await page.getByRole('button', { name: 'B Bold', exact: true }).click();
-    assert.equal(await message.inputValue(), '**Short** text');
-    await page.getByRole('button', { name: 'List', exact: true }).click();
-    assert.equal(await message.inputValue(), '- **Short** text');
+    await page.getByRole('button', { name: '• List', exact: true }).click();
+    assert.equal(await message.locator('ul li strong').innerText(), 'Short text');
+    await page.keyboard.press('End'); await page.keyboard.type(' for ');
+    await page.getByLabel('Insert detail into Message').selectOption({ label: 'Customer name' });
     await page.getByRole('button', { name: 'Update preview', exact: true }).click();
-    await page.waitForFunction(() => /edited: - \*\*Short\*\* text/.test(document.querySelector('iframe[title="Email preview"]').getAttribute('srcdoc')));
+    await page.waitForFunction(() => /edited preview/.test(document.querySelector('iframe[title="Email preview"]').getAttribute('srcdoc')));
     await page.getByRole('button', { name: 'Send Mail', exact: true }).click();
     await page.waitForFunction(() => window.adminActionFinished);
     const adminDecision = await page.evaluate(() => JSON.parse(window.emailCalls.filter(call => call.url.endsWith('/drafts/draft2/decision'))[0].options.body));
-    assert.deepEqual(adminDecision, { choice: 'send', subject: 'Short subject', text: '- **Short** text', templateId: 'short1' });
+    assert.equal(adminDecision.subject, 'Short subject'); assert.equal(adminDecision.templateId, 'short1'); assert.equal(adminDecision.text, undefined);
+    const item = adminDecision.doc.content[0];
+    assert.equal(item.type, 'bulletList');
+    const nodes = item.content[0].content[0].content;
+    assert.deepEqual(nodes[0], { type: 'text', text: 'Short text for ', marks: [{ type: 'bold' }] });
+    assert.equal(nodes[1].type, 'emailVariable'); assert.equal(nodes[1].attrs.key, 'name'); assert.equal(nodes.length, 2);
     assert.deepEqual(errors, []);
-    console.log('PASS: edited preview, Send, Don’t Send, Escape, attachment preview, shared action interception, admin template choice, formatting and live preview.');
+    console.log('PASS: visual editor (chips, Bold, List, Insert detail), Send, Don’t Send, Escape, attachment preview, shared action interception, admin template choice and live preview.');
   } finally { await browser?.close(); await new Promise(resolve => app.close(resolve)); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
