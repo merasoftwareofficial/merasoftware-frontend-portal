@@ -1,3 +1,4 @@
+import { buildInstallmentPreview } from '../helpers/projectInstallments';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -4142,22 +4143,14 @@ const getPhaseLabel = (phase) => PROJECT_PHASES[phase] || phase || "N/A";
 
 const FEATURE_UPGRADE_CATEGORY = "feature_upgrades";
 
-const buildInstallmentPreview = (totalAmount, installmentCount) => {
-  const count = Number(installmentCount) === 3 ? 3 : 2;
-  const splits = count === 3 ? [30, 30, 40] : [50, 50];
-  return splits.map((percentage, index) => ({
-    installmentNumber: index + 1,
-    percentage,
-    amount: Math.round((totalAmount * percentage) / 100),
-  }));
-};
-
 const projectFormInputClassName =
   "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-black outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100";
 const projectFormLabelClassName = "mb-1.5 block text-base font-semibold text-slate-700";
 
 const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreated }) => {
   const [step, setStep] = useState(1);
+  const creationKey = useRef(null);
+  if (!creationKey.current) creationKey.current = crypto.randomUUID();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [startingNodeTitle, setStartingNodeTitle] = useState("");
@@ -4172,6 +4165,11 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
 
   // Optional website offer this project is sold under (published + not expired only).
   const [offerSlug, setOfferSlug] = useState("");
+  const [packageId, setPackageId] = useState("");
+  const [packages, setPackages] = useState([]);
+  const [catalogueReload, setCatalogueReload] = useState(0);
+  const [adminDiscount, setAdminDiscount] = useState("");
+  const [discountReason, setDiscountReason] = useState("");
   const [offers, setOffers] = useState([]);
   const [offersLoading, setOffersLoading] = useState(true);
   const [offersError, setOffersError] = useState("");
@@ -4210,26 +4208,24 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
   }, []);
 
   useEffect(() => {
+    const controller = new AbortController();
     const fetchOffers = async () => {
-      setOffersLoading(true);
-      setOffersError("");
+      setOffersLoading(true); setOffersError("");
       try {
-        const response = await fetch(SummaryApi.adminWebsiteOffers.url, {
-          method: SummaryApi.adminWebsiteOffers.method.toUpperCase(),
-          credentials: "include",
-        });
+        const response = await fetch(SummaryApi.adminSalesPackages.url, { credentials: "include", cache: "no-store", signal: controller.signal });
         const result = await response.json();
-        if (!result.success) throw new Error(result.message || "Offers could not be loaded");
-        setOffers(result.data || []);
-      } catch (fetchError) {
-        console.error("Error fetching website offers:", fetchError);
-        setOffersError(fetchError.message || "Offers could not be loaded");
-      } finally {
-        setOffersLoading(false);
-      }
+        if (!response.ok || !result.success) throw new Error(result.message || "Packages could not be loaded");
+        setOffers(result.data.offers || []);
+        setPackages((result.data.packages || []).filter(item => item.status === "published"));
+      } catch (error) { if (error.name !== "AbortError") setOffersError(error.message || "Packages could not be loaded"); }
+      finally { if (!controller.signal.aborted) setOffersLoading(false); }
     };
     fetchOffers();
-  }, []);
+    return () => controller.abort();
+  }, [catalogueReload]);
+  useEffect(() => {
+    setPackageId(""); setOfferSlug(""); setSellingPrice(""); setSelectedFeatureIds([]); setAdminDiscount(""); setDiscountReason("");
+  }, [category]);
 
   useEffect(() => {
     if (!category) {
@@ -4305,9 +4301,24 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
     .filter(Boolean);
   const featuresTotal = selectedFeatures.reduce((sum, feature) => {
     const quantity = feature.isQuantityBased ? (featureQuantities[feature._id] || 1) : 1;
-    return sum + (Number(feature.sellingPrice) || 0) * quantity;
+    return sum + (Number(feature.sellingPrice ?? feature.price ?? 0) || 0) * quantity;
   }, 0);
-  const referenceTotal = Number(basePrice) + featuresTotal;
+  const selectedPackage = packages.find(item => item.id === packageId && item.category === category);
+  const eligibleOffers = offers.filter(item => item.status === "published" && Date.parse(item.endsAt) > Date.now() && item.applicableCategories?.includes(category) && !item.packageIds?.length);
+  const selectedOffer = selectedPackage?.quote.offer || eligibleOffers.find(item => item.slug === offerSlug);
+  const isPricedSelection = Boolean(selectedPackage || selectedOffer);
+  const selectedRegular = selectedPackage?.regularPrice ?? selectedOffer?.mainPrice ?? Number(basePrice);
+  const referenceTotal = selectedRegular + featuresTotal;
+  let bundlePrice = selectedPackage?.quote.finalPrice;
+  if (!selectedPackage && selectedOffer) {
+    bundlePrice = selectedOffer.pricingRule === "fixed_price" ? selectedOffer.offerPrice
+      : selectedOffer.pricingRule === "percentage" ? selectedOffer.mainPrice * (1 - Number(selectedOffer.benefitValue) / 100)
+      : selectedOffer.mainPrice - Number(selectedOffer.benefitValue);
+  }
+  const calculatedPrice = Math.round(((bundlePrice ?? 0) + featuresTotal - Number(adminDiscount || 0)) * 100) / 100;
+  useEffect(() => {
+    if (isPricedSelection) setSellingPrice(String(calculatedPrice));
+  }, [isPricedSelection, calculatedPrice]);
 
   const hasSellingPrice = sellingPrice !== "" && Number(sellingPrice) >= 0;
   // ₹0 is a FREE project (100% discount): nothing to collect, so there is no payment step,
@@ -4322,6 +4333,12 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
     if (!category || !hasSellingPrice) {
       toast.error("Category and selling price are required.");
       return false;
+    }
+    if ((packageId || offerSlug) && (offersLoading || offersError || !isPricedSelection)) {
+      toast.error("Refresh packages and select an available package or offer."); return false;
+    }
+    if (isPricedSelection && Number(adminDiscount || 0) > 0 && !discountReason.trim()) {
+      toast.error("Explain the additional admin discount."); return false;
     }
     return true;
   };
@@ -4344,6 +4361,7 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
     const payment = toPaymentRequest(paymentEntry);
 
     const formData = {
+      creationKey: creationKey.current,
       projectName: projectName.trim() || null,
       startingNodeTitle: startingNodeTitle.trim() || null,
       category,
@@ -4352,7 +4370,12 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
       featureQuantities,
       paymentType: isFree ? "full" : paymentType,
       installmentCount: !isFree && paymentType === "partial" ? installmentCount : null,
-      offerSlug: offerSlug || null,
+      packageId: selectedPackage?.id || null,
+      packageQuoteKey: selectedPackage?.quoteKey || null,
+      offerSlug: selectedOffer?.slug || null,
+      offerQuoteKey: !selectedPackage ? selectedOffer?.quoteKey : null,
+      adminDiscount: isPricedSelection ? Number(adminDiscount || 0) : 0,
+      discountReason: isPricedSelection ? discountReason.trim() : "",
       recordPayment: recordsPayment
         ? {
             paymentMethod: payment.paymentMethod,
@@ -4589,6 +4612,8 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
             min={0}
             className={projectFormInputClassName}
             value={sellingPrice}
+            readOnly={isPricedSelection}
+            step="0.01"
             onChange={(event) => setSellingPrice(event.target.value)}
             placeholder="e.g. 12000"
           />
@@ -4606,36 +4631,23 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
         </div>
         </div>
 
-        <div className="md:col-span-2">
-          <label className={projectFormLabelClassName}>
-            Offer <span className="font-normal normal-case tracking-normal text-slate-400">(optional)</span>
-          </label>
-          <select
-            className={projectFormInputClassName}
-            value={offerSlug}
-            onChange={(event) => setOfferSlug(event.target.value)}
-            disabled={offersLoading || Boolean(offersError)}
-          >
-            <option value="">
-              {offersLoading
-                ? "Loading website offers…"
-                : offers.length === 0 && !offersError
-                ? "No live offers on the website"
-                : "No offer"}
-            </option>
-            {offers.map((offer) => (
-              <option key={offer.slug} value={offer.slug}>{offer.title}</option>
-            ))}
+        <div className="md:col-span-2 space-y-4">
+          <label className={projectFormLabelClassName}>Showcase package (optional)</label>
+          <select aria-label="Showcase package" className={projectFormInputClassName} value={packageId} disabled={!category || offersLoading || Boolean(offersError)} onChange={event => { setPackageId(event.target.value); setOfferSlug(""); setSellingPrice(""); setSelectedFeatureIds([]); setAdminDiscount(""); setDiscountReason(""); }}>
+            <option value="">{offersLoading ? "Loading packages…" : "Custom project — no package"}</option>
+            {packages.filter(item => item.category === category).map(item => <option key={item.id} value={item.id}>{item.name} — ₹{item.quote.finalPrice.toLocaleString("en-IN")}</option>)}
           </select>
-          {offersError ? (
-            <p className="mt-1.5 text-xs text-red-500">{offersError} — the project can still be created without an offer.</p>
-          ) : null}
+          {!selectedPackage && <><label className={projectFormLabelClassName}>Category offer (optional)</label><select aria-label="Category offer" className={projectFormInputClassName} value={offerSlug} disabled={!category || offersLoading || Boolean(offersError)} onChange={event => { setOfferSlug(event.target.value); setSellingPrice(""); }}><option value="">No offer — manual custom price</option>{eligibleOffers.map(item => <option key={item.slug} value={item.slug}>{item.title}</option>)}</select></>}
+          {isPricedSelection && <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-base text-slate-700"><strong>{selectedPackage?.name || selectedOffer?.title}</strong><p>{selectedOffer ? `Offer: ${selectedOffer.title}` : "Regular package price"}</p><ul className="mt-2 list-disc pl-5">{(selectedPackage?.inclusions || selectedOffer?.inclusions || []).map((line, index) => <li key={index}>{line}</li>)}</ul><p className="mt-3">Regular ₹{selectedRegular.toLocaleString("en-IN")} − offer benefit ₹{Math.round((selectedRegular - bundlePrice) * 100) / 100} + extra features ₹{featuresTotal.toLocaleString("en-IN")}</p><p className="mt-1">Select additional features only for work outside the package scope.</p>{selectedPackage?.linkedPlanIds?.length > 0 && <p>Related services are references only; no service plan will be purchased or activated.</p>}<details className="mt-2"><summary>Agreed terms</summary><ul className="list-disc pl-5">{(selectedPackage?.quote.terms || selectedOffer?.resolvedTerms || []).map((line, index) => <li key={index}>{line}</li>)}</ul></details></div>}
+          {isPricedSelection && <div className="grid gap-3 sm:grid-cols-2"><label>Additional admin discount (₹)<input aria-label="Additional admin discount" className={projectFormInputClassName} type="number" min={0} max={(bundlePrice || 0) + featuresTotal} step="0.01" value={adminDiscount} onChange={event => setAdminDiscount(event.target.value)} /></label><label>Discount reason<input aria-label="Discount reason" className={projectFormInputClassName} maxLength={500} value={discountReason} onChange={event => setDiscountReason(event.target.value)} /></label></div>}
+          {offersError && <p role="alert" className="text-base text-red-600">{offersError}. A custom project without a package or offer can still be created.</p>}
+          <button type="button" className="text-base font-semibold text-emerald-700 underline" disabled={offersLoading} onClick={() => setCatalogueReload(value => value + 1)}>Refresh packages and offers</button>
         </div>
       </div>
 
       <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
         <p className="text-sm font-semibold text-slate-600">
-          Reference Total: Category Price (₹{Number(basePrice).toLocaleString("en-IN")}) + Features (₹{featuresTotal.toLocaleString("en-IN")}) = ₹{referenceTotal.toLocaleString("en-IN")}
+          Reference Total: Scope Price (₹{Number(selectedRegular).toLocaleString("en-IN")}) + Features (₹{featuresTotal.toLocaleString("en-IN")}) = ₹{referenceTotal.toLocaleString("en-IN")}
         </p>
       </div>
 
@@ -4788,7 +4800,7 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
           </div>
         ) : (
           <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            The project will be created and started immediately, but its invoice stays unpaid until the client (or admin) records the payment later.
+            The project will be prepared with an unpaid bill. It becomes approved when payment is recorded.
           </p>
         )}
       </div>

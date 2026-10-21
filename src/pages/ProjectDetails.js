@@ -1,3 +1,4 @@
+import ProjectAgreement from '../components/ProjectAgreement';
 import React, { useState, useEffect, useRef, useCallback, useContext, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -922,6 +923,7 @@ const ProjectDetails = ({ isAdminView = false }) => {
               UPI payment. The two states were swapped in exactly the case that matters. */}
           {/* A cancelled project outranks every payment banner below: the money is already
               settled, so "payment pending" / "awaiting approval" no longer mean anything. */}
+          <ProjectAgreement order={order} />
           {isOrderCancelled && (
             <div className={g(
               'mb-6 rounded-2xl border border-[var(--glass-border)] bg-slate-100 p-4', 'mb-6 rounded-2xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] p-4 backdrop-blur-md')}>

@@ -1,3 +1,4 @@
+import ProjectAgreement from '../components/ProjectAgreement';
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, Sparkles, Share2 } from 'lucide-react';
@@ -320,6 +321,7 @@ const InvoiceDetailPage = () => {
               )}
             </div>
 
+            <ProjectAgreement order={invoice.orderId} compact />
             <div className="relative mt-5">
               {/* Only a statement is a document to keep: the project_final invoice already states
                   the whole project — its total, every installment and what is paid — so a paid

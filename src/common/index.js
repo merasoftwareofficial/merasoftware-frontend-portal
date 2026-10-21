@@ -681,6 +681,7 @@ const SummaryApi = {
         method: "post"
     },
     // Live (published, not expired) website offers for the Create Project form's Offer dropdown.
+    adminSalesPackages: { url: `${backendDomain}/api/admin/sales-packages`, method: "get" },
     adminWebsiteOffers: {
         url: `${backendDomain}/api/admin/website-offers`,
         method: "get"

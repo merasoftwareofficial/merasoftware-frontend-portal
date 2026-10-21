@@ -1,3 +1,4 @@
+import { buildInstallmentPreview } from '../helpers/projectInstallments';
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -50,8 +51,6 @@ const INSTALLMENT_OPTIONS = [
   { value: 2, label: '2 installments (50% / 50%)', splits: [50, 50] },
   { value: 3, label: '3 installments (30% / 30% / 40%)', splits: [30, 30, 40] },
 ];
-const splitsFor = (count) =>
-  INSTALLMENT_OPTIONS.find((o) => o.value === count)?.splits || [50, 50];
 
 // Every capability is an ordinary optional feature: the customer picks it or not. A feature
 // the admin marked quantity-based gets a +/- counter and is charged sellingPrice x quantity;
@@ -425,11 +424,7 @@ const StartNewWebsiteCustomize = () => {
   // and the real installment amounts on create (see the amber "estimate" disclaimer).
   const installmentBreakdown = useMemo(() => {
     if (paymentOption !== 'partial') return [];
-    return splitsFor(installmentCount).map((percentage, index) => ({
-      installmentNumber: index + 1,
-      percentage,
-      amount: Math.round((estimateTotal * percentage) / 100),
-    }));
+    return buildInstallmentPreview(estimateTotal, installmentCount);
   }, [paymentOption, installmentCount, estimateTotal]);
 
   // Feature IDs the customer actually chose — nothing is added on their behalf.
@@ -505,7 +500,7 @@ const StartNewWebsiteCustomize = () => {
   const amountDueNow = createdOrder
     ? createdOrder.firstInstallmentAmount || createdOrder.finalPrice
     : paymentOption === 'partial'
-    ? Math.round((estimateTotal * splitsFor(installmentCount)[0]) / 100)
+    ? buildInstallmentPreview(estimateTotal, installmentCount)[0].amount
     : estimateTotal;
 
   // Wallet / UPI split for the amount due now. The wallet is the customer's own money, so it
