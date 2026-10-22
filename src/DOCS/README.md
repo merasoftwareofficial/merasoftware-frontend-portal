@@ -29,4 +29,4 @@ Two files:
 
 ## History
 
-63 session-log documents were consolidated into `CODEBASE_MAP.md` on 2026-08-25: reading 63 files to find one answer was error-prone, and many had been silently superseded by later docs or by code changes never written back. The originals are backed up at `frontend/src/DOCS_backup_before_consolidation_work1/` — history only, never current truth.
+63 session-log documents were consolidated into `CODEBASE_MAP.md` on 2026-08-25: reading 63 files to find one answer was error-prone, and many had been silently superseded by later docs or by code changes never written back. The originals (once in `frontend/src/DOCS_backup_before_consolidation_work1/`, no longer on disk) survive only in Git history — never current truth. Backups now go in `E:\Allprojects\backup\<repo>\workN\`, never inside a repo (owner decision, 22 Oct 2026).
