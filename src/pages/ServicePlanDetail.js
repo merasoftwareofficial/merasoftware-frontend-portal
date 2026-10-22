@@ -10,6 +10,7 @@ import SummaryApi from '../common';
 import { BILLING_CYCLE_MONTHS, buildTenureOptions } from '../helpers/serviceTenure';
 import Context from '../context';
 import GlassPageState from '../components/GlassPageState';
+import ServiceOfferSelector from '../components/ServiceOfferSelector';
 
 const PLAN_TYPE_LABELS = {
   website_updates: 'Website Update',
@@ -116,6 +117,8 @@ const ServicePlanDetail = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [selectedBillingCycle, setSelectedBillingCycle] = useState('');
   const [tenureMonths, setTenureMonths] = useState('');
+  const [paymentOffer, setPaymentOffer] = useState(null);
+  const [purchaseKey] = useState(() => crypto.randomUUID());
 
   useEffect(() => {
     const fetchPlan = async () => {
@@ -154,6 +157,10 @@ const ServicePlanDetail = () => {
         // This page is the standalone purchase surface. Buying a service FOR a
         // project happens in AddServiceModal, opened from the project itself.
         planId: plan._id,
+        offerSlug: paymentOffer?.slug,
+        purchaseKey,
+        offerQuoteKey: paymentOffer?.quoteKey,
+        deferPayment: ['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode),
         selectedBillingCycle: plan?.servicePlan?.billingOptions?.length ? selectedBillingCycle : undefined,
         tenureMonths: tenureMonths === '' ? undefined : Number(tenureMonths),
         paymentDetails: {
@@ -179,6 +186,7 @@ const ServicePlanDetail = () => {
   const currentWalletBalance = Number(context?.walletBalance || 0);
   const currentWalletPart = Math.min(currentWalletBalance, planPrice);
   const currentUpiPart = Math.max(0, planPrice - currentWalletPart);
+  const isDeferredOffer = ['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode);
   const handleOpenPayment = () => {
     setShowPaymentModal(true);
   };
@@ -187,10 +195,16 @@ const ServicePlanDetail = () => {
   const handleConfirmPayment = async () => {
     if (payProcessing) return;
     if (catalogueBillingOptions.length && !selectedBillingOption) return toast.error('Select a billing period first.');
-    if (!tenureMonths) return toast.error('Select the total service tenure.');
-    if (!Number.isInteger(Number(tenureMonths)) || Number(tenureMonths) < selectedCycleMonths || Number(tenureMonths) % selectedCycleMonths !== 0) return toast.error('Total tenure must be a whole multiple of the billing period.');
+    if (catalogueBillingOptions.length && !tenureMonths) return toast.error('Select the total service tenure.');
+    if (catalogueBillingOptions.length && (!Number.isInteger(Number(tenureMonths)) || Number(tenureMonths) < selectedCycleMonths || Number(tenureMonths) % selectedCycleMonths !== 0)) return toast.error('Total tenure must be a whole multiple of the billing period.');
     try {
       setPayProcessing(true);
+      if (['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode)) {
+        const created = await createServicePlanOrder({});
+        setShowPaymentModal(false);
+        navigate(`/plan-details/${created.orderId}`);
+        return;
+      }
 
       // Wallet covers the whole amount → instant debit, auto-approved, no UPI.
       if (currentUpiPart === 0) {
@@ -377,12 +391,13 @@ const ServicePlanDetail = () => {
 
             {/* 5. Purchase action */}
             <div className="border-t border-[var(--glass-border)] px-5 py-6 sm:px-8 sm:py-8">
+              <ServiceOfferSelector planId={plan._id} onChange={setPaymentOffer} />
               <button
                 type="button"
                 onClick={handleOpenPayment}
                 className="inline-flex w-full items-center justify-center rounded-2xl bg-[rgb(var(--ink-rgb))] px-4 py-3 text-base font-semibold text-[var(--page-bg)] transition hover:bg-[rgb(var(--ink-rgb)/0.85)] sm:w-auto"
               >
-                Proceed to Payment
+                {['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode) ? 'Continue with payment offer' : 'Proceed to Payment'}
               </button>
             </div>
           </article>
@@ -412,10 +427,10 @@ const ServicePlanDetail = () => {
                     <span className="font-semibold">{formatPrice(planPrice)}</span>
                   </div>
                   <div className="flex items-center justify-between text-base text-[var(--text-secondary)]">
-                    <span>Paid from wallet</span>
-                    <span className="font-semibold">{formatPrice(currentWalletPart)}</span>
+                    <span>{isDeferredOffer ? 'To pay now' : 'Paid from wallet'}</span>
+                    <span className="font-semibold">{formatPrice(isDeferredOffer ? 0 : currentWalletPart)}</span>
                   </div>
-                  {currentUpiPart > 0 && (
+                  {!isDeferredOffer && currentUpiPart > 0 && (
                     <div className="flex items-center justify-between border-t border-[var(--glass-border)] pt-2 text-base text-[var(--text-secondary)]">
                       <span>To pay via UPI</span>
                       <span className="font-semibold">{formatPrice(currentUpiPart)}</span>
@@ -425,7 +440,7 @@ const ServicePlanDetail = () => {
 
                 <p className="mt-3 text-sm text-[var(--text-muted)]">
                   Wallet balance: {formatPrice(currentWalletBalance)}
-                  {currentUpiPart > 0
+                  {isDeferredOffer ? ` — payment stays pending under ${paymentOffer.title}; no wallet debit now.` : currentUpiPart > 0
                     ? ' — the remaining amount needs admin approval after you pay by UPI.'
                     : ' — this purchase is covered by your wallet and activates immediately.'}
                 </p>
@@ -437,7 +452,7 @@ const ServicePlanDetail = () => {
                     disabled={payProcessing}
                     className="inline-flex flex-1 items-center justify-center rounded-2xl bg-[rgb(var(--ink-rgb))] px-4 py-3 text-base font-semibold text-[var(--page-bg)] transition hover:bg-[rgb(var(--ink-rgb)/0.85)] disabled:cursor-not-allowed disabled:bg-[var(--glass-bg-strong)] disabled:text-[var(--text-muted)]"
                   >
-                    {payProcessing ? 'Processing…' : currentUpiPart === 0 ? 'Pay from Wallet' : 'Continue to UPI'}
+                    {payProcessing ? 'Processing…' : ['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode) ? 'Activate with payment pending' : currentUpiPart === 0 ? 'Pay from Wallet' : 'Continue to UPI'}
                   </button>
                   <button
                     type="button"

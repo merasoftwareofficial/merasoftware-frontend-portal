@@ -17,6 +17,7 @@ import {
 import { BILLING_CYCLE_MONTHS, buildTenureOptions } from '../helpers/serviceTenure';
 import Modal from './Modal';
 import GlassButton from './GlassButton';
+import ServiceOfferSelector from './ServiceOfferSelector';
 
 // Add-on service picker, opened from a project's detail page.
 //
@@ -133,12 +134,15 @@ const AddServiceModal = ({
   const [upiLink, setUpiLink] = useState('');
   const [payTxnId, setPayTxnId] = useState('');
   const [upiReference, setUpiReference] = useState('');
+  const [paymentOffer, setPaymentOffer] = useState(null);
+  const [purchaseKey, setPurchaseKey] = useState(() => crypto.randomUUID());
 
   useEffect(() => {
     if (!isOpen) return;
 
     // Reset per-open so a previous session's selection never carries over.
     setSelectedId(null);
+    setPurchaseKey(crypto.randomUUID());
     setSelections({});
     setRedirectPlan(null);
     setPurchasedSummary(null);
@@ -243,6 +247,10 @@ const AddServiceModal = ({
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         planId: selectedPlan._id,
+        offerSlug: paymentOffer?.slug,
+        purchaseKey,
+        offerQuoteKey: paymentOffer?.quoteKey,
+        deferPayment: ['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode),
         selectedBillingCycle: hasBillingOptions ? choice.selectedBillingCycle : undefined,
         tenureMonths: choice.tenureMonths === '' || choice.tenureMonths === undefined ? undefined : Number(choice.tenureMonths),
         linkedProjectOrderId: projectOrderId,
@@ -264,6 +272,11 @@ const AddServiceModal = ({
     if (!canPay || submitting) return;
 
     const txnId = `SVCB${Date.now()}${Math.floor(Math.random() * 10000)}`;
+    if (['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode)) {
+      try { setSubmitting(true); const data = await createOrder({}); setPurchasedSummary(data); onPurchased?.(); }
+      catch (error) { toast.error(error.message); } finally { setSubmitting(false); }
+      return;
+    }
 
     if (upiPart === 0) {
       try {
@@ -560,6 +573,7 @@ const AddServiceModal = ({
                 Wallet balance: {formatPrice(walletBalance)}
               </p>
 
+              <ServiceOfferSelector planId={selectedPlan?._id} onChange={setPaymentOffer} />
               {selectedPlan && !hasCompleteSelection && <p className="mt-2 text-sm text-[var(--badge-pending-fg)]">Select a billing period and tenure for this service.</p>}
 
               {/* Split breakdown — shown only when the payment actually is a split. */}

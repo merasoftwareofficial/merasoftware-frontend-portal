@@ -851,7 +851,7 @@ const ProjectDetails = ({ isAdminView = false }) => {
   // uploaded or requested against it.
   const isOrderCancelled = order.orderState?.code === 'cancelled' || order.orderVisibility === 'cancelled';
   const isUploadLocked =
-    Boolean(order.hasUnpaidInvoice) || isOrderPendingApproval || isProjectComplete || isOrderCancelled;
+    (order.paymentAccess ? !order.paymentAccess.allowed : Boolean(order.hasUnpaidInvoice)) || isOrderPendingApproval || isProjectComplete || isOrderCancelled;
 
   // Why the upload is locked, not just that it is. All four reasons used to collapse into one
   // "Pending" pill, so a CANCELLED project offered "Upload Data · Pending" — telling the customer
@@ -860,8 +860,8 @@ const ProjectDetails = ({ isAdminView = false }) => {
     ? { badge: 'Cancelled', title: 'This project has been cancelled' }
     : isProjectComplete
       ? { badge: null, title: 'This project is complete' }
-      : order.hasUnpaidInvoice
-        ? { badge: 'Payment due', title: 'You can upload data after payment is received' }
+      : (order.paymentAccess ? !order.paymentAccess.allowed : order.hasUnpaidInvoice)
+        ? { badge: 'Payment due', title: order.paymentAccess?.reason || 'You can upload data after payment is received' }
         : isOrderPendingApproval
           ? { badge: 'Pending', title: 'You can upload data after payment is confirmed' }
           : { badge: null, title: undefined };

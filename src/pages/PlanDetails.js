@@ -15,6 +15,7 @@ import { getInvoiceStatusText, isStatementInvoice } from '../helpers/invoicePres
 import { getNextCycleOutcome, getTimeUntilText, getTermRemainingText, CYCLE_OUTCOME } from '../helpers/servicePlanCycle';
 import { goToCustomerReturn } from '../helpers/customerReturnNavigation';
 import UploadedDataList from '../components/UploadedDataList';
+import OfferPaymentTerms from '../components/OfferPaymentTerms';
 import { downloadAuthenticatedFile } from '../helpers/downloadFile';
 
 const formatDate = (date) => {
@@ -67,6 +68,7 @@ const getPlanVisualStatus = (plan) => {
     if (status === 'paused') return { ...base, badge: 'Paused', tone: 'paused', canRequest: false };
     if (daysLeft === 0) return { ...base, badge: 'Expired', tone: 'expired', canRequest: false };
     if (accessLeft === 0) return { ...base, badge: 'Cycle limit used', tone: 'used_up', canRequest: false };
+    if (plan.paymentAccess && !plan.paymentAccess.allowed) return { ...base, badge: 'Payment required', tone: 'paused', canRequest: false };
 
     return { ...base, badge: 'Active', tone: 'active', canRequest: !isReminderOnly };
   }
@@ -364,6 +366,7 @@ const PlanDetails = ({ isProjectServiceView = false }) => {
                 <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl lg:text-4xl">
                   {purchasedName}
                 </h1>
+                <OfferPaymentTerms order={plan} />
                 <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${BADGE_TONE_CLASSES[status.tone]}`}>
                   {status.badge}
                 </span>

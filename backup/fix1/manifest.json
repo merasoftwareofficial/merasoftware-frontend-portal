@@ -1,0 +1,45 @@
+{
+  "purpose": "Approved offer payment-policy implementation",
+  "createdAt": "2026-10-22T08:36:09.977Z",
+  "repo": "E:/Allprojects/frontend",
+  "initialStatus": "?? backup/\n",
+  "files": [
+    {
+      "file": "src/components/ProjectAgreement.js",
+      "sha256": "665f1e573e12d879e3f19777403d9146f77dfed8911294851820d5984f669a24"
+    },
+    {
+      "file": "src/pages/ProjectDetails.js",
+      "sha256": "5e38f6f9a74f6fb76b801c63bff1532f6afa92764e1c0e803f634716df20a990"
+    },
+    {
+      "file": "src/pages/PlanDetails.js",
+      "sha256": "cadb1cac3258e4e8cad7f2a9bea8bd0ffb4a946ec3136cee78251f7ef054625d"
+    },
+    {
+      "file": "src/pages/ServicePlanDetail.js",
+      "sha256": "823c7a7929f831f5776573d1572db5e5a8acbe75ed806b3724b603f54929cd63"
+    },
+    {
+      "file": "src/components/AddServiceModal.js",
+      "sha256": "9eb1efb8e5e2fa63b5582e2a8088ba1804c766e6b155ff51b1d0863a8e9ff558"
+    },
+    {
+      "file": "src/pages/AdminClientWorkspace.js",
+      "sha256": "d49aebef2fce6264419d67814061327f14afde1971755f3644befa9897a15231"
+    },
+    {
+      "file": "src/common/index.js",
+      "sha256": "4a6b5bd69491028572005b7ec93dc78101cb6bfa42e9fd7b72584a5e1de4d1f9"
+    },
+    {
+      "file": "src/pages/AdminEmailControlPage.js",
+      "sha256": "6afe68db35fecd5f054e223fb657048ab2f8d34721f89bd32dcfe4fb012de931"
+    }
+  ],
+  "newFiles": [
+    "src/components/OfferPaymentTerms.js",
+    "src/components/ServiceOfferSelector.js"
+  ],
+  "workingStatus": "Incomplete: stopped for pre-existing invoice index conflict found by explicit clean-database index initialization. No deployment or live data changes."
+}
