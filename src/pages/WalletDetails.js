@@ -22,7 +22,8 @@ import DashboardLayout from '../components/DashboardLayout';
 import Surface from '../components/Surface';
 import Badge from '../components/Badge';
 import Modal from '../components/Modal';
-import { getOrderCategory, getOrderDisplayName, isActiveWorkItem } from '../helpers/orderPresentation';
+import { getOrderDisplayName, isActiveWorkItem } from '../helpers/orderPresentation';
+import { isProjectItem } from '../helpers/orderType';
 import { getPaymentMethodText, getInstallmentPartText } from '../helpers/invoicePresentation';
 
 const WalletDetails = () => {
@@ -89,14 +90,9 @@ const WalletDetails = () => {
       });
       const data = await response.json();
       if (data.success) {
-        const activeProj = (data.data || []).find(order => {
-          const category = getOrderCategory(order).toLowerCase();
-          const supportedCategory = ['standard_websites', 'dynamic_websites', 'cloud_software_development', 'app_development'].includes(category);
-          // Same "is this live work" rule every other list uses
-          // (helpers/orderPresentation.js) — written inline here before, and so it excluded only
-          // rejected: a cancelled project still surfaced as the customer's active project.
-          return supportedCategory && isActiveWorkItem(order);
-        });
+        // "Is a project" is the shared orderType.js rule (any admin-created category counts), and
+        // "is live work" the shared orderPresentation.js rule, so a cancelled project never shows.
+        const activeProj = (data.data || []).find(order => isProjectItem(order) && isActiveWorkItem(order));
         setActiveProject(activeProj || null);
       }
     } catch (error) {

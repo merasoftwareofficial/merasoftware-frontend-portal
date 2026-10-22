@@ -34,7 +34,8 @@ import {
 } from "lucide-react";
 import SummaryApi from "../common";
 import displayINRCurrency from "../helpers/displayCurrency";
-import projectCategoryOptions, { isFeatureForCategory } from "../helpers/projectCategoryOptions";
+import { isFeatureForCategory } from "../helpers/projectCategoryOptions";
+import useProjectCategories from "../hooks/useProjectCategories";
 import { downloadAuthenticatedFile } from "../helpers/downloadFile";
 import { logout } from "../store/userSlice";
 import CookieManager from "../utils/cookieManager";
@@ -56,7 +57,7 @@ import {
 } from "../helpers/paymentLedger";
 import { adminReturnState, getAdminReturnTarget, goToAdminReturn } from "../helpers/adminReturnNavigation";
 import focusFirstInteractiveElement, { getInteractiveElements } from "../utils/focusFirstInteractiveElement";
-import { getOrderDisplayName } from "../helpers/orderPresentation";
+import { getOrderCategoryLabel, getOrderDisplayName } from "../helpers/orderPresentation";
 import { getPaymentMethodText, isFreeInvoice } from "../helpers/invoicePresentation";
 import PaymentMethodFields from "../components/PaymentMethodFields";
 import { createPaymentEntry, getPaymentEntryError, toPaymentRequest } from "../helpers/paymentMethodRules";
@@ -1787,7 +1788,7 @@ const AdminClientWorkspace = () => {
                   </button>
                 }
                 renderMeta={(order) => [
-                  `Category: ${getCategoryLabel(getProjectCategory(order))}`,
+                  `Category: ${getCategoryLabel(order)}`,
                   `Phase: ${getProjectPhaseLabel(order)}`,
                   `Progress: ${order.projectProgress || 0}%`,
                 ]}
@@ -3728,7 +3729,7 @@ const PaymentOrderHistorySubpage = ({ customerId, orderId, onBack }) => {
                   {!isGeneralPayments && order ? (
                     <tr>
                       <td className="px-5 py-3 font-semibold text-slate-900 sm:px-6">Category</td>
-                      <td className="px-5 py-3 text-slate-600 sm:px-6">{getCategoryLabel(getProjectCategory(order))}</td>
+                      <td className="px-5 py-3 text-slate-600 sm:px-6">{getCategoryLabel(order)}</td>
                     </tr>
                   ) : null}
                   {!isGeneralPayments && order ? (
@@ -4122,15 +4123,10 @@ const CompactWorkspaceRow = React.forwardRef(
   }
 );
 
-// The four project categories come from helpers/projectCategoryOptions.js, the shared
-// SSOT the Features form also builds its category picker from — so a feature can never
-// be tagged with a category this form cannot offer.
-const PROJECT_CATEGORIES = projectCategoryOptions;
-
-// Keeps its own "N/A" fallback: this label is rendered for existing orders, where the
-// category may be missing entirely, unlike the picker above.
-const getCategoryLabel = (category) =>
-  PROJECT_CATEGORIES.find((option) => option.value === category)?.label || category || "N/A";
+// A project shows the category name frozen on it; a plan or legacy row keeps showing its raw
+// category, and a row with none shows "N/A".
+const getCategoryLabel = (order) =>
+  getOrderCategoryLabel(order) || getProjectCategory(order) || "N/A";
 
 const PROJECT_PHASES = {
   planning: "Planning",
@@ -4175,9 +4171,12 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
   const [offersLoading, setOffersLoading] = useState(true);
   const [offersError, setOffersError] = useState("");
 
-  const [basePrice, setBasePrice] = useState(0);
-  const [basePriceLoading, setBasePriceLoading] = useState(false);
-  const [categoryDescription, setCategoryDescription] = useState("");
+  // Categories, base price, description and default starting node all come from the SSOT.
+  const { categories: projectCategories, loading: categoriesLoading, error: categoriesError } = useProjectCategories("admin");
+  const activeCategories = projectCategories.filter((entry) => entry.status === "active");
+  const selectedCategoryEntry = projectCategories.find((entry) => entry.category === category);
+  const basePrice = selectedCategoryEntry?.basePrice || 0;
+  const categoryDescription = selectedCategoryEntry?.description || "";
 
   const [availableFeatures, setAvailableFeatures] = useState([]);
   const [featuresLoading, setFeaturesLoading] = useState(true);
@@ -4228,36 +4227,11 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
     setPackageId(""); setOfferSlug(""); setSellingPrice(""); setSelectedFeatureIds([]); setPriceAdjustment(""); setAdjustmentLabel("");
   }, [category]);
 
+  // Prefill the category's own first timeline node; the admin can still type another.
+  const categoryStartingNodeTitle = selectedCategoryEntry?.startingNodeTitle || "";
   useEffect(() => {
-    if (!category) {
-      setBasePrice(0);
-      setCategoryDescription("");
-      return;
-    }
-
-    const fetchBasePrice = async () => {
-      setBasePriceLoading(true);
-      try {
-        const response = await fetch(SummaryApi.categoryBasePrices.url, {
-          method: SummaryApi.categoryBasePrices.method.toUpperCase(),
-          credentials: "include",
-        });
-        const result = await response.json();
-        if (!result.success) throw new Error(result.message || "Failed to load base price");
-        const entry = (result.data || []).find((item) => item.category === category);
-        setBasePrice(entry?.basePrice || 0);
-        setCategoryDescription(entry?.description || "");
-      } catch (fetchError) {
-        console.error("Error fetching category base price:", fetchError);
-        toast.error("Could not load base price for this category.");
-        setBasePrice(0);
-        setCategoryDescription("");
-      } finally {
-        setBasePriceLoading(false);
-      }
-    };
-    fetchBasePrice();
-  }, [category]);
+    setStartingNodeTitle(categoryStartingNodeTitle);
+  }, [category, categoryStartingNodeTitle]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -4464,13 +4438,18 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
               setFeatureQuantities({});
             }}
           >
-            <option value="">Select category</option>
-            {PROJECT_CATEGORIES.map((option) => (
-              <option key={option.value} value={option.value}>
+            <option value="">{categoriesLoading ? "Loading categories…" : "Select category"}</option>
+            {activeCategories.map((option) => (
+              <option key={option.category} value={option.category}>
                 {option.label}
               </option>
             ))}
           </select>
+          {categoriesError ? (
+            <p role="alert" className="mt-1.5 text-sm text-red-600">{categoriesError}</p>
+          ) : selectedCategoryEntry && !selectedCategoryEntry.configured ? (
+            <p className="mt-1.5 text-sm text-amber-700">No base price is set for this category, so the reference total starts at ₹0. Enter the selling price yourself.</p>
+          ) : null}
         </div>
 
         <div>
@@ -4499,7 +4478,7 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
           />
         </div>
 
-        {category && !basePriceLoading && categoryDescription ? (
+        {category && !categoriesLoading && categoryDescription ? (
           <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
             <p className="text-sm font-semibold text-slate-500">Category Description</p>
             <p className="mt-1 text-sm text-slate-700">{categoryDescription}</p>
@@ -5799,7 +5778,7 @@ const WorkspaceDetailSubpage = ({
             <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
               <p className="text-sm font-medium text-slate-500">{detailLabel} Info</p>
               <div className="mt-4 space-y-4 text-sm text-slate-700">
-                <InfoLine label="Category" value={getCategoryLabel(getProjectCategory(item))} />
+                <InfoLine label="Category" value={getCategoryLabel(item)} />
                 <InfoLine label="Current Phase" value={getProjectPhaseLabel(item)} />
                 <InfoLine label="Created" value={formatDateTime(item?.createdAt)} />
                 <InfoLine label="Updated" value={formatDateTime(item?.updatedAt || item?.createdAt)} />

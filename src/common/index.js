@@ -755,6 +755,10 @@ const SummaryApi = {
         url: `${backendDomain}/api/admin/category-base-prices`,
         method: "post"
     },
+    customerProjectCategories: {
+        url: `${backendDomain}/api/customer/project-categories`,
+        method: "get"
+    },
     getMessageTemplates: {
         url: `${backendDomain}/api/admin/message-templates`,
         method: "get"

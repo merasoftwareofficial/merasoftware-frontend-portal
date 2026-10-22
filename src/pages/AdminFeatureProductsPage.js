@@ -9,7 +9,7 @@ import CookieManager from "../utils/cookieManager";
 import StorageService from "../utils/storageService";
 import AdminLayout from "../components/AdminLayout";
 import AdminWorkspaceShell, { AdminWorkspaceHeader } from "../components/admin/AdminWorkspaceShell";
-import projectCategoryOptions, { projectCategoryLabel } from "../helpers/projectCategoryOptions";
+import useProjectCategories from "../hooks/useProjectCategories";
 
 const FEATURE_UPGRADE_CATEGORY = "feature_upgrades";
 
@@ -23,7 +23,7 @@ const formInputClassName =
   "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-black outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100";
 const formLabelClassName = "mb-1.5 block text-base font-semibold text-slate-700";
 
-const FeatureEditForm = ({ feature, onCancel, onSaved, onDeleted }) => {
+const FeatureEditForm = ({ feature, categories, onCancel, onSaved, onDeleted }) => {
   const isEditing = Boolean(feature?._id);
   const [serviceName, setServiceName] = useState(feature?.serviceName ?? "");
   const [sellingPrice, setSellingPrice] = useState(feature?.sellingPrice ?? feature?.price ?? "");
@@ -37,6 +37,10 @@ const FeatureEditForm = ({ feature, onCancel, onSaved, onDeleted }) => {
   const [selectedCategories, setSelectedCategories] = useState(existingCategories);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Active categories, plus any archived one this feature is already tagged with so it stays visible.
+  const categoryChoices = categories.filter(
+    (entry) => entry.status === "active" || existingCategories.includes(entry.category)
+  );
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -234,15 +238,15 @@ const FeatureEditForm = ({ feature, onCancel, onSaved, onDeleted }) => {
 
           {categoryScope === CATEGORY_SCOPE_SELECTED ? (
             <div className="mt-3 grid grid-cols-1 gap-2 border-t border-slate-200 pt-3 sm:grid-cols-2">
-              {projectCategoryOptions.map((option) => (
-                <label key={option.value} className="flex cursor-pointer items-center gap-2.5">
+              {categoryChoices.map((option) => (
+                <label key={option.category} className="flex cursor-pointer items-center gap-2.5">
                   <input
                     type="checkbox"
-                    checked={selectedCategories.includes(option.value)}
-                    onChange={() => toggleCategory(option.value)}
+                    checked={selectedCategories.includes(option.category)}
+                    onChange={() => toggleCategory(option.category)}
                     className="h-4 w-4 rounded border-slate-300"
                   />
-                  <span className="text-sm text-slate-700">{option.label}</span>
+                  <span className="text-sm text-slate-700">{option.label}{option.status === "archived" ? " (archived)" : ""}</span>
                 </label>
               ))}
             </div>
@@ -307,6 +311,8 @@ const AdminFeatureProductsPage = () => {
   const [loading, setLoading] = useState(true);
   const [editingFeature, setEditingFeature] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const { categories } = useProjectCategories("admin");
+  const categoryLabel = (key) => categories.find((entry) => entry.category === key)?.label || key;
 
   const fetchFeatures = useCallback(async () => {
     setLoading(true);
@@ -425,7 +431,7 @@ const AdminFeatureProductsPage = () => {
                       </span>
                       <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
                         {feature.compatibleWith?.length
-                          ? feature.compatibleWith.map(projectCategoryLabel).join(", ")
+                          ? feature.compatibleWith.map(categoryLabel).join(", ")
                           : "All categories"}
                       </span>
                     </div>
@@ -458,6 +464,7 @@ const AdminFeatureProductsPage = () => {
             <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
               <FeatureEditForm
                 feature={editingFeature}
+                categories={categories}
                 onCancel={closeForm}
                 onSaved={handleFeatureSaved}
                 onDeleted={handleFeatureSaved}

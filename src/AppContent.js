@@ -8,7 +8,8 @@ import Context from './context';
 import CookieManager from './utils/cookieManager';
 import StorageService from './utils/storageService';
 import ScrollToTop from './helpers/scrollTop';
-import { getOrderCategory, isActiveWorkItem } from './helpers/orderPresentation';
+import { isActiveWorkItem } from './helpers/orderPresentation';
+import { isProjectItem } from './helpers/orderType';
 import { clearOrderSummary, getOrderSummary } from './utils/orderSummaryClient';
 import { createSessionClient } from './utils/sessionClient';
 // import QRModal from './components/QRModal';
@@ -153,25 +154,11 @@ useEffect(() => {
       const allOrders = await getOrderSummary({ force: true });
       if (allOrders) {
         
-        // Filter for website projects
-        const websiteProjects = allOrders.filter(order => {
-          const category = getOrderCategory(order).toLowerCase();
-          return ['standard_websites', 'dynamic_websites', 'cloud_software_development', 'app_development'].includes(category);
-        });
-        
-        // Find active (in-progress) project
-        const activeProj = websiteProjects.find(project => {
-          const category = getOrderCategory(project).toLowerCase();
-          if (!category) return false;
-          
-          if (['standard_websites', 'dynamic_websites', 'cloud_software_development', 'app_development'].includes(category)) {
-            // Shared with every other "what is the customer working on" list
-            // (helpers/orderPresentation.js). Written inline here before, which is how it came to
-            // exclude only rejected — a cancelled project still counted as the active one.
-            return isActiveWorkItem(project);
-          }
-          return false;
-        });
+        // Find the active (in-progress) project. "Is a project" is the shared orderType.js rule,
+        // so a project in any admin-created category counts — not only the original four.
+        // isActiveWorkItem is shared with every other "what is the customer working on" list
+        // (helpers/orderPresentation.js), so a cancelled project never counts as active.
+        const activeProj = allOrders.find(project => isProjectItem(project) && isActiveWorkItem(project));
         
         // console.log("Setting active project at AppContent level:", activeProj);
         setActiveProject(activeProj || null);

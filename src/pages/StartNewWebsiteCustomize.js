@@ -10,14 +10,7 @@ import DashboardLayout from '../components/DashboardLayout';
 import SummaryApi from '../common';
 import displayINRCurrency from '../helpers/displayCurrency';
 import { isFeatureForCategory } from '../helpers/projectCategoryOptions';
-
-// Primary project categories the customize form supports.
-const PROJECT_OPTIONS = [
-  { value: 'standard_websites', label: 'Static Website' },
-  { value: 'dynamic_websites', label: 'Dynamic Website' },
-  { value: 'cloud_software_development', label: 'Cloud Software' },
-  { value: 'app_development', label: 'Mobile App' },
-];
+import useProjectCategories from '../hooks/useProjectCategories';
 
 const BUDGET_OPTIONS = [
   { value: 'range_5k_30k', label: '5,000 - 30,000' },
@@ -294,9 +287,20 @@ const StartNewWebsiteCustomize = () => {
   const [selectedFeatureIds, setSelectedFeatureIds] = useState([]);
   // Per-feature counts for quantity-based features, keyed by feature id.
   const [featureQuantities, setFeatureQuantities] = useState({});
-  // Category base price — the SAME base the backend adds in finalPrice = basePrice + features.
-  // Fetched per-category so the on-page estimate matches the authoritative order price.
-  const [basePrice, setBasePrice] = useState(0);
+  // Categories a customer can order online, with their base price — the SAME base the backend
+  // adds in finalPrice = basePrice + features, so the estimate matches the real order price.
+  const { categories: projectCategories } = useProjectCategories('customer');
+  const projectOptions = useMemo(
+    () => projectCategories.map((entry) => ({ value: entry.category, label: entry.label })),
+    [projectCategories]
+  );
+  const basePrice = Number(projectCategories.find((entry) => entry.category === projectCategory)?.basePrice) || 0;
+  // A category that is no longer offered online falls back to the first one that is.
+  useEffect(() => {
+    if (projectOptions.length && !projectOptions.some((option) => option.value === projectCategory)) {
+      setProjectCategory(projectOptions[0].value);
+    }
+  }, [projectOptions, projectCategory]);
 
   // Fetch features whenever the primary project changes. Old selection is cleared on change.
   useEffect(() => {
@@ -332,23 +336,7 @@ const StartNewWebsiteCustomize = () => {
       }
     };
 
-    // Category base price — same source the backend uses, so the estimate matches finalPrice.
-    const fetchBasePrice = async () => {
-      try {
-        const response = await fetch(
-          `${SummaryApi.customerCategoryBasePrice.url}?category=${projectCategory}`,
-          { credentials: 'include' }
-        );
-        const data = await response.json();
-        if (active) setBasePrice(Number(data?.data?.basePrice) || 0);
-      } catch (error) {
-        console.error('Error loading base price:', error);
-        if (active) setBasePrice(0);
-      }
-    };
-
     fetchFeatures();
-    fetchBasePrice();
     return () => {
       active = false;
     };
@@ -384,7 +372,7 @@ const StartNewWebsiteCustomize = () => {
     [allFeatures, selectedFeatureIds, featureQuantities, basePrice]
   );
 
-  const projectLabel = labelOf(PROJECT_OPTIONS, projectCategory) || 'Your Project';
+  const projectLabel = labelOf(projectOptions, projectCategory) || 'Your Project';
   const selectedCount = selectedFeatureIds.length;
 
   // Human-readable list of chosen capabilities, a quantity-based one carrying its count.
@@ -629,7 +617,7 @@ const StartNewWebsiteCustomize = () => {
                   <Field label="Primary project">
                     <SelectDropdown
                       value={projectCategory}
-                      options={PROJECT_OPTIONS}
+                      options={projectOptions}
                       onChange={setProjectCategory}
                     />
                   </Field>

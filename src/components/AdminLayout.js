@@ -38,7 +38,7 @@ export const adminSidebarModules = [
     icon: Settings2,
     group: true,
     children: [
-      { id: "base-price", label: "Category Base Price", icon: IndianRupee, live: true, to: "/admin-panel/project-setup/base-price" },
+      { id: "base-price", label: "Project Categories", icon: IndianRupee, live: true, to: "/admin-panel/project-setup/base-price" },
       { id: "features", label: "Features", icon: ListChecks, live: true, to: "/admin-panel/project-setup/features" },
     ],
   },

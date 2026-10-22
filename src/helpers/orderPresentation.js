@@ -5,7 +5,6 @@
 
 import { isProjectItem, isPlanItem } from './orderType';
 import { isOrderApproved } from './orderVisibility';
-import projectCategoryOptions from './projectCategoryOptions';
 
 // The name to show for a purchased order, in order of trustworthiness.
 //
@@ -39,12 +38,12 @@ export const getOrderCategory = (order, fallback = '') =>
 
 // Category is a property of a custom project. A service plan has no project category, so a
 // missing catalogue product must not turn it into the customer-facing lie "Unknown type".
-// Type is already presented separately as Plan. The project labels come from the existing
-// project-category SSOT; an unrecognised/missing value is deliberately blank rather than raw.
+// Type is already presented separately as Plan. The label is the category name frozen on the
+// project when it was created (backend helpers/projectCategories.js), so renaming a category
+// never relabels old work; a missing value is deliberately blank rather than the raw key.
 export const getOrderCategoryLabel = (order, fallback = '') => {
   if (!isProjectItem(order)) return '';
-  const value = getOrderCategory(order);
-  return projectCategoryOptions.find((option) => option.value === value)?.label || fallback;
+  return order?.projectSnapshot?.categoryLabel || fallback;
 };
 
 // Remaining validity days for a plan order. Monthly plans use currentMonthExpiryDate;

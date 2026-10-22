@@ -17,8 +17,8 @@ import PaymentStatusChip from '../components/PaymentStatusChip';
 import Badge from '../components/Badge';
 import GlassButton from '../components/GlassButton';
 import { OrderList } from '../components/OrderListRow';
-import { isProjectItem, isPlanItem, PROJECT_CATEGORIES } from '../helpers/orderType';
-import { getOrderCategory, getOrderCategoryLabel, getOrderDisplayName, getItemStatusMeta } from '../helpers/orderPresentation';
+import { isProjectItem, isPlanItem } from '../helpers/orderType';
+import { getOrderCategoryLabel, getOrderDisplayName, getItemStatusMeta } from '../helpers/orderPresentation';
 import { customerChildState } from '../helpers/customerReturnNavigation';
 
 // Display label for one order. Derived by backend/helpers/orderStatusEngine.js and delivered on
@@ -226,8 +226,8 @@ const OrdersPage = () => {
         // cancelled project cannot qualify — the previous version excluded only pending and
         // rejected, so a cancelled project was still picked up as the customer's active work.
         const activeProj = allOrders.find((order) => {
-          const category = getOrderCategory(order).toLowerCase();
-          if (!category || !PROJECT_CATEGORIES.has(category)) return false;
+          // The shared orderType.js rule, so a project in any admin-created category counts.
+          if (!isProjectItem(order)) return false;
 
           const code = getOrderStatusCode(order);
           if (code) return ['in_progress', 'approved_not_started', 'payment_due'].includes(code);
