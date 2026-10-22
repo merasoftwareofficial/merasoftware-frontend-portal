@@ -4168,8 +4168,9 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
   const [packageId, setPackageId] = useState("");
   const [packages, setPackages] = useState([]);
   const [catalogueReload, setCatalogueReload] = useState(0);
-  const [adminDiscount, setAdminDiscount] = useState("");
-  const [discountReason, setDiscountReason] = useState("");
+  // Signed difference between the typed selling price and the package/offer + features price.
+  const [priceAdjustment, setPriceAdjustment] = useState("");
+  const [adjustmentLabel, setAdjustmentLabel] = useState("");
   const [offers, setOffers] = useState([]);
   const [offersLoading, setOffersLoading] = useState(true);
   const [offersError, setOffersError] = useState("");
@@ -4224,7 +4225,7 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
     return () => controller.abort();
   }, [catalogueReload]);
   useEffect(() => {
-    setPackageId(""); setOfferSlug(""); setSellingPrice(""); setSelectedFeatureIds([]); setAdminDiscount(""); setDiscountReason("");
+    setPackageId(""); setOfferSlug(""); setSellingPrice(""); setSelectedFeatureIds([]); setPriceAdjustment(""); setAdjustmentLabel("");
   }, [category]);
 
   useEffect(() => {
@@ -4315,10 +4316,20 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
       : selectedOffer.pricingRule === "percentage" ? selectedOffer.mainPrice * (1 - Number(selectedOffer.benefitValue) / 100)
       : selectedOffer.mainPrice - Number(selectedOffer.benefitValue);
   }
-  const calculatedPrice = Math.round(((bundlePrice ?? 0) + featuresTotal - Number(adminDiscount || 0)) * 100) / 100;
+  const quotedPrice = Math.round(((bundlePrice ?? 0) + featuresTotal) * 100) / 100;
+  const adjustmentAmount = Number(priceAdjustment || 0);
+  const calculatedPrice = Math.round((quotedPrice + adjustmentAmount) * 100) / 100;
+  // The adjustment is the stored value, so adding a feature re-prices on top of it
+  // instead of wiping the price the admin typed.
   useEffect(() => {
     if (isPricedSelection) setSellingPrice(String(calculatedPrice));
   }, [isPricedSelection, calculatedPrice]);
+  const handleSellingPriceChange = (value) => {
+    setSellingPrice(value);
+    if (isPricedSelection && value !== "" && Number.isFinite(Number(value))) {
+      setPriceAdjustment(String(Math.round((Number(value) - quotedPrice) * 100) / 100));
+    }
+  };
 
   const hasSellingPrice = sellingPrice !== "" && Number(sellingPrice) >= 0;
   // ₹0 is a FREE project (100% discount): nothing to collect, so there is no payment step,
@@ -4337,8 +4348,8 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
     if ((packageId || offerSlug) && (offersLoading || offersError || !isPricedSelection)) {
       toast.error("Refresh packages and select an available package or offer."); return false;
     }
-    if (isPricedSelection && Number(adminDiscount || 0) > 0 && !discountReason.trim()) {
-      toast.error("Explain the additional admin discount."); return false;
+    if (isPricedSelection && adjustmentAmount !== 0 && !adjustmentLabel.trim()) {
+      toast.error("Enter a label for the price adjustment (shown on the invoice)."); return false;
     }
     return true;
   };
@@ -4374,8 +4385,8 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
       packageQuoteKey: selectedPackage?.quoteKey || null,
       offerSlug: selectedOffer?.slug || null,
       offerQuoteKey: !selectedPackage ? selectedOffer?.quoteKey : null,
-      adminDiscount: isPricedSelection ? Number(adminDiscount || 0) : 0,
-      discountReason: isPricedSelection ? discountReason.trim() : "",
+      priceAdjustment: isPricedSelection ? adjustmentAmount : 0,
+      adjustmentLabel: isPricedSelection && adjustmentAmount !== 0 ? adjustmentLabel.trim() : "",
       recordPayment: recordsPayment
         ? {
             paymentMethod: payment.paymentMethod,
@@ -4495,6 +4506,19 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
           </div>
         ) : null}
 
+        <div className="md:col-span-2 space-y-4">
+          <label className={projectFormLabelClassName}>Showcase package (optional)</label>
+          <select aria-label="Showcase package" className={projectFormInputClassName} value={packageId} disabled={!category || offersLoading || Boolean(offersError)} onChange={event => { setPackageId(event.target.value); setOfferSlug(""); setSellingPrice(""); setSelectedFeatureIds([]); setPriceAdjustment(""); setAdjustmentLabel(""); }}>
+            <option value="">{offersLoading ? "Loading packages…" : "Custom project — no package"}</option>
+            {packages.filter(item => item.category === category).map(item => <option key={item.id} value={item.id}>{item.name} — ₹{item.quote.finalPrice.toLocaleString("en-IN")}</option>)}
+          </select>
+          {!selectedPackage && <><label className={projectFormLabelClassName}>Category offer (optional)</label><select aria-label="Category offer" className={projectFormInputClassName} value={offerSlug} disabled={!category || offersLoading || Boolean(offersError)} onChange={event => { setOfferSlug(event.target.value); setSellingPrice(""); setPriceAdjustment(""); setAdjustmentLabel(""); }}><option value="">No offer — manual custom price</option>{eligibleOffers.map(item => <option key={item.slug} value={item.slug}>{item.title}</option>)}</select></>}
+          {selectedOffer?.paymentPolicy && selectedOffer.paymentPolicy.mode !== 'current' && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-base text-emerald-900">Payment terms: {selectedOffer.paymentPolicy.mode.replaceAll('_', ' ')}{selectedOffer.paymentPolicy.mode === 'limited_uploads' ? ` · ${selectedOffer.paymentPolicy.uploadAllowance} submissions before payment` : ''} · Due in {selectedOffer.paymentPolicy.dueDays} day(s). These terms will be saved with this project.</p>}
+          {isPricedSelection && <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-base text-slate-700"><strong>{selectedPackage?.name || selectedOffer?.title}</strong><p>{selectedOffer ? `Offer: ${selectedOffer.title}` : "Regular package price"}</p><ul className="mt-2 list-disc pl-5">{(selectedPackage?.inclusions || selectedOffer?.inclusions || []).map((line, index) => <li key={index}>{line}</li>)}</ul><p className="mt-3">Regular ₹{selectedRegular.toLocaleString("en-IN")} − offer benefit ₹{Math.round((selectedRegular - bundlePrice) * 100) / 100} + extra features ₹{featuresTotal.toLocaleString("en-IN")}</p><p className="mt-1">Select additional features only for work outside the package scope.</p>{selectedPackage?.linkedPlanIds?.length > 0 && <p>Related services are references only; no service plan will be purchased or activated.</p>}<details className="mt-2"><summary>Agreed terms</summary><ul className="list-disc pl-5">{(selectedPackage?.quote.terms || selectedOffer?.resolvedTerms || []).map((line, index) => <li key={index}>{line}</li>)}</ul></details></div>}
+          {offersError && <p role="alert" className="text-base text-red-600">{offersError}. A custom project without a package or offer can still be created.</p>}
+          <button type="button" className="text-base font-semibold text-emerald-700 underline" disabled={offersLoading} onClick={() => setCatalogueReload(value => value + 1)}>Refresh packages and offers</button>
+        </div>
+
         <div className="md:col-span-2 grid grid-cols-1 gap-5 md:grid-cols-2">
         <div ref={featureDropdownRef}>
           <span className={projectFormLabelClassName}>
@@ -4612,11 +4636,18 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
             min={0}
             className={projectFormInputClassName}
             value={sellingPrice}
-            readOnly={isPricedSelection}
             step="0.01"
-            onChange={(event) => setSellingPrice(event.target.value)}
+            onChange={(event) => handleSellingPriceChange(event.target.value)}
             placeholder="e.g. 12000"
           />
+          {isPricedSelection && adjustmentAmount !== 0 ? (
+            <div className="mt-2 space-y-1.5">
+              <p className="text-sm font-semibold text-slate-600">
+                Price adjustment: {adjustmentAmount > 0 ? "+" : "−"}₹{Math.abs(adjustmentAmount).toLocaleString("en-IN")} (calculated ₹{quotedPrice.toLocaleString("en-IN")})
+              </p>
+              <input aria-label="Adjustment label" className={projectFormInputClassName} maxLength={120} value={adjustmentLabel} onChange={event => setAdjustmentLabel(event.target.value)} placeholder="Label shown on the invoice, e.g. Extra custom work" />
+            </div>
+          ) : null}
           {hasSellingPrice && Number(sellingPrice) < referenceTotal ? (
             <p className="mt-1.5 text-sm font-semibold text-emerald-600">
               Discount: ₹{(referenceTotal - Number(sellingPrice)).toLocaleString("en-IN")}
@@ -4629,20 +4660,6 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
             </p>
           ) : null}
         </div>
-        </div>
-
-        <div className="md:col-span-2 space-y-4">
-          <label className={projectFormLabelClassName}>Showcase package (optional)</label>
-          <select aria-label="Showcase package" className={projectFormInputClassName} value={packageId} disabled={!category || offersLoading || Boolean(offersError)} onChange={event => { setPackageId(event.target.value); setOfferSlug(""); setSellingPrice(""); setSelectedFeatureIds([]); setAdminDiscount(""); setDiscountReason(""); }}>
-            <option value="">{offersLoading ? "Loading packages…" : "Custom project — no package"}</option>
-            {packages.filter(item => item.category === category).map(item => <option key={item.id} value={item.id}>{item.name} — ₹{item.quote.finalPrice.toLocaleString("en-IN")}</option>)}
-          </select>
-          {!selectedPackage && <><label className={projectFormLabelClassName}>Category offer (optional)</label><select aria-label="Category offer" className={projectFormInputClassName} value={offerSlug} disabled={!category || offersLoading || Boolean(offersError)} onChange={event => { setOfferSlug(event.target.value); setSellingPrice(""); }}><option value="">No offer — manual custom price</option>{eligibleOffers.map(item => <option key={item.slug} value={item.slug}>{item.title}</option>)}</select></>}
-          {selectedOffer?.paymentPolicy && selectedOffer.paymentPolicy.mode !== 'current' && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-base text-emerald-900">Payment terms: {selectedOffer.paymentPolicy.mode.replaceAll('_', ' ')}{selectedOffer.paymentPolicy.mode === 'limited_uploads' ? ` · ${selectedOffer.paymentPolicy.uploadAllowance} submissions before payment` : ''} · Due in {selectedOffer.paymentPolicy.dueDays} day(s). These terms will be saved with this project.</p>}
-          {isPricedSelection && <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-base text-slate-700"><strong>{selectedPackage?.name || selectedOffer?.title}</strong><p>{selectedOffer ? `Offer: ${selectedOffer.title}` : "Regular package price"}</p><ul className="mt-2 list-disc pl-5">{(selectedPackage?.inclusions || selectedOffer?.inclusions || []).map((line, index) => <li key={index}>{line}</li>)}</ul><p className="mt-3">Regular ₹{selectedRegular.toLocaleString("en-IN")} − offer benefit ₹{Math.round((selectedRegular - bundlePrice) * 100) / 100} + extra features ₹{featuresTotal.toLocaleString("en-IN")}</p><p className="mt-1">Select additional features only for work outside the package scope.</p>{selectedPackage?.linkedPlanIds?.length > 0 && <p>Related services are references only; no service plan will be purchased or activated.</p>}<details className="mt-2"><summary>Agreed terms</summary><ul className="list-disc pl-5">{(selectedPackage?.quote.terms || selectedOffer?.resolvedTerms || []).map((line, index) => <li key={index}>{line}</li>)}</ul></details></div>}
-          {isPricedSelection && <div className="grid gap-3 sm:grid-cols-2"><label>Additional admin discount (₹)<input aria-label="Additional admin discount" className={projectFormInputClassName} type="number" min={0} max={(bundlePrice || 0) + featuresTotal} step="0.01" value={adminDiscount} onChange={event => setAdminDiscount(event.target.value)} /></label><label>Discount reason<input aria-label="Discount reason" className={projectFormInputClassName} maxLength={500} value={discountReason} onChange={event => setDiscountReason(event.target.value)} /></label></div>}
-          {offersError && <p role="alert" className="text-base text-red-600">{offersError}. A custom project without a package or offer can still be created.</p>}
-          <button type="button" className="text-base font-semibold text-emerald-700 underline" disabled={offersLoading} onClick={() => setCatalogueReload(value => value + 1)}>Refresh packages and offers</button>
         </div>
       </div>
 

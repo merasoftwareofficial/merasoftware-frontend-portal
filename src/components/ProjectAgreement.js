@@ -15,6 +15,7 @@ export default function ProjectAgreement({ order, compact = false }) {
       {agreement.offerDiscount > 0 && <div className="flex justify-between gap-4"><dt>Offer benefit</dt><dd>−{money(agreement.offerDiscount)}</dd></div>}
       {(agreement.extras || []).map((item, index) => <div key={index} className="flex justify-between gap-4"><dt>{item.name}{item.quantity > 1 ? ` × ${item.quantity}` : ''}</dt><dd>{money(item.price)}</dd></div>)}
       {agreement.adminDiscount > 0 && <div className="flex justify-between gap-4"><dt>Additional discount ({agreement.discountReason})</dt><dd>−{money(agreement.adminDiscount)}</dd></div>}
+      {agreement.priceAdjustment ? <div className="flex justify-between gap-4"><dt>{agreement.adjustmentLabel}</dt><dd>{agreement.priceAdjustment < 0 ? '−' : '+'}{money(Math.abs(agreement.priceAdjustment))}</dd></div> : null}
       <div className="flex justify-between gap-4 border-t border-[var(--divider)] pt-2 font-bold"><dt>Agreed project total</dt><dd>{agreement.finalPrice === 0 ? 'FREE' : money(agreement.finalPrice)}</dd></div>
     </dl>
     <details className="mt-4" open={compact ? undefined : true}><summary>Included work & agreed terms</summary>
