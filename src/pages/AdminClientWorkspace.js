@@ -4279,10 +4279,10 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
     return sum + (Number(feature.sellingPrice ?? feature.price ?? 0) || 0) * quantity;
   }, 0);
   const selectedPackage = packages.find(item => item.id === packageId && item.category === category);
-  const eligibleOffers = offers.filter(item => item.status === "published" && Date.parse(item.endsAt) > Date.now() && (!item.targets || item.targets.includes('projects')) && item.applicableCategories?.includes(category) && !item.packageIds?.length);
+  const eligibleOffers = offers.filter(item => item.status === "published" && Date.parse(item.endsAt) > Date.now() && (!item.targets || item.targets.includes('projects')) && item.applicableCategories?.includes(category));
   const selectedOffer = selectedPackage?.quote.offer || eligibleOffers.find(item => item.slug === offerSlug);
   const isPricedSelection = Boolean(selectedPackage || selectedOffer);
-  const selectedRegular = selectedPackage?.regularPrice ?? selectedOffer?.mainPrice ?? Number(basePrice);
+  const selectedRegular = selectedPackage?.quote.regularPrice ?? selectedOffer?.mainPrice ?? Number(basePrice);
   const referenceTotal = selectedRegular + featuresTotal;
   let bundlePrice = selectedPackage?.quote.finalPrice;
   if (!selectedPackage && selectedOffer) {
