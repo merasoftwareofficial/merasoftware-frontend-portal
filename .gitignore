@@ -25,3 +25,6 @@ yarn-error.log*
 # Backups live in E:/Allprojects/backup/<repo>/workNN, never inside this repo; these lines are only a safety net.
 /backup/
 /work[0-9]*/
+
+# Isolated verification build output
+/build-website-preview/

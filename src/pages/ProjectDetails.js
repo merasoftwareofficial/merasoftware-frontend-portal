@@ -1,4 +1,5 @@
 import ProjectAgreement from '../components/ProjectAgreement';
+import WebsitePreviewPanel from '../components/WebsitePreviewPanel';
 import React, { useState, useEffect, useRef, useCallback, useContext, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -1300,6 +1301,7 @@ const ProjectDetails = ({ isAdminView = false }) => {
                   ) : null}
                 </section>
 
+                {!isAdminView && <WebsitePreviewPanel key={order._id} projectId={order._id} />}
                 <section className={g('rounded-[1.75rem] border border-[var(--glass-border)] bg-white p-5 shadow-sm', 'relative overflow-hidden rounded-[1.75rem] border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] p-5 shadow-[var(--card-shadow)] backdrop-blur-2xl backdrop-saturate-150')}>
                   {!isAdminView && <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-[var(--glass-sheen)] to-transparent" />}
                   <div className="relative flex items-center justify-between gap-3">
