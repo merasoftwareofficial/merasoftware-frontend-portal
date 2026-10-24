@@ -1,15 +1,24 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { toast } from "sonner";
 import { KeyRound } from "lucide-react";
 import SummaryApi from "../common";
 import { getPortalHome } from "../helpers/portalHome";
+import { WEBSITE_URL } from '../helpers/brand';
 
 const SetNewPassword = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = useSelector((state) => state?.user?.user);
-  const portalHome = getPortalHome(user?.role);
+  const requested = new URLSearchParams(location.search).get('next');
+  let websiteReturn = null;
+  try {
+    const target = new URL(requested);
+    if (target.origin === new URL(WEBSITE_URL).origin && (/^\/offer\/[a-z0-9-]+$/.test(target.pathname) || target.pathname === '/account/offers') && !target.search && !target.hash) websiteReturn = target.toString();
+  } catch { /* Only explicit website offer destinations may leave the portal. */ }
+  const portalHome = requested === '/my-offers' ? '/my-offers' : getPortalHome(user?.role);
+  const goBack = () => websiteReturn ? window.location.assign(websiteReturn) : navigate(portalHome, { replace: true });
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [saving, setSaving] = useState(false);
@@ -40,7 +49,7 @@ const SetNewPassword = () => {
         return;
       }
       toast.success("Password updated successfully");
-      navigate(portalHome, { replace: true });
+      goBack();
     } catch (error) {
       console.error("Error setting new password:", error);
       toast.error("Error updating password");
@@ -50,7 +59,7 @@ const SetNewPassword = () => {
   };
 
   const handleSkip = () => {
-    navigate(portalHome, { replace: true });
+    goBack();
   };
 
   return (

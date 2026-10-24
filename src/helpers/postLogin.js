@@ -9,6 +9,7 @@ const postLogin = ({
   navigate,
   toast,
   fetchUserDetails,
+  returnTo,
 }) => {
   const user = dataApi?.data?.user;
   if (!user) {
@@ -46,9 +47,9 @@ const postLogin = ({
   // First-login password reset (soft): users auto-created via lead convert
   // land on the set-password page but can skip to their portal home.
   if (dataApi?.data?.mustResetPassword) {
-    navigate("/set-new-password", { replace: true });
+    navigate(returnTo === '/my-offers' ? '/set-new-password?next=%2Fmy-offers' : '/set-new-password', { replace: true });
   } else {
-    navigate(getPortalHome(user.role), { replace: true });
+    navigate(returnTo === '/my-offers' ? returnTo : getPortalHome(user.role), { replace: true });
   }
 
 };

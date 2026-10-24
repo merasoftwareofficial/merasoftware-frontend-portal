@@ -70,6 +70,7 @@ const DashboardLayout = ({ children, user, walletBalance, cartCount, isLoading, 
 
   const gamesActive = currentPath.startsWith('/games');
   const secondaryLinks = [
+    { to: '/my-offers', label: 'My Offers', icon: FileCheck, active: currentPath === '/my-offers' },
     { to: '/order', label: 'Orders', icon: ShoppingBag, active: currentPath.startsWith('/order') },
     { to: '/documents', label: 'Documents', icon: FileCheck, active: currentPath.startsWith('/documents') },
     { to: '/wallet', label: 'Wallet', icon: Wallet, active: currentPath.startsWith('/wallet') },

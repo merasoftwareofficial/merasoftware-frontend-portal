@@ -1,6 +1,7 @@
 const backendDomain = process.env.REACT_APP_BACKEND_URL //"http://localhost:8080"
 
 const SummaryApi = {
+    offerReservations: { url: `${backendDomain}/api/offer-reservations`, method: 'get' },
     websitePreview: { url: `${backendDomain}/api/projects`, method: 'get' },
     servicePlanOffers: { url: `${backendDomain}/api/customer/service-plan-offers`, method: 'get' },
     uploadSessions: { url: `${backendDomain}/api/upload-sessions`, method: 'post' },

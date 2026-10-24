@@ -4162,6 +4162,9 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
 
   // Optional website offer this project is sold under (published + not expired only).
   const [offerSlug, setOfferSlug] = useState("");
+  const [offerReservationId, setOfferReservationId] = useState("");
+  const [offerReservations, setOfferReservations] = useState([]);
+  const [reservationError, setReservationError] = useState("");
   const [packageId, setPackageId] = useState("");
   const [packages, setPackages] = useState([]);
   const [catalogueReload, setCatalogueReload] = useState(0);
@@ -4171,6 +4174,17 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
   const [offers, setOffers] = useState([]);
   const [offersLoading, setOffersLoading] = useState(true);
   const [offersError, setOffersError] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`${SummaryApi.offerReservations.url}/user/${customerId}`, { credentials: 'include', cache: 'no-store', signal: controller.signal })
+      .then(async response => {
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || 'Reserved offers could not be loaded');
+        setOfferReservations(result.data.reservations || []); setReservationError('');
+      }).catch(error => { if (error.name !== 'AbortError') setReservationError(error.message); });
+    return () => controller.abort();
+  }, [customerId, catalogueReload]);
 
   // Categories, base price, description and default starting node all come from the SSOT.
   const { categories: projectCategories, loading: categoriesLoading, error: categoriesError } = useProjectCategories("admin");
@@ -4225,7 +4239,7 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
     return () => controller.abort();
   }, [catalogueReload]);
   useEffect(() => {
-    setPackageId(""); setOfferSlug(""); setSellingPrice(""); setSelectedFeatureIds([]); setPriceAdjustment(""); setAdjustmentLabel("");
+    setPackageId(""); setOfferSlug(""); setOfferReservationId(""); setSellingPrice(""); setSelectedFeatureIds([]); setPriceAdjustment(""); setAdjustmentLabel("");
   }, [category]);
 
   // Prefill the category's own first timeline node; the admin can still type another.
@@ -4281,7 +4295,8 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
   }, 0);
   const selectedPackage = packages.find(item => item.id === packageId && item.category === category);
   const eligibleOffers = offers.filter(item => item.status === "published" && Date.parse(item.endsAt) > Date.now() && (!item.targets || item.targets.includes('projects')) && item.applicableCategories?.includes(category));
-  const selectedOffer = selectedPackage?.quote.offer || eligibleOffers.find(item => item.slug === offerSlug);
+  const selectedReservation = offerReservations.find(row => row.id === offerReservationId);
+  const selectedOffer = selectedReservation?.offerSnapshot || selectedPackage?.quote.offer || eligibleOffers.find(item => item.slug === offerSlug);
   const isPricedSelection = Boolean(selectedPackage || selectedOffer);
   const selectedRegular = selectedPackage?.quote.regularPrice ?? selectedOffer?.mainPrice ?? Number(basePrice);
   const referenceTotal = selectedRegular + featuresTotal;
@@ -4320,7 +4335,7 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
       toast.error("Category and selling price are required.");
       return false;
     }
-    if ((packageId || offerSlug) && (offersLoading || offersError || !isPricedSelection)) {
+    if ((packageId || offerSlug) && ((offerReservationId ? reservationError : offersLoading || offersError) || !isPricedSelection)) {
       toast.error("Refresh packages and select an available package or offer."); return false;
     }
     if (isPricedSelection && adjustmentAmount !== 0 && !adjustmentLabel.trim()) {
@@ -4360,6 +4375,7 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
       packageQuoteKey: selectedPackage?.quoteKey || null,
       offerSlug: selectedOffer?.slug || null,
       offerQuoteKey: !selectedPackage ? selectedOffer?.quoteKey : null,
+      offerReservationId: selectedReservation?.id || null,
       priceAdjustment: isPricedSelection ? adjustmentAmount : 0,
       adjustmentLabel: isPricedSelection && adjustmentAmount !== 0 ? adjustmentLabel.trim() : "",
       recordPayment: recordsPayment
@@ -4487,12 +4503,19 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
         ) : null}
 
         <div className="md:col-span-2 space-y-4">
+          <label className={projectFormLabelClassName}>Customer's reserved offer (optional)</label>
+          <select aria-label="Customer's reserved offer" className={projectFormInputClassName} value={offerReservationId} disabled={!category || Boolean(reservationError)} onChange={event => {
+            const row = offerReservations.find(item => item.id === event.target.value);
+            setOfferReservationId(event.target.value); setPackageId(''); setOfferSlug(row?.offerSlug || ''); setPriceAdjustment(''); setAdjustmentLabel(''); setSellingPrice('');
+          }}><option value="">Use current catalogue or custom price</option>{offerReservations.filter(row => row.offerSnapshot?.applicableCategories?.includes(category)).map(row => <option key={row.id} value={row.id} disabled={row.status !== 'reserved' || Boolean(row.projectId) || Date.parse(row.expiresAt) <= Date.now()}>{row.title} — ₹{row.reservedPrice.toLocaleString('en-IN')} · {row.status}{row.projectId ? ' · attached to a project' : ''}</option>)}</select>
+          {reservationError && <p role="alert" className="text-base text-red-600">{reservationError}. Refresh before applying a saved reservation.</p>}
+          {selectedReservation && <p className="rounded-xl bg-emerald-50 p-3 text-emerald-900">Saved reservation price and terms apply. Payment deadline: {new Date(selectedReservation.expiresAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST. The original 72-hour clock will continue.</p>}
           <label className={projectFormLabelClassName}>Showcase package (optional)</label>
-          <select aria-label="Showcase package" className={projectFormInputClassName} value={packageId} disabled={!category || offersLoading || Boolean(offersError)} onChange={event => { setPackageId(event.target.value); setOfferSlug(""); setSellingPrice(""); setSelectedFeatureIds([]); setPriceAdjustment(""); setAdjustmentLabel(""); }}>
+          <select aria-label="Showcase package" className={projectFormInputClassName} value={packageId} disabled={Boolean(offerReservationId) || !category || offersLoading || Boolean(offersError)} onChange={event => { setPackageId(event.target.value); setOfferSlug(""); setSellingPrice(""); setSelectedFeatureIds([]); setPriceAdjustment(""); setAdjustmentLabel(""); }}>
             <option value="">{offersLoading ? "Loading packages…" : "Custom project — no package"}</option>
             {packages.filter(item => item.category === category).map(item => <option key={item.id} value={item.id}>{item.name} — ₹{item.quote.finalPrice.toLocaleString("en-IN")}</option>)}
           </select>
-          {!selectedPackage && <><label className={projectFormLabelClassName}>Category offer (optional)</label><select aria-label="Category offer" className={projectFormInputClassName} value={offerSlug} disabled={!category || offersLoading || Boolean(offersError)} onChange={event => { setOfferSlug(event.target.value); setSellingPrice(""); setPriceAdjustment(""); setAdjustmentLabel(""); }}><option value="">No offer — manual custom price</option>{eligibleOffers.map(item => <option key={item.slug} value={item.slug}>{item.title}</option>)}</select></>}
+          {!selectedPackage && !selectedReservation && <><label className={projectFormLabelClassName}>Category offer (optional)</label><select aria-label="Category offer" className={projectFormInputClassName} value={offerSlug} disabled={!category || offersLoading || Boolean(offersError)} onChange={event => { setOfferSlug(event.target.value); setSellingPrice(""); setPriceAdjustment(""); setAdjustmentLabel(""); }}><option value="">No offer — manual custom price</option>{eligibleOffers.map(item => <option key={item.slug} value={item.slug}>{item.title}</option>)}</select></>}
           {selectedOffer?.paymentPolicy && selectedOffer.paymentPolicy.mode !== 'current' && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-base text-emerald-900">Payment terms: {selectedOffer.paymentPolicy.mode.replaceAll('_', ' ')}{selectedOffer.paymentPolicy.mode === 'limited_uploads' ? ` · ${selectedOffer.paymentPolicy.uploadAllowance} submissions before payment` : ''} · Due in {selectedOffer.paymentPolicy.dueDays} day(s). These terms will be saved with this project.</p>}
           {isPricedSelection && <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-base text-slate-700"><strong>{selectedPackage?.name || selectedOffer?.title}</strong><p>{selectedOffer ? `Offer: ${selectedOffer.title}` : "Regular package price"}</p><ul className="mt-2 list-disc pl-5">{(selectedPackage?.inclusions || selectedOffer?.inclusions || []).map((line, index) => <li key={index}>{line}</li>)}</ul><p className="mt-3">Regular ₹{selectedRegular.toLocaleString("en-IN")} − offer benefit ₹{Math.round((selectedRegular - bundlePrice) * 100) / 100} + extra features ₹{featuresTotal.toLocaleString("en-IN")}</p><p className="mt-1">Select additional features only for work outside the package scope.</p>{selectedPackage?.linkedPlanIds?.length > 0 && <p>Related services are references only; no service plan will be purchased or activated.</p>}<details className="mt-2"><summary>Agreed terms</summary><ul className="list-disc pl-5">{(selectedPackage?.quote.terms || selectedOffer?.resolvedTerms || []).map((line, index) => <li key={index}>{line}</li>)}</ul></details></div>}
           {offersError && <p role="alert" className="text-base text-red-600">{offersError}. A custom project without a package or offer can still be created.</p>}

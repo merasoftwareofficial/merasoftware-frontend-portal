@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowRight } from "lucide-react";
 import { useDispatch } from "react-redux";
@@ -20,6 +20,8 @@ const Login = () => {
   });
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = new URLSearchParams(location.search).get('next') === '/my-offers' ? '/my-offers' : undefined;
   const dispatch = useDispatch();
   const { fetchUserDetails } = useContext(Context);
 
@@ -56,6 +58,7 @@ const Login = () => {
       }
 
       postLogin({
+        returnTo,
         dataApi,
         dispatch,
         navigate,
@@ -233,7 +236,7 @@ const Login = () => {
           onClose={() => setShowGuestModal(false)}
           onSuccess={(dataApi) => {
             setShowGuestModal(false);
-            postLogin({ dataApi, dispatch, navigate, toast, fetchUserDetails });
+            postLogin({ dataApi, dispatch, navigate, toast, fetchUserDetails, returnTo });
           }}
         />
       )}
