@@ -37,13 +37,18 @@ export default function MyOffers() {
     {!rows && !error && <p className="mt-4">Loading your offers…</p>}
     {rows?.length === 0 && <p className="mt-4">You have no reserved offers yet.</p>}
     {rows?.map(row => {
-      const seconds = Math.max(0, Math.ceil((Date.parse(row.expiresAt) - now) / 1000));
-      const expired = row.status !== 'confirmed' && seconds === 0;
+      // The deadline in force (an admin extension moves it); the original stays as history.
+      const due = row.deadline || row.expiresAt;
+      const seconds = Math.max(0, Math.ceil((Date.parse(due) - now) / 1000));
+      // under_review: a payment submitted before the deadline awaits approval; the price stays held.
+      const review = row.status === 'under_review';
+      const expired = row.status !== 'confirmed' && !review && seconds === 0;
       return <article key={row.id} className={`my-4 rounded-2xl border p-6 ${expired ? 'border-gray-300 bg-gray-100 text-gray-500' : 'border-[var(--field-border)] bg-[var(--glass-bg)]'}`}>
         <h2 className="text-xl font-semibold">{row.title}</h2>
-        <p className="mt-2 font-semibold">{expired ? 'Expired' : row.status === 'confirmed' ? 'Price locked' : 'Reserved'} · {money(row.reservedPrice)}</p>
+        <p className="mt-2 font-semibold">{expired ? 'Expired' : row.status === 'confirmed' ? 'Price locked' : review ? 'Payment under review' : 'Reserved'} · {money(row.reservedPrice)}</p>
         {!expired && row.status === 'reserved' && <p>{Math.floor(seconds / 3600)}h {Math.floor(seconds % 3600 / 60)}m {seconds % 60}s remaining</p>}
-        <p className="mt-3">Reserved: {date(row.reservedAt)}<br />Payment deadline: {date(row.expiresAt)}</p>
+        {review && <p className="mt-2">Your payment was submitted before the deadline and is being verified. Your reserved price is held.</p>}
+        <p className="mt-3">Reserved: {date(row.reservedAt)}<br />Payment deadline: {date(due)}{row.extendedUntil ? ' (extended by our team)' : ''}</p>
         {!row.projectId && !expired && <p className="mt-3">Our team will help you create your project and complete payment.</p>}
         <details className="mt-3"><summary>Reserved terms</summary><ul className="list-disc pl-5">{row.terms.map((term, index) => <li key={index}>{term}</li>)}</ul></details>
       </article>;

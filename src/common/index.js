@@ -17,6 +17,11 @@ const SummaryApi = {
         url : `${backendDomain}/api/signup`,
         method: "post"
     },
+    // Country codes + digit counts for phone fields (backend helpers/phoneNumber.js).
+    phoneCountries : {
+        url : `${backendDomain}/api/phone-countries`,
+        method: "get"
+    },
     signIn : {
        url : `${backendDomain}/api/signin`,
         method: "post"

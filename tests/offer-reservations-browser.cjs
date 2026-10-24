@@ -6,7 +6,9 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
 
 (async () => {
   const root = path.resolve(__dirname, '..');
-  const bundle = await build({ bundle: true, write: false, platform: 'browser', jsx: 'automatic', loader: { '.js': 'jsx' }, define: { 'process.env.NODE_ENV': '"production"' },
+  const bundle = await build({ bundle: true, write: false, platform: 'browser', jsx: 'automatic', loader: { '.js': 'jsx' },
+    // react-scripts inlines these at build time; the isolated bundle must do the same.
+    define: { 'process.env.NODE_ENV': '"production"', 'process.env.PUBLIC_URL': '""', 'process.env.REACT_APP_WEBSITE_URL': '"https://website.example.test"' },
     stdin: { resolveDir: root, loader: 'jsx', contents: `import React from 'react';import{createRoot}from'react-dom/client';import{Provider}from'react-redux';import{configureStore}from'@reduxjs/toolkit';import{BrowserRouter,Routes,Route}from'react-router-dom';import MyOffers from './src/pages/MyOffers';import ProtectedRoute from './src/components/ProtectedRoute';
       const initial={user:{user:{_id:'member-1',role:'member'},initialized:true}};const store=configureStore({reducer:(s=initial,a)=>a.type==='replace'?a.payload:s});window.replaceUser=u=>store.dispatch({type:'replace',payload:{user:{user:u,initialized:true}}});
       createRoot(document.getElementById('root')).render(<Provider store={store}><BrowserRouter><Routes><Route path="/my-offers" element={<ProtectedRoute><MyOffers/></ProtectedRoute>}/><Route path="/login" element={<p>Login fixture</p>}/></Routes></BrowserRouter></Provider>);` },
@@ -20,6 +22,10 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
   const now = Date.parse('2026-10-24T12:00:00Z');
   let rows = [
     { id: 'one', title: 'Active offer', reservedPrice: 5000, status: 'reserved', terms: ['Saved scope'], reservedAt: new Date(now).toISOString(), expiresAt: new Date(now + 72 * 3600000).toISOString() },
+    // Original 72 hours ended an hour ago; an admin extended it by two days.
+    { id: 'extended', title: 'Extended offer', reservedPrice: 4800, status: 'reserved', terms: ['Saved scope'], reservedAt: new Date(now - 73 * 3600000).toISOString(),
+      expiresAt: new Date(now - 3600000).toISOString(), deadline: new Date(now + 48 * 3600000).toISOString(), extendedUntil: new Date(now + 48 * 3600000).toISOString() },
+    { id: 'review', title: 'Paid offer', reservedPrice: 4500, status: 'under_review', projectId: 'project-1', terms: ['Paid scope'], reservedAt: new Date(now - 73 * 3600000).toISOString(), expiresAt: new Date(now - 3600000).toISOString() },
     { id: 'two', title: 'Old offer', reservedPrice: 4000, status: 'expired', terms: ['Old scope'], reservedAt: new Date(now - 73 * 3600000).toISOString(), expiresAt: new Date(now - 3600000).toISOString() },
   ];
   const server = http.createServer((req, res) => {
@@ -41,6 +47,13 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     assert.match(await page.locator('article').last().getAttribute('class'), /bg-gray-100/);
     assert.match(await page.locator('article').last().innerText(), /Expired/);
     assert.match(await page.locator('article').first().innerText(), /IST/);
+    // An admin extension counts down to the new deadline and says so.
+    assert.match(await page.locator('article').nth(1).innerText(), /4[78]h .*remaining/);
+    assert.match(await page.locator('article').nth(1).innerText(), /extended by our team/);
+    assert.doesNotMatch(await page.locator('article').nth(1).getAttribute('class'), /bg-gray-100/);
+    // In-time payment awaiting approval stays out of the grey expired state after the deadline.
+    assert.match(await page.locator('article').nth(2).innerText(), /Payment under review/);
+    assert.doesNotMatch(await page.locator('article').nth(2).getAttribute('class'), /bg-gray-100/);
     await page.evaluate(() => window.replaceUser({ _id: 'member-1', role: 'customer' }));
     await page.getByTestId('customer-shell').waitFor();
     rows = []; await page.evaluate(() => window.replaceUser({ _id: 'member-2', role: 'member' }));

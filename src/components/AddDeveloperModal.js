@@ -5,6 +5,7 @@ import loginIcons from '../assest/signin.gif';
 import imageTobase64 from '../helpers/imageTobase64';
 import { toast } from 'sonner';
 import createAccountWithRole from '../helpers/createAccountWithRole';
+import PhoneInput from './PhoneInput';
 
 const AddDeveloperModal = ({ isOpen, onClose, onDeveloperAdded }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -17,6 +18,8 @@ const AddDeveloperModal = ({ isOpen, onClose, onDeveloperAdded }) => {
     password: '',
     confirmPassword: '',
     profilePic: '',
+    countryCode: '+91',
+    phone: '',
   });
 
   const handleInputChange = e => {
@@ -46,13 +49,15 @@ const AddDeveloperModal = ({ isOpen, onClose, onDeveloperAdded }) => {
         name: data.name,
         password: data.password,
         profilePic: data.profilePic,
+        countryCode: data.countryCode,
+        phone: data.phone,
       }, 'developer');
 
       if (result.success) {
         toast.success('Developer added successfully!');
         if (onDeveloperAdded) onDeveloperAdded(result.data);
         onClose();
-        setData({ email: '', name: '', password: '', confirmPassword: '', profilePic: '' });
+        setData({ email: '', name: '', password: '', confirmPassword: '', profilePic: '', countryCode: '+91', phone: '' });
       } else {
         toast.error(result.message || 'Error adding developer');
       }
@@ -125,6 +130,13 @@ const AddDeveloperModal = ({ isOpen, onClose, onDeveloperAdded }) => {
               placeholder="Enter email address"
             />
           </div>
+
+          <PhoneInput
+            countryCode={data.countryCode}
+            phone={data.phone}
+            onChange={value => setData(prev => ({ ...prev, ...value }))}
+            className="focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
 
           {/* Password */}
           <div>

@@ -4,6 +4,7 @@ import createAccountWithRole from '../helpers/createAccountWithRole';
 import imageTobase64 from '../helpers/imageTobase64';
 import loginIcons from "../assest/signin.gif";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import PhoneInput from './PhoneInput';
 
 const AddAdminModal = ({ isOpen, onClose, onAdminAdded }) => {
     const [showPassword, setShowPassword] = useState(false);
@@ -16,6 +17,8 @@ const AddAdminModal = ({ isOpen, onClose, onAdminAdded }) => {
         name: '',
         confirmPassword: '',
         profilePic: '',
+        countryCode: '+91',
+        phone: '',
     });
 
     const handleOnChange = (e) => {
@@ -52,6 +55,8 @@ const AddAdminModal = ({ isOpen, onClose, onAdminAdded }) => {
                 password: data.password,
                 name: data.name,
                 profilePic: data.profilePic,
+                countryCode: data.countryCode,
+                phone: data.phone,
             }, 'admin');
             
             if (result.success) {
@@ -69,6 +74,8 @@ const AddAdminModal = ({ isOpen, onClose, onAdminAdded }) => {
                     name: '',
                     confirmPassword: '',
                     profilePic: '',
+                    countryCode: '+91',
+                    phone: '',
                 });
                 
                 onClose(); // Close the modal after submission
@@ -138,6 +145,15 @@ const AddAdminModal = ({ isOpen, onClose, onAdminAdded }) => {
                                 className="w-full outline-none bg-transparent"
                             />
                         </div>
+                    </div>
+
+                    <div className="mb-3">
+                        <PhoneInput
+                            countryCode={data.countryCode}
+                            phone={data.phone}
+                            onChange={value => setData(prev => ({ ...prev, ...value }))}
+                            className="bg-slate-200"
+                        />
                     </div>
                     
                     <div className="mb-3">

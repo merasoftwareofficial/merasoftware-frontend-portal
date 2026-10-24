@@ -4,6 +4,7 @@ import loginIcons from '../assest/signin.gif'
 import imageTobase64 from '../helpers/imageTobase64'
 import { toast } from 'sonner'
 import createAccountWithRole from '../helpers/createAccountWithRole';
+import PhoneInput from './PhoneInput';
 
 const AddPartnerModal = ({ isOpen, onClose, onPartnerAdded }) => {
   const [showPassword, setShowPassword] = useState(false)
@@ -15,6 +16,8 @@ const AddPartnerModal = ({ isOpen, onClose, onPartnerAdded }) => {
     password: '',
     confirmPassword: '',
     profilePic: '',
+    countryCode: '+91',
+    phone: '',
   })
 
   const handleInputChange = e => {
@@ -44,13 +47,15 @@ const AddPartnerModal = ({ isOpen, onClose, onPartnerAdded }) => {
         name: data.name,
         password: data.password,
         profilePic: data.profilePic,
+        countryCode: data.countryCode,
+        phone: data.phone,
       }, 'partner')
 
       if (result.success) {
         toast.success('Partner added successfully!')
         if (onPartnerAdded) onPartnerAdded(result.data)
         onClose()
-        setData({ email: '', name: '', password: '', confirmPassword: '', profilePic: '' })
+        setData({ email: '', name: '', password: '', confirmPassword: '', profilePic: '', countryCode: '+91', phone: '' })
       } else {
         toast.error(result.message || 'Failed to add partner')
       }
@@ -120,6 +125,13 @@ const AddPartnerModal = ({ isOpen, onClose, onPartnerAdded }) => {
               placeholder="Enter email address"
             />
           </div>
+
+          <PhoneInput
+            countryCode={data.countryCode}
+            phone={data.phone}
+            onChange={value => setData(prev => ({ ...prev, ...value }))}
+            className="focus:outline-none focus:ring-2 focus:ring-green-400"
+          />
 
           <div>
             <label className="block text-gray-600 font-medium mb-1">Password</label>

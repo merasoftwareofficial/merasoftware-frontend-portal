@@ -50,6 +50,7 @@ import AdminProjectCheckpointDetail from "../components/admin/AdminProjectCheckp
 import PortfolioSourceSettings from "../components/admin/PortfolioSourceSettings";
 import WebsitePreviewPanel from "../components/WebsitePreviewPanel";
 import ClientSubmissionsPanel from "../components/admin/ClientSubmissionsPanel";
+import ReservedOffersPanel from "../components/admin/ReservedOffersPanel";
 import {
   formatCurrency,
   getLedgerStatusLabel,
@@ -1769,6 +1770,7 @@ const AdminClientWorkspace = () => {
                 submissionsError={submissionsError}
               />
             ) : (
+              <>
               <CompactWorkspaceCard
                 title="Projects"
                 subtitle={`Active projects first. Last updated ${lastUpdatedAt}.`}
@@ -1807,6 +1809,9 @@ const AdminClientWorkspace = () => {
                   </div>
                 )}
               />
+              {/* Offer reservations: extend a deadline or apply the saved reserved price. */}
+              <ReservedOffersPanel customerId={customerId} projects={projectOrders} onChanged={() => setWorkspaceRefreshKey((current) => current + 1)} />
+              </>
             )}
           </section>
         )}
@@ -4507,9 +4512,9 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
           <select aria-label="Customer's reserved offer" className={projectFormInputClassName} value={offerReservationId} disabled={!category || Boolean(reservationError)} onChange={event => {
             const row = offerReservations.find(item => item.id === event.target.value);
             setOfferReservationId(event.target.value); setPackageId(''); setOfferSlug(row?.offerSlug || ''); setPriceAdjustment(''); setAdjustmentLabel(''); setSellingPrice('');
-          }}><option value="">Use current catalogue or custom price</option>{offerReservations.filter(row => row.offerSnapshot?.applicableCategories?.includes(category)).map(row => <option key={row.id} value={row.id} disabled={row.status !== 'reserved' || Boolean(row.projectId) || Date.parse(row.expiresAt) <= Date.now()}>{row.title} — ₹{row.reservedPrice.toLocaleString('en-IN')} · {row.status}{row.projectId ? ' · attached to a project' : ''}</option>)}</select>
+          }}><option value="">Use current catalogue or custom price</option>{offerReservations.filter(row => row.offerSnapshot?.applicableCategories?.includes(category)).map(row => <option key={row.id} value={row.id} disabled={row.status !== 'reserved' || Boolean(row.projectId) || Date.parse(row.deadline || row.expiresAt) <= Date.now()}>{row.title} — ₹{row.reservedPrice.toLocaleString('en-IN')} · {row.status}{row.projectId ? ' · attached to a project' : ''}</option>)}</select>
           {reservationError && <p role="alert" className="text-base text-red-600">{reservationError}. Refresh before applying a saved reservation.</p>}
-          {selectedReservation && <p className="rounded-xl bg-emerald-50 p-3 text-emerald-900">Saved reservation price and terms apply. Payment deadline: {new Date(selectedReservation.expiresAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST. The original 72-hour clock will continue.</p>}
+          {selectedReservation && <p className="rounded-xl bg-emerald-50 p-3 text-emerald-900">Saved reservation price and terms apply. Payment deadline: {new Date(selectedReservation.deadline || selectedReservation.expiresAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST. The reservation's own deadline continues; it does not restart.</p>}
           <label className={projectFormLabelClassName}>Showcase package (optional)</label>
           <select aria-label="Showcase package" className={projectFormInputClassName} value={packageId} disabled={Boolean(offerReservationId) || !category || offersLoading || Boolean(offersError)} onChange={event => { setPackageId(event.target.value); setOfferSlug(""); setSellingPrice(""); setSelectedFeatureIds([]); setPriceAdjustment(""); setAdjustmentLabel(""); }}>
             <option value="">{offersLoading ? "Loading packages…" : "Custom project — no package"}</option>

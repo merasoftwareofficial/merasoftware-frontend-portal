@@ -5,6 +5,7 @@ import imageTobase64 from '../helpers/imageTobase64';
 import { toast } from 'sonner';
 import SummaryApi from '../common';
 import createAccountWithRole from '../helpers/createAccountWithRole';
+import PhoneInput from './PhoneInput';
 import { useEffect } from 'react';
 
 const AddCustomerModal = ({ isOpen, onClose, onCustomerAdded }) => {
@@ -21,6 +22,8 @@ const [filteredPartners, setFilteredPartners] = useState([]);  // Filtered resul
     password: '',
     confirmPassword: '',
     profilePic: '',
+    countryCode: '+91',
+    phone: '',
   });
 
   useEffect(() => {
@@ -88,13 +91,15 @@ const handlePartnerSelect = (partner) => {
         password: data.password,
         profilePic: data.profilePic,
         referredBy: data.referredBy,
+        countryCode: data.countryCode,
+        phone: data.phone,
       }, 'customer');
 
       if (result.success) {
         toast.success('Customer added successfully!');
         if (onCustomerAdded) onCustomerAdded(result.data);
         onClose();
-        setData({ email: '', name: '', password: '', confirmPassword: '', profilePic: '' });
+        setData({ email: '', name: '', password: '', confirmPassword: '', profilePic: '', countryCode: '+91', phone: '' });
       } else {
         toast.error(result.message || 'Failed to add customer');
       }
@@ -164,6 +169,13 @@ const handlePartnerSelect = (partner) => {
               placeholder="Enter email address"
             />
           </div>
+
+          <PhoneInput
+            countryCode={data.countryCode}
+            phone={data.phone}
+            onChange={value => setData(prev => ({ ...prev, ...value }))}
+            className="focus:outline-none focus:ring-2 focus:ring-purple-400"
+          />
 
           <div>
             <label className="block text-gray-600 font-medium mb-1">Password</label>
