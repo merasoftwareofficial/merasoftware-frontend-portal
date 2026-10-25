@@ -1,5 +1,9 @@
 # Getting Started with Create React App
 
+## Agent handover — read first
+
+Offer reservation/payment context is in the [cross-repo handover](../merasoftware/src/docs/RESERVATION_AGENT_HANDOVER.md). Start there, then read [docs/QUICK_INDEX.md](docs/QUICK_INDEX.md) for portal ownership and tests. Final fixes are committed as part 4 (`c0803ca`); this handover update is docs-only. Deployment, live indexes/flags and real delivery are not verified. The framework instructions below do not authorize restarting the owner's portal server or using production data for tests.
+
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
 ## Available Scripts

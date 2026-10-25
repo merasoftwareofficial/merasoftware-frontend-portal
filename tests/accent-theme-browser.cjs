@@ -12,7 +12,7 @@ const { build } = require('../../merasoftware/node_modules/esbuild');
 const { chromium } = require('../../merasoftware/node_modules/playwright');
 
 const ROOT = path.resolve(__dirname, '..');
-const cssDir = path.join(ROOT, 'build/static/css');
+const cssDir = path.join(process.env.PORTAL_UI_BUILD_DIR || path.join(ROOT, 'build'), 'static/css');
 const cssFile = fs.readdirSync(cssDir).find((f) => /^main\..*\.css$/.test(f));
 const css = fs.readFileSync(path.join(cssDir, cssFile), 'utf8');
 const indexHtml = fs.readFileSync(path.join(ROOT, 'public/index.html'), 'utf8');
