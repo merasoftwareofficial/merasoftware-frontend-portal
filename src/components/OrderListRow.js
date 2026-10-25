@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowRight, Layers3, LayoutGrid } from 'lucide-react';
 import Badge from './Badge';
-import Surface from './Surface';
+import WorkspacePanel, { WorkspaceColumns } from './WorkspacePanel';
 import { isProjectItem, isPlanItem } from '../helpers/orderType';
 import {
   getItemStatusMeta,
@@ -37,11 +37,7 @@ export const ORDER_LIST_COLUMNS = [
 ];
 
 export const OrderListHeader = ({ columns = ORDER_LIST_COLUMNS }) => (
-  <div className="relative grid grid-cols-12 gap-3 border-b border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] px-5 py-3 text-sm font-semibold uppercase text-[var(--text-secondary)] sm:px-6">
-    {columns.map((column) => (
-      <div key={column.label} className={column.className}>{column.label}</div>
-    ))}
-  </div>
+  <WorkspaceColumns columns={columns} />
 );
 
 // A 4px coloured left bar used to encode the item TYPE — emerald for a project,
@@ -164,16 +160,7 @@ export const OrderList = ({
   className = '',
   ...rest
 }) => (
-  <Surface as={as} radius="panel" sheen className={`overflow-hidden ${className}`} {...rest}>
-    <div className="relative flex flex-col gap-3 border-b border-[var(--glass-border)] p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-6">
-      <h2 className="flex items-center text-xl font-semibold text-[var(--text-primary)]">
-        <Icon className="mr-2 h-5 w-5" />
-        {title}
-      </h2>
-      {toolbar}
-      {actions && <div className="flex flex-wrap items-center justify-center gap-2">{actions}</div>}
-    </div>
-
+  <WorkspacePanel as={as} title={title} icon={Icon} toolbar={toolbar} actions={actions} className={className} {...rest}>
     {loading ? (
       <div className="relative px-5 py-10 text-center text-base text-[var(--text-secondary)] sm:px-6">{loadingLabel}</div>
     ) : items.length > 0 ? (
@@ -199,7 +186,7 @@ export const OrderList = ({
         {empty}
       </div>
     )}
-  </Surface>
+  </WorkspacePanel>
 );
 
 export default OrderListRow;

@@ -1,17 +1,21 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import SummaryApi from '../common';
 import DashboardLayout from '../components/DashboardLayout';
-import Surface from '../components/Surface';
+import WorkspacePanel, { WorkspaceColumns } from '../components/WorkspacePanel';
 import Badge from '../components/Badge';
 import GlassButton from '../components/GlassButton';
-import GlassPageState from '../components/GlassPageState';
 import { ArrowLeft, CheckCircle2, Clock3, RefreshCw, Tag } from 'lucide-react';
 import { WEBSITE_URL } from '../helpers/brand';
 
 const date = value => new Date(value).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }) + ' IST';
 const money = value => `₹${Number(value).toLocaleString('en-IN')}`;
+const columns = [
+  { label: 'Offer', className: 'col-span-4' },
+  { label: 'Status', className: 'col-span-2' },
+  { label: 'Reserved price', className: 'col-span-2' },
+  { label: 'Payment deadline', className: 'col-span-4' },
+];
 export default function MyOffers() {
   const user = useSelector(state => state?.user?.user);
   const [list, setList] = useState(null);
@@ -37,30 +41,27 @@ export default function MyOffers() {
   const now = clock ? clock.server + performance.now() - clock.client : 0;
   // DashboardLayout already owns the customer's main landmark.
   const ContentTag = user?.role === 'customer' ? 'section' : 'main';
-  const content = <ContentTag className="min-h-full px-3 py-4 text-[var(--text-primary)] sm:px-5 lg:px-8 lg:py-7" aria-labelledby="my-offers-title" data-clock-tick={tick}>
-    <div className="mx-auto max-w-4xl">
-      <header className="mb-8 text-center">
-        <h1 id="my-offers-title" className="text-2xl font-bold tracking-tight sm:text-3xl">My offers</h1>
-        <p className="mx-auto mt-3 max-w-xl text-base text-[var(--text-secondary)]">Your reservations and payment deadlines. Expired offers stay in your history.</p>
+  const content = <ContentTag className="relative min-h-[calc(100vh-4rem)] overflow-hidden px-4 py-10 text-[var(--text-primary)] sm:px-6 lg:px-8 lg:py-14" aria-labelledby="my-offers-title" data-clock-tick={tick}>
+    <div className="pointer-events-none absolute inset-0 bg-[var(--scrim)]" />
+    <div className="relative mx-auto max-w-7xl">
+      <header className="text-center">
+        <h1 id="my-offers-title" className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">My Offers</h1>
+        <p className="mx-auto mt-3 max-w-2xl text-base text-[var(--text-secondary)] sm:text-lg">Your reservations and payment deadlines. Expired offers stay in your history.</p>
       </header>
 
-      {error && (rows ? (
-        <Surface role="alert" size="compact" className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <WorkspacePanel className="mt-10" title="Reserved offers" icon={Tag} actions={<GlassButton onClick={() => void refresh()}><RefreshCw size={16} />Refresh</GlassButton>}>
+        {error && <div role="alert" className="relative flex flex-wrap items-center justify-between gap-3 border-b border-[var(--glass-border)] px-5 py-4 sm:px-6">
           <p className="text-base text-[var(--badge-error-fg)]">{error}</p>
-          <GlassButton onClick={() => void refresh()}><RefreshCw size={16} />Retry</GlassButton>
-        </Surface>
-      ) : (
-        <div role="alert"><GlassPageState type="error" message={error} onRetry={() => void refresh()} /></div>
-      ))}
-      {!rows && !error && <div role="status"><GlassPageState message="Loading your offers…" /></div>}
-      {rows?.length === 0 && (
-        <Surface radius="panel" className="flex flex-col items-center px-6 py-14 text-center">
-          <Tag size={36} className="mb-4 text-[var(--text-muted)]" aria-hidden="true" />
-          <h2 className="text-lg font-semibold">You have no reserved offers yet.</h2>
-          <p className="mt-2 max-w-md text-base text-[var(--text-secondary)]">Your reserved offers and their payment deadlines will appear here.</p>
-        </Surface>
-      )}
-      <div className="space-y-5">{rows?.map(row => {
+          <GlassButton onClick={() => void refresh()}><RefreshCw size={16} />{rows ? 'Retry' : 'Try again'}</GlassButton>
+        </div>}
+        {!rows && !error && <div role="status" className="relative px-5 py-10 text-center text-base text-[var(--text-secondary)] sm:px-6">Loading your offers…</div>}
+        {rows?.length === 0 && <div className="relative px-5 py-12 text-center sm:px-6">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border-[length:var(--glass-border-width)] border-[var(--glass-border-strong)] bg-[var(--glass-bg)]"><Tag size={24} aria-hidden="true" /></div>
+          <h3 className="mt-4 text-lg font-semibold">You have no reserved offers yet.</h3>
+          <p className="mt-2 text-base text-[var(--text-secondary)]">Your reserved offers and their payment deadlines will appear here.</p>
+        </div>}
+        {rows?.length > 0 && <div className="hidden lg:block"><WorkspaceColumns columns={columns} /></div>}
+        <div className="relative divide-y divide-[var(--divider)]">{rows?.map(row => {
       // The deadline in force (an admin extension moves it); the original stays as history.
       const due = row.deadline || row.expiresAt;
       const seconds = Math.max(0, Math.ceil((Date.parse(due) - now) / 1000));
@@ -68,35 +69,36 @@ export default function MyOffers() {
       const review = row.status === 'under_review';
       const expired = row.status !== 'confirmed' && !review && seconds === 0;
       const locked = row.status === 'confirmed';
-      return <Surface as="article" key={row.id} tone={expired ? 'subtle' : 'base'} radius="panel" size="card">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <h2 className={`break-words text-xl font-semibold ${expired ? 'text-[var(--text-secondary)]' : 'text-[var(--text-primary)]'}`}>{row.title}</h2>
-            <div className="mt-3"><Badge tone={expired ? 'neutral' : locked ? 'success' : 'pending'} icon={locked ? CheckCircle2 : expired ? Tag : Clock3}>
-              {expired ? 'Expired' : locked ? 'Price locked' : review ? 'Payment under review' : 'Reserved'}
-            </Badge></div>
+      return <article key={row.id} className={`px-5 py-5 sm:px-6 ${expired ? 'bg-[var(--glass-bg-subtle)]' : ''}`}>
+        <div className="grid grid-cols-12 items-start gap-4">
+          <div className="col-span-12 min-w-0 lg:col-span-4">
+            <h3 className={`break-words text-lg font-semibold ${expired ? 'text-[var(--text-secondary)]' : 'text-[var(--text-primary)]'}`}>{row.title}</h3>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">Reserved {date(row.reservedAt)}</p>
           </div>
-          <div className="shrink-0 sm:text-right">
-            <p className="text-sm text-[var(--text-secondary)]">Reserved price</p>
-            <p className={`mt-1 text-2xl font-bold tabular-nums ${expired ? 'text-[var(--text-secondary)]' : 'text-[var(--text-primary)]'}`}>{money(row.reservedPrice)}</p>
+          <div className="col-span-12 lg:col-span-2"><Badge tone={expired ? 'neutral' : locked ? 'success' : 'pending'} icon={locked ? CheckCircle2 : expired ? Tag : Clock3}>
+              {expired ? 'Expired' : locked ? 'Price locked' : review ? 'Payment under review' : 'Reserved'}
+          </Badge></div>
+          <div className="col-span-12 sm:col-span-6 lg:col-span-2">
+            <p className="mb-1 text-sm text-[var(--text-secondary)] lg:hidden">Reserved price</p>
+            <p className={`text-lg font-semibold tabular-nums ${expired ? 'text-[var(--text-secondary)]' : 'text-[var(--text-primary)]'}`}>{money(row.reservedPrice)}</p>
+          </div>
+          <div className="col-span-12 sm:col-span-6 lg:col-span-4">
+            <p className="mb-1 text-sm text-[var(--text-secondary)] lg:hidden">Payment deadline</p>
+            <p className="text-base font-medium">{date(due)}</p>
+            {row.extendedUntil && <p className="mt-1 text-sm text-[var(--text-secondary)]">(extended by our team)</p>}
+            {!expired && row.status === 'reserved' && <p className="mt-2 flex items-center gap-2 text-sm font-semibold tabular-nums text-[var(--badge-pending-fg)]"><Clock3 size={16} aria-hidden="true" />{Math.floor(seconds / 3600)}h {Math.floor(seconds % 3600 / 60)}m {seconds % 60}s remaining</p>}
           </div>
         </div>
-        {!expired && row.status === 'reserved' && <p className="mt-5 flex flex-wrap items-center gap-2 text-base font-semibold tabular-nums text-[var(--badge-pending-fg)]"><Clock3 size={16} aria-hidden="true" />{Math.floor(seconds / 3600)}h {Math.floor(seconds % 3600 / 60)}m {seconds % 60}s remaining</p>}
-        {review && <p className="mt-5 text-base text-[var(--text-secondary)]">Your payment was submitted before the deadline and is being verified. Your reserved price is held.</p>}
-        <dl className="mt-5 grid gap-4 border-t border-[var(--divider)] pt-5 text-base sm:grid-cols-2">
-          <div><dt className="text-sm text-[var(--text-secondary)]">Reserved</dt><dd className="mt-1 font-medium">{date(row.reservedAt)}</dd></div>
-          <div><dt className="text-sm text-[var(--text-secondary)]">Payment deadline</dt><dd className="mt-1 font-medium">{date(due)}{row.extendedUntil && <span className="mt-1 block text-sm font-normal text-[var(--text-secondary)]">(extended by our team)</span>}</dd></div>
-        </dl>
-        {!row.projectId && !expired && <p className="mt-5 text-base text-[var(--text-secondary)]">Our team will help you create your project and complete payment.</p>}
-        <details className="mt-5 border-t border-[var(--divider)] pt-4 text-base">
+        {review && <p className="mt-4 text-base text-[var(--text-secondary)]">Your payment was submitted before the deadline and is being verified. Your reserved price is held.</p>}
+        {!row.projectId && !expired && <p className="mt-4 text-base text-[var(--text-secondary)]">Our team will help you create your project and complete payment.</p>}
+        <details className="mt-4 border-t border-[var(--divider)] pt-4 text-base">
           <summary className="cursor-pointer rounded font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-text">Reserved terms</summary>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-[var(--text-secondary)]">{row.terms.map((term, index) => <li key={index} className="break-words">{term}</li>)}</ul>
         </details>
-      </Surface>;
+      </article>;
     })}</div>
-      <div className="mt-6">
-        {user?.role === 'customer' ? <GlassButton as={Link} to="/dashboard"><ArrowLeft size={16} />Back to dashboard</GlassButton> : <GlassButton as="a" href={WEBSITE_URL}><ArrowLeft size={16} />Back to website</GlassButton>}
-      </div>
+      </WorkspacePanel>
+      {user?.role !== 'customer' && <div className="mt-6"><GlassButton as="a" href={WEBSITE_URL}><ArrowLeft size={16} />Back to website</GlassButton></div>}
     </div>
   </ContentTag>;
   return user?.role === 'customer' ? <DashboardLayout>{content}</DashboardLayout> : <div className="portal-surface min-h-screen">{content}</div>;

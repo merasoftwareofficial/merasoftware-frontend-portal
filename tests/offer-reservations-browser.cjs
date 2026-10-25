@@ -64,7 +64,7 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     catch (error) { throw new Error(`${error.message}\nBrowser errors: ${errors.join('; ')}\nPage: ${await page.locator('body').innerText()}`); }
     assert.equal(await page.getByTestId('customer-shell').count(), 0, 'Member does not receive the general customer layout');
     assert.match(await page.locator('article').first().innerText(), /7[12]h .*remaining/);
-    assert.match(await page.locator('article').nth(3).getAttribute('class'), /surface-subtle/);
+    assert.match(await page.locator('article').nth(3).getAttribute('class'), /glass-bg-subtle/);
     assert.match(await page.locator('article').nth(3).innerText(), /Expired/);
     assert.match(await page.locator('article').nth(4).innerText(), /Price locked/);
     assert.match(await page.locator('article').first().innerText(), /IST/);
@@ -85,7 +85,7 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
       for (const width of [375, 1366]) {
         await page.setViewportSize({ width, height: 900 });
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${theme}/${width} has no horizontal overflow`);
-        const visual = await page.locator('article').first().evaluate(el => {
+        const visual = await page.locator('.surface').first().evaluate(el => {
           const style = getComputedStyle(el);
           const probe = document.createElement('div'); probe.style.color = 'var(--text-primary)'; el.append(probe);
           const expected = getComputedStyle(probe).color; probe.remove();
@@ -102,7 +102,7 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     await page.evaluate(() => window.replaceUser({ _id: 'member-1', role: 'customer' }));
     await page.getByTestId('customer-shell').waitFor();
     assert.equal(await page.locator('main').count(), 1, 'Customer layout owns the only main landmark');
-    assert.equal(await page.getByRole('link', { name: 'Back to dashboard' }).getAttribute('href'), '/dashboard');
+    assert.equal(await page.getByRole('link', { name: 'Back to dashboard' }).count(), 0, 'Top-level tab uses the portal navigation');
     delay = 0;
     const savedRows = rows;
     fail = true;
