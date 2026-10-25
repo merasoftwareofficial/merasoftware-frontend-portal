@@ -70,7 +70,7 @@ function ForceApplyForm({ row, projects, onDone }) {
     event.preventDefault();
     setBusy(true);
     try {
-      await post(`/${row.id}/force-apply`, { orderId, reason, confirmSlug: confirm.trim(), expectedRevision: preview.pricingRevision });
+      await post(`/${row.id}/force-apply`, { orderId, reason, confirmSlug: confirm.trim(), expectedRevision: preview.pricingRevision, previewToken: preview.previewToken });
       toast.success('Reserved price applied to the project.');
       onDone();
     } catch (error) { toast.error(error.message); setPreview(null); } finally { setBusy(false); }
@@ -89,6 +89,7 @@ function ForceApplyForm({ row, projects, onDone }) {
           <div className="rounded-lg bg-white p-3 text-sm text-slate-800">
             <p>Project price: <strong>{inr(preview.before.finalPrice)}</strong> → <strong>{inr(preview.after.finalPrice)}</strong></p>
             <p>First bill: {inr(preview.before.firstBill)} → {inr(preview.after.firstBill)}</p>
+            {preview.after.walletCredit > 0 && <p>Surplus to customer wallet: {inr(preview.after.walletCredit)}</p>}
             {preview.after.installments.length > 0 && <p>Installments: {preview.after.installments.map(inr).join(' + ')}</p>}
             <p className="mt-1 text-slate-600">{preview.note}</p>
           </div>
@@ -140,6 +141,7 @@ export default function ReservedOffersPanel({ customerId, projects = [], onChang
               <p className="mt-1 text-sm text-slate-600">Reserved {ist(row.reservedAt)} · Deadline {ist(row.deadline)}{row.extendedUntil ? ` (original ${ist(row.expiresAt)})` : ''}</p>
               <p className="text-sm text-slate-600">{project ? `Project: ${projectName(project)}` : row.projectId ? 'Linked to a project' : 'No project yet'}</p>
               {row.resolution && <p className="text-sm font-medium text-amber-700">{RESOLUTION[row.resolution] || row.resolution}{row.resolutionNote ? ` — ${row.resolutionNote}` : ''}</p>}
+              {row.walletCredit > 0 && <p className="text-sm font-semibold text-emerald-700">Surplus credited to customer wallet: {inr(row.walletCredit)}</p>}
               {row.extensions?.length > 0 && <p className="text-xs text-slate-500">Extended {row.extensions.length} time(s); last reason: {row.extensions[row.extensions.length - 1].reason}</p>}
               <div className="mt-2 flex flex-wrap gap-2">
                 {canExtend && <button type="button" onClick={() => toggle(row.id, 'extend')} className="rounded-xl border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-800">Extend deadline</button>}

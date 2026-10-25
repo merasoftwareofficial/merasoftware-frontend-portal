@@ -34,7 +34,7 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
       if (req.method === 'POST') calls.push({ url: req.url, body: JSON.parse(raw) });
       if (req.url === '/api/offer-reservations/user/c1') return res.end(JSON.stringify({ success: true, data: { reservations: rows } }));
       if (req.url === '/api/offer-reservations/r1/extend') return res.end(JSON.stringify({ success: true, data: { notice: 'sent' } }));
-      if (req.url === '/api/offer-reservations/r1/force-apply/preview') return res.end(JSON.stringify({ success: true, data: { offerSlug: 'diwali-offer', pricingRevision: 1,
+      if (req.url === '/api/offer-reservations/r1/force-apply/preview') return res.end(JSON.stringify({ success: true, data: { offerSlug: 'diwali-offer', pricingRevision: 1, previewToken: 'preview-fixture',
         before: { finalPrice: 10000, firstBill: 10000, installments: [] }, after: { finalPrice: 5000, firstBill: 5000, installments: [] }, note: 'Validity is overridden by an admin.' } }));
       if (req.url === '/api/offer-reservations/r1/force-apply') return res.end(JSON.stringify({ success: true, data: { finalPrice: 5000 } }));
     }
@@ -72,7 +72,7 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     await page.getByRole('button', { name: 'Apply reserved price', exact: true }).click();
     await page.waitForFunction(() => window.changed === 2);
     const force = calls.find(call => call.url.endsWith('/force-apply'));
-    assert.deepEqual(force.body, { orderId: 'p1', reason: 'Paid by cheque in time', confirmSlug: 'diwali-offer', expectedRevision: 1 });
+    assert.deepEqual(force.body, { orderId: 'p1', reason: 'Paid by cheque in time', confirmSlug: 'diwali-offer', expectedRevision: 1, previewToken: 'preview-fixture' });
     assert.deepEqual(errors, []);
     console.log('PASS: admin Reserved offers panel — extend with reason, force-apply preview, typed confirmation and revision.');
   } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }
