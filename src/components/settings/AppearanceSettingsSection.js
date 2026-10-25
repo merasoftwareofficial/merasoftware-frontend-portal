@@ -1,7 +1,7 @@
 import React from 'react';
-import { Check } from 'lucide-react';
+import { Check, Palette } from 'lucide-react';
 
-import Surface from '../Surface';
+import WorkspacePanel from '../WorkspacePanel';
 import { useTheme } from '../../context/ThemeContext';
 import { THEME_ICONS, THEME_DESCRIPTIONS } from '../ThemeSwitch';
 
@@ -39,15 +39,12 @@ const AppearanceSettingsSection = () => {
   const { theme, setTheme, themes, labels, accent, setAccent, accents, accentLabels } = useTheme();
 
   return (
-    <section id="appearance" aria-labelledby="settings-appearance-heading">
-      <h2 id="settings-appearance-heading" className="text-xl font-bold text-[var(--text-primary)]">Appearance</h2>
-      <p className="mt-1 text-sm text-[var(--text-secondary)]">Choose how the portal looks. Saved on this device.</p>
-
-      <Surface radius="panel" sheen className="mt-5 p-6 sm:p-7">
-        <div className="relative space-y-8">
-          <div role="radiogroup" aria-labelledby="settings-theme-label" onKeyDown={event => navigateRadioGroup(event, themes, theme, setTheme)}>
+    <WorkspacePanel as="section" id="appearance" aria-label="Appearance settings" title="Appearance" icon={Palette}>
+      <p className="relative border-b border-[var(--divider)] px-5 py-4 text-sm text-[var(--text-secondary)] sm:px-6">Choose how the portal looks. Saved on this device.</p>
+        <div className="relative grid divide-y divide-[var(--divider)] lg:grid-cols-2 lg:divide-y-0">
+          <div className="p-5 sm:p-6" role="radiogroup" aria-labelledby="settings-theme-label" onKeyDown={event => navigateRadioGroup(event, themes, theme, setTheme)}>
             <h3 id="settings-theme-label" className="text-base font-bold text-[var(--text-primary)]">Theme</h3>
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <div className="mt-3 grid gap-3">
               {themes.map((option) => {
                 const Icon = THEME_ICONS[option];
                 const isActive = option === theme;
@@ -77,12 +74,12 @@ const AppearanceSettingsSection = () => {
             </div>
           </div>
 
-          <div role="radiogroup" aria-labelledby="settings-accent-label" onKeyDown={event => navigateRadioGroup(event, accents, accent, setAccent)}>
+          <div className="p-5 sm:p-6 lg:border-l lg:border-[var(--divider)]" role="radiogroup" aria-labelledby="settings-accent-label" onKeyDown={event => navigateRadioGroup(event, accents, accent, setAccent)}>
             <h3 id="settings-accent-label" className="text-base font-bold text-[var(--text-primary)]">Colour</h3>
             <p className="mt-1 text-sm text-[var(--text-secondary)]">
               Buttons, menus and highlights. Status colours — paid, pending, error — stay the same.
             </p>
-            <div className="mt-4 grid grid-cols-4 gap-x-3 gap-y-4 sm:grid-cols-8">
+            <div className="mt-4 grid grid-cols-4 gap-x-3 gap-y-4">
               {accents.map((option) => {
                 const isActive = option === accent;
                 return (
@@ -114,8 +111,7 @@ const AppearanceSettingsSection = () => {
             </div>
           </div>
         </div>
-      </Surface>
-    </section>
+    </WorkspacePanel>
   );
 };
 

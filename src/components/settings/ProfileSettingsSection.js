@@ -5,7 +5,8 @@ import { toast } from 'sonner';
 import SummaryApi from '../../common';
 import { setUserDetails } from '../../store/userSlice';
 import TriangleMazeLoader from '../TriangleMazeLoader';
-import Surface from '../Surface';
+import WorkspacePanel from '../WorkspacePanel';
+import GlassButton from '../GlassButton';
 import StorageService from '../../utils/storageService';
 import CookieManager from '../../utils/cookieManager';
 import uploadImage from '../../helpers/uploadImage';
@@ -167,14 +168,14 @@ const ProfileSettingsSection = () => {
   };
 
   return (
-    <section id="profile" aria-labelledby="settings-profile-heading">
+    <>
       {(loading || saving) && <div className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center"><TriangleMazeLoader /></div>}
 
-      <h2 id="settings-profile-heading" className="text-xl font-bold text-[var(--text-primary)]">Profile</h2>
-      <p className="mt-1 text-sm text-[var(--text-secondary)]">Update your personal information.</p>
-
-      <form onSubmit={handleSubmit} className="mt-5 space-y-6">
-        <Surface radius="panel" sheen className="p-6 sm:p-7">
+      <WorkspacePanel as="section" id="profile" aria-label="Profile settings" title="Profile" icon={User} actions={
+        <GlassButton type="submit" form="profile-settings-form" variant="primary" disabled={!isDirty || saving}>{saving ? 'Saving...' : 'Save changes'}</GlassButton>
+      }>
+      <form id="profile-settings-form" onSubmit={handleSubmit} className="relative">
+        <div className="border-b border-[var(--divider)] p-5 sm:p-6">
           <div className="relative flex items-center gap-4">
             <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] text-2xl font-bold text-[var(--text-primary)] backdrop-blur-md">
               {formData.profilePic ? <img src={formData.profilePic} alt={formData.name || 'Profile'} className="h-full w-full object-cover" /> : (formData.name || 'U').trim().charAt(0).toUpperCase()}
@@ -185,9 +186,9 @@ const ProfileSettingsSection = () => {
               <p className="mt-1 text-sm text-[var(--text-secondary)]">JPG, PNG or WEBP</p>
             </div>
           </div>
-        </Surface>
+        </div>
 
-        <Surface radius="panel" sheen className="p-6 sm:p-7">
+        <div className="border-b border-[var(--divider)] p-5 sm:p-6">
           <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
               <div className="mt-0.5 rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg)] p-2 text-[var(--text-primary)]"><Link2 size={19} /></div>
@@ -218,20 +219,19 @@ const ProfileSettingsSection = () => {
               />
             </button>
           </div>
-        </Surface>
+        </div>
 
-        <Surface radius="panel" sheen className="p-6 sm:p-7">
+        <div className="p-5 sm:p-6">
           <div className="relative grid gap-6 sm:grid-cols-2">
             <label className="block"><span className="mb-2 flex items-center gap-2 text-base font-semibold text-[var(--text-primary)]"><User size={16} className="text-[var(--text-muted)]" /> Full name</span><input name="name" value={formData.name} onChange={handleChange} required className="w-full border-0 border-b border-[var(--glass-border-strong)] bg-transparent px-0 py-2 text-base text-[var(--text-primary)] outline-none transition focus:border-accent-text focus:ring-0" /></label>
             <label className="block"><span className="mb-2 flex items-center gap-2 text-base font-semibold text-[var(--text-primary)]"><Mail size={16} className="text-[var(--text-muted)]" /> Email address</span><input name="email" value={formData.email} readOnly className="w-full border-0 border-b border-[var(--glass-border)] bg-transparent px-0 py-2 text-base text-[var(--text-primary)] outline-none" /></label>
             <label className="block"><span className="mb-2 flex items-center gap-2 text-base font-semibold text-[var(--text-primary)]"><Phone size={16} className="text-[var(--text-muted)]" /> Phone number</span><input name="phone" type="tel" inputMode="numeric" pattern="[0-9]*" value={formData.phone} onChange={handleChange} className="w-full border-0 border-b border-[var(--glass-border-strong)] bg-transparent px-0 py-2 text-base text-[var(--text-primary)] outline-none transition focus:border-accent-text focus:ring-0" /></label>
             <label className="block"><span className="mb-2 flex items-center gap-2 text-base font-semibold text-[var(--text-primary)]"><Calendar size={16} className="text-[var(--text-muted)]" /> Age</span><input name="age" type="text" inputMode="numeric" pattern="[0-9]*" maxLength="3" value={formData.age} onChange={handleChange} className="w-full border-0 border-b border-[var(--glass-border-strong)] bg-transparent px-0 py-2 text-base text-[var(--text-primary)] outline-none transition focus:border-accent-text focus:ring-0" /></label>
           </div>
-        </Surface>
-
-        <div className="flex justify-end"><button type="submit" disabled={!isDirty || saving} className={`rounded-xl border px-6 py-3 text-base font-semibold backdrop-blur-md transition ${isDirty && !saving ? 'border-accent-400/40 bg-accent-500/20 text-[var(--text-primary)] hover:bg-accent-500/35' : 'cursor-not-allowed border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] text-[var(--text-muted)]'}`}>{saving ? 'Saving...' : 'Save changes'}</button></div>
+        </div>
       </form>
-    </section>
+      </WorkspacePanel>
+    </>
   );
 };
 

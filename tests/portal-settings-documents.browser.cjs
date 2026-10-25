@@ -1,15 +1,12 @@
 // Real built portal with local API fixtures. No authenticated production data
-// or mutations. Checks responsive Documents, retry and Settings keyboard access.
+// or production mutations. Profile saves use a local fixture only.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
-const { createHash } = require('node:crypto');
-const sharp = require('sharp');
 const { chromium } = require('../../merasoftware/node_modules/playwright');
 
 const build = path.resolve(process.env.PORTAL_UI_BUILD_DIR || path.join(__dirname, '../build'));
-const baseline = process.env.PORTAL_UI_BASELINE_DIR && path.resolve(process.env.PORTAL_UI_BASELINE_DIR);
 const output = path.join(build, 'documents-settings-check');
 fs.mkdirSync(output, { recursive: true });
 let activeBuild = build, documentError = false, documentCalls = 0;
@@ -22,7 +19,7 @@ const server = http.createServer((req, res) => {
   res.setHeader('Content-Type', ({ '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml' })[path.extname(file)] || 'application/octet-stream');
   res.end(fs.readFileSync(file));
 });
-const hashes = new Map(), comparisons = [], browserErrors = [];
+const comparisons = [], browserErrors = [], profileWrites = [];
 
 (async () => {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -39,22 +36,35 @@ const hashes = new Map(), comparisons = [], browserErrors = [];
       await context.route('**/*', route => {
         const url = new URL(route.request().url());
         if (url.origin === origin && !url.pathname.startsWith('/api/')) return route.continue();
-        assert.equal(route.request().method(), 'GET', 'Audit must not submit profile changes or upload files');
         let data = [];
-        if (url.pathname === '/api/user-details') data = user;
-        else if (url.pathname === '/api/my-documents') { documentCalls++; data = { documents }; }
+        if (url.pathname === '/api/update-profile' && route.request().method() === 'POST') {
+          const input = route.request().postDataJSON(); profileWrites.push(input); Object.assign(user, input); data = user;
+        } else {
+          assert.equal(route.request().method(), 'GET', 'Only the local profile-save fixture accepts writes');
+          if (url.pathname === '/api/user-details') data = user;
+          else if (url.pathname === '/api/my-documents') { documentCalls++; data = { documents }; }
+        }
         const failed = documentError && url.pathname === '/api/my-documents';
         return route.fulfill({ status: failed ? 503 : 200, contentType: 'application/json', body: JSON.stringify(failed ? { success: false, message: 'Documents temporarily unavailable' } : { success: true, data }) });
       });
       return context;
     };
-    for (const [phase, folder] of [...(baseline ? [['before', baseline]] : []), ['after', build]]) {
+    for (const [phase, folder] of [['after', build]]) {
       activeBuild = folder;
       for (const theme of ['light', 'dark', 'immersive']) {
         for (const width of [375, 768, 1024, 1840]) {
           const context = await makeContext(theme, width);
           const page = await context.newPage();
           page.on('pageerror', error => browserErrors.push(error.message));
+          await page.goto(origin + '/order');
+          await page.locator('main.portal-surface h1').first().waitFor();
+          await page.waitForTimeout(850);
+          const reference = await page.locator('main.portal-surface').evaluate(main => {
+            const container = main.querySelector('[class*="max-w-7xl"]');
+            const panel = main.querySelector('.surface');
+            const box = element => { const rect = element.getBoundingClientRect(); return { x: rect.x, width: rect.width }; };
+            return { container: box(container), panel: box(panel), radius: getComputedStyle(panel).borderRadius, headingFont: getComputedStyle(main.querySelector('h1')).fontSize };
+          });
           for (const name of ['documents', 'games', 'settings']) {
             await page.goto(origin + '/' + name);
             await page.locator('main.portal-surface h1').first().waitFor();
@@ -73,39 +83,17 @@ const hashes = new Map(), comparisons = [], browserErrors = [];
               assert.equal(geometry.overlap, false, `${name}/${theme}/${width}: header overlap`);
             }
             const key = `${name}-${theme}-${width}`;
-            const visual = await page.locator('main.portal-surface').evaluate(main => ({
-              text: main.innerText,
-              elements: [main, ...main.querySelectorAll('*')].map(el => {
-                const rect = el.getBoundingClientRect(), style = getComputedStyle(el);
-                return {
-                  box: [rect.x, rect.y, rect.width, rect.height].map(value => Math.round(value * 1000) / 1000),
-                  style: ['color', 'backgroundColor', 'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'padding', 'border', 'borderRadius', 'boxShadow', 'backdropFilter'].map(key =>
-                    // This label became a button with intentionally rounded focus
-                    // outlines. Its unfocused pixels must still match below.
-                    key === 'borderRadius' && el.textContent.trim() === 'Change profile picture' ? '0px' : style[key]
-                  ),
-                };
-              }),
-            }));
-            const screenshot = await page.screenshot({ path: path.join(output, `${phase}-${key}.png`), fullPage: true, animations: 'disabled', caret: 'hide' });
-            const hash = createHash('sha256').update(screenshot).digest('hex');
-            if (phase === 'before') hashes.set(key, { hash, visual });
-            else if (baseline && (name !== 'documents' || width >= 640)) {
-              assert.deepEqual(visual, hashes.get(key).visual, `Existing geometry, text or styles changed: ${key}`);
-              let rasterDifferences = 0;
-              if (hash !== hashes.get(key).hash) {
-                const before = await sharp(path.join(output, `before-${key}.png`)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-                const after = await sharp(screenshot).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-                assert.deepEqual(after.info, before.info);
-                for (let index = 0; index < before.data.length; index += 4) {
-                  if (before.data.subarray(index, index + 4).some((value, channel) => value !== after.data[index + channel])) rasterDifferences++;
-                }
-                // Backdrop-filter edge rasterization can vary between captures.
-                // Only allow <=0.02% pixels AFTER exact geometry/text/style equality.
-                assert.ok(rasterDifferences <= Math.ceil(after.info.width * after.info.height * 0.0002), `Existing pixels changed: ${key}, ${rasterDifferences}`);
-              }
-              comparisons.push({ key, rasterDifferences });
-            }
+            const visual = await page.locator('main.portal-surface').evaluate(main => {
+              const box = element => { const rect = element.getBoundingClientRect(); return { x: rect.x, width: rect.width }; };
+              const panels = [...main.querySelectorAll('.surface')].filter(el => !el.parentElement.closest('.surface'));
+              return { container: box(main.querySelector('[class*="max-w-7xl"]')), headingFont: getComputedStyle(main.querySelector('h1')).fontSize, panels: panels.map(el => ({ box: box(el), radius: getComputedStyle(el).borderRadius, header: el.children[1].querySelector('h2')?.textContent })) };
+            });
+            assert.deepEqual(visual.container, reference.container, `${key}: full workspace width`);
+            assert.equal(visual.headingFont, reference.headingFont);
+            assert.deepEqual(visual.panels.map(panel => panel.header), name === 'settings' ? ['Profile', 'Appearance'] : [name === 'games' ? 'Games' : 'Documents']);
+            for (const panel of visual.panels) { assert.deepEqual(panel.box, reference.panel); assert.equal(panel.radius, reference.radius); }
+            await page.screenshot({ path: path.join(output, `${phase}-${key}.png`), fullPage: true, animations: 'disabled', caret: 'hide' });
+            comparisons.push({ key, visual, reference });
           }
           await context.close();
           console.log(`PASS ${phase} ${theme} ${width}`);
@@ -126,6 +114,10 @@ const hashes = new Map(), comparisons = [], browserErrors = [];
     assert.equal(documentCalls, callsBeforeRetry + 1);
     assert.equal(await page.getByRole('alert').count(), 0);
     assert.equal(new URL(page.url()).pathname, '/documents');
+    const callsBeforeRefresh = documentCalls;
+    await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+    await page.getByRole('button', { name: 'Refresh', exact: true }).waitFor();
+    assert.equal(documentCalls, callsBeforeRefresh + 1);
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     await page.waitForURL('**/dashboard');
 
@@ -158,9 +150,18 @@ const hashes = new Map(), comparisons = [], browserErrors = [];
       assert.equal((await chooser).isMultiple(), false);
     }
     assert.equal(await page.getByRole('button', { name: 'Save changes', exact: true }).isDisabled(), true);
+    await page.getByLabel('Full name', { exact: true }).fill('Updated audit name');
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+    await page.getByText('Profile saved successfully', { exact: true }).waitFor();
+    assert.equal(profileWrites.length, 1);
+    assert.equal(profileWrites[0].name, 'Updated audit name');
+    assert.equal(await page.getByRole('button', { name: 'Save changes', exact: true }).isDisabled(), true);
+    await page.goto(origin + '/games');
+    await page.getByRole('button').filter({ has: page.getByRole('heading', { name: 'Chess', exact: true }) }).press('Enter');
+    await page.waitForURL('**/games/chess');
     await context.close();
     fs.writeFileSync(path.join(output, 'report.json'), JSON.stringify({ comparisons, browserErrors, checks: ['header geometry', 'documents retry and Back', 'theme/colour arrows, wrapping, Home/End, Tab and persistence', 'picture chooser Enter/Space'] }, null, 2));
     assert.deepEqual(browserErrors, []);
-    console.log(`PASS controls and responsive UI; ${comparisons.length} unchanged screenshots. Evidence: ${output}`);
+    console.log(`PASS controls, save, refresh, game navigation and ${comparisons.length} structural comparisons against Orders. Evidence: ${output}`);
   } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }
 })().catch(error => { console.error(error); server.close(); process.exitCode = 1; });

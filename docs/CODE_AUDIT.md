@@ -1,5 +1,12 @@
 # Portal reservation audit — 25 October 2026
 
+## Workspace UI consistency — 26 October 2026
+
+- Cause: Documents, Games and Settings had independent narrow containers and section/card composition. Their containers were `max-w-4xl`, `max-w-6xl` and `max-w-3xl`, respectively, while Orders/Projects use `max-w-7xl`.
+- Correction: reuse the existing WorkspacePanel/Surface/GlassButton components and the existing workspace width. Documents has a section header with Back/Refresh and divided document rows. Games has a Games section containing the existing game cards. Settings has Profile and Appearance sections; the Profile header Save button submits the existing form through its form ID.
+- Ownership: document fetch/retry/download, profile persistence/upload preference, theme/accent state and game routing remain owned by their existing page handlers. No backend changes or production deployment.
+- Verified against the compiled portal with local API fixtures: 36 geometry comparisons to Orders across three themes and four viewport widths; Retry, Refresh, Back, profile Save, keyboard controls/persistence and Chess navigation passed. All 24 theme/accent checks passed. Desktop and mobile screenshots were inspected. Production build passed with existing unrelated warnings.
+
 Full context: [RESERVATION_AGENT_HANDOVER.md](../../merasoftware/src/docs/RESERVATION_AGENT_HANDOVER.md). This records verified local behavior, not production activation.
 
 - My Offers is available to authenticated members/customers and reads owner-scoped backend records. Expired history remains; active deadlines use backend/server time. Changing accounts does not display the previous owner's rows.

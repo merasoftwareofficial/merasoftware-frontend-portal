@@ -5,6 +5,7 @@ import { ArrowLeft, FileText, Download, RefreshCw } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import Badge from '../components/Badge';
 import GlassButton from '../components/GlassButton';
+import WorkspacePanel from '../components/WorkspacePanel';
 import SummaryApi from '../common';
 import { goToCustomerReturn } from '../helpers/customerReturnNavigation';
 
@@ -82,65 +83,47 @@ const CustomerDocuments = () => {
       >
         <div className="pointer-events-none absolute inset-0 bg-[var(--scrim)]" />
 
-        <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-6">
-          {/* Header */}
-          <div className="relative flex flex-col items-stretch gap-4 sm:flex-row sm:items-center sm:justify-center sm:gap-0">
-            <button
-              type="button"
-              onClick={handleBack}
-              className="inline-flex w-fit shrink-0 items-center gap-2 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)] px-5 py-3 text-lg font-semibold text-[var(--text-primary)] backdrop-blur-md transition hover:bg-[var(--glass-bg-strong)] sm:absolute sm:left-0"
-            >
-              <ArrowLeft className="h-5 w-5" />
-              Back
-            </button>
-
-            <div className="text-center">
+        <div className="relative mx-auto max-w-7xl">
+            <header className="text-center">
               <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl lg:text-4xl">
                 Documents
               </h1>
-              <p className="mt-1 text-base text-[var(--text-secondary)] sm:text-lg">
+              <p className="mx-auto mt-3 max-w-2xl text-base text-[var(--text-secondary)] sm:text-lg">
                 Proposals and agreements shared with you
               </p>
-            </div>
-          </div>
-
-          {/* Timeline card */}
-          <div className="relative overflow-hidden rounded-[1.75rem] border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] p-5 shadow-[var(--card-shadow)] backdrop-blur-2xl backdrop-saturate-150 sm:p-6">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-[var(--glass-sheen)] to-transparent" />
-
+            </header>
+          <WorkspacePanel className="mt-10" title="Documents" icon={FileText} actions={<>
+            <GlassButton onClick={handleBack}><ArrowLeft size={16} />Back</GlassButton>
+            <GlassButton disabled={loading} onClick={() => setReload(value => value + 1)}><RefreshCw size={16} />{loading ? 'Refreshing…' : 'Refresh'}</GlassButton>
+          </>}>
             <div className="relative">
-              <div className="flex items-center gap-2 text-[var(--text-primary)]">
-                <FileText className="h-5 w-5" />
-                <h2 className="text-lg font-bold">Your Documents</h2>
-              </div>
-
               {loading ? (
-                <p className="mt-6 text-sm text-[var(--text-secondary)]">Loading documents…</p>
+                <p role="status" className="px-5 py-10 text-center text-base text-[var(--text-secondary)] sm:px-6">Loading documents…</p>
               ) : error ? (
-                <div role="alert" className="mt-6 flex flex-wrap items-center justify-between gap-3">
+                <div role="alert" className="flex flex-wrap items-center justify-between gap-3 px-5 py-6 sm:px-6">
                   <p className="text-sm text-[var(--badge-error-fg)]">{error}</p>
                   <GlassButton onClick={() => setReload(value => value + 1)}><RefreshCw size={16} />Retry</GlassButton>
                 </div>
               ) : documents.length === 0 ? (
-                <p className="mt-6 text-sm text-[var(--text-secondary)]">
+                <p className="px-5 py-12 text-center text-base text-[var(--text-secondary)] sm:px-6">
                   No documents yet. Any document shared with you before or after becoming a client will appear here.
                 </p>
               ) : (
-                <ul className="mt-6 space-y-3">
+                <ul className="divide-y divide-[var(--divider)]">
                   {documents.map((doc) => {
                     const meta = getDocMeta(doc);
                     const sizeLabel = formatFileSize(doc.size);
                     return (
                       <li
                         key={doc.id}
-                        className="flex items-start justify-between gap-4 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] px-4 py-3.5"
+                        className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6"
                       >
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <Badge tone="neutral" size="sm">
                               {meta.label}
                             </Badge>
-                            <span className="truncate text-sm font-semibold text-[var(--text-primary)]">
+                            <span className="break-words text-base font-semibold text-[var(--text-primary)]">
                               {doc.name || 'Document'}
                             </span>
                           </div>
@@ -150,15 +133,15 @@ const CustomerDocuments = () => {
                           </p>
                         </div>
                         {doc.downloadLink ? (
-                          <a
+                          <GlassButton as="a" size="sm"
                             href={doc.downloadLink}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--glass-bg-strong)]"
+                            className="w-fit shrink-0"
                           >
                             <Download className="h-3.5 w-3.5" />
                             Download
-                          </a>
+                          </GlassButton>
                         ) : null}
                       </li>
                     );
@@ -166,7 +149,7 @@ const CustomerDocuments = () => {
                 </ul>
               )}
             </div>
-          </div>
+          </WorkspacePanel>
         </div>
       </div>
     </DashboardLayout>

@@ -25,7 +25,7 @@ const offers = [reserved,
   { ...reserved, id: 'confirmed', title: 'Confirmed offer', status: 'confirmed', expiresAt: new Date(now - 1000).toISOString(), projectId: 'audit-project' },
   { ...reserved, id: 'expired', title: 'Expired offer', expiresAt: new Date(now - 1000).toISOString(), status: 'expired' },
 ];
-const routes = ['/dashboard', '/projects-and-plans', '/order', '/project-details/audit-project', '/project-details/audit-project?view=project', '/plan-details/audit-service', '/documents', '/settings'];
+const routes = ['/dashboard', '/projects-and-plans', '/order', '/project-details/audit-project', '/project-details/audit-project?view=project', '/plan-details/audit-service'];
 const failures = [], results = [], signatures = new Map();
 let buildDir = after, offerRows = offers;
 

@@ -1,5 +1,7 @@
 # Portal reservation work index — 25 October 2026
 
+Portal UI consistency (26 October): Documents (`src/pages/CustomerDocuments.js`), Games (`src/chess/GamesListPage.js`), and Settings (`src/pages/SettingsPage.js`, `src/components/settings/`) now use the existing `src/components/WorkspacePanel.js` frame and `max-w-7xl` workspace width. Start with `tests/portal-settings-documents.browser.cjs` for responsive geometry and control checks; `tests/portal-workspace-ui.browser.cjs` checks existing reference pages against a baseline build. See CODE_AUDIT.md for verified scope.
+
 Start with the [cross-repo handover](../../merasoftware/src/docs/RESERVATION_AGENT_HANDOVER.md), then [CODE_AUDIT.md](CODE_AUDIT.md). Business rules and financial decisions live in backend helpers; do not duplicate them in UI state.
 
 | Surface | Files |
