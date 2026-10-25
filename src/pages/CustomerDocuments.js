@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { ArrowLeft, FileText, Download } from 'lucide-react';
+import { ArrowLeft, FileText, Download, RefreshCw } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import Badge from '../components/Badge';
+import GlassButton from '../components/GlassButton';
 import SummaryApi from '../common';
 import { goToCustomerReturn } from '../helpers/customerReturnNavigation';
 
@@ -44,6 +45,7 @@ const CustomerDocuments = () => {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,7 +59,7 @@ const CustomerDocuments = () => {
           headers: { 'Content-Type': 'application/json' },
         });
         const result = await response.json();
-        if (!result.success) throw new Error(result.message || 'Failed to load documents');
+        if (!response.ok || !result.success) throw new Error(result.message || 'Failed to load documents');
         if (!cancelled) setDocuments(result.data?.documents || []);
       } catch (err) {
         if (!cancelled) setError(err.message || 'Failed to load documents');
@@ -69,7 +71,7 @@ const CustomerDocuments = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reload]);
 
   const handleBack = () => goToCustomerReturn(navigate, location, '/dashboard');
 
@@ -82,11 +84,11 @@ const CustomerDocuments = () => {
 
         <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-6">
           {/* Header */}
-          <div className="relative flex items-center justify-center">
+          <div className="relative flex flex-col items-stretch gap-4 sm:flex-row sm:items-center sm:justify-center sm:gap-0">
             <button
               type="button"
               onClick={handleBack}
-              className="absolute left-0 inline-flex w-fit shrink-0 items-center gap-2 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)] px-5 py-3 text-lg font-semibold text-[var(--text-primary)] backdrop-blur-md transition hover:bg-[var(--glass-bg-strong)]"
+              className="inline-flex w-fit shrink-0 items-center gap-2 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)] px-5 py-3 text-lg font-semibold text-[var(--text-primary)] backdrop-blur-md transition hover:bg-[var(--glass-bg-strong)] sm:absolute sm:left-0"
             >
               <ArrowLeft className="h-5 w-5" />
               Back
@@ -115,7 +117,10 @@ const CustomerDocuments = () => {
               {loading ? (
                 <p className="mt-6 text-sm text-[var(--text-secondary)]">Loading documents…</p>
               ) : error ? (
-                <p className="mt-6 text-sm text-[var(--badge-error-fg)]">{error}</p>
+                <div role="alert" className="mt-6 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm text-[var(--badge-error-fg)]">{error}</p>
+                  <GlassButton onClick={() => setReload(value => value + 1)}><RefreshCw size={16} />Retry</GlassButton>
+                </div>
               ) : documents.length === 0 ? (
                 <p className="mt-6 text-sm text-[var(--text-secondary)]">
                   No documents yet. Any document shared with you before or after becoming a client will appear here.

@@ -5,6 +5,26 @@ import Surface from '../Surface';
 import { useTheme } from '../../context/ThemeContext';
 import { THEME_ICONS, THEME_DESCRIPTIONS } from '../ThemeSwitch';
 
+// Both option groups use the same roving-focus radio keyboard behavior.
+const navigateRadioGroup = (event, options, selected, select) => {
+  const radios = Array.from(event.currentTarget.querySelectorAll('[role="radio"]'));
+  const focused = radios.indexOf(event.target);
+  const current = focused >= 0 ? focused : options.indexOf(selected);
+  let next;
+  switch (event.key) {
+    case 'ArrowRight':
+    case 'ArrowDown': next = (current + 1) % options.length; break;
+    case 'ArrowLeft':
+    case 'ArrowUp': next = (current - 1 + options.length) % options.length; break;
+    case 'Home': next = 0; break;
+    case 'End': next = options.length - 1; break;
+    default: return;
+  }
+  event.preventDefault();
+  select(options[next]);
+  radios[next]?.focus();
+};
+
 /**
  * Settings → Appearance: theme (3 modes) + accent colour (8 presets).
  *
@@ -25,7 +45,7 @@ const AppearanceSettingsSection = () => {
 
       <Surface radius="panel" sheen className="mt-5 p-6 sm:p-7">
         <div className="relative space-y-8">
-          <div role="radiogroup" aria-labelledby="settings-theme-label">
+          <div role="radiogroup" aria-labelledby="settings-theme-label" onKeyDown={event => navigateRadioGroup(event, themes, theme, setTheme)}>
             <h3 id="settings-theme-label" className="text-base font-bold text-[var(--text-primary)]">Theme</h3>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               {themes.map((option) => {
@@ -37,6 +57,7 @@ const AppearanceSettingsSection = () => {
                     type="button"
                     role="radio"
                     aria-checked={isActive}
+                    tabIndex={isActive ? 0 : -1}
                     onClick={() => setTheme(option)}
                     className={`flex items-start gap-3 rounded-2xl border-[length:var(--glass-border-width)] p-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-text ${
                       isActive
@@ -56,7 +77,7 @@ const AppearanceSettingsSection = () => {
             </div>
           </div>
 
-          <div role="radiogroup" aria-labelledby="settings-accent-label">
+          <div role="radiogroup" aria-labelledby="settings-accent-label" onKeyDown={event => navigateRadioGroup(event, accents, accent, setAccent)}>
             <h3 id="settings-accent-label" className="text-base font-bold text-[var(--text-primary)]">Colour</h3>
             <p className="mt-1 text-sm text-[var(--text-secondary)]">
               Buttons, menus and highlights. Status colours — paid, pending, error — stay the same.
@@ -70,6 +91,7 @@ const AppearanceSettingsSection = () => {
                     type="button"
                     role="radio"
                     aria-checked={isActive}
+                    tabIndex={isActive ? 0 : -1}
                     aria-label={accentLabels[option]}
                     onClick={() => setAccent(option)}
                     className="group flex flex-col items-center gap-1.5 rounded-xl p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-text"

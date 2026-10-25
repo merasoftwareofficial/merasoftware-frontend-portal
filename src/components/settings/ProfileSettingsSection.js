@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Camera, Mail, Phone, User, Calendar, Link2, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
@@ -33,6 +33,7 @@ const ProfileSettingsSection = () => {
   const [formData, setFormData] = useState(() => getFormData(user));
   const [initialFormData, setInitialFormData] = useState(() => getFormData(user));
   const [selectedImage, setSelectedImage] = useState(null);
+  const pictureInput = useRef(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [allowLoginFreeUploadLinks, setAllowLoginFreeUploadLinks] = useState(Boolean(user?.allowLoginFreeUploadLinks));
@@ -179,8 +180,8 @@ const ProfileSettingsSection = () => {
               {formData.profilePic ? <img src={formData.profilePic} alt={formData.name || 'Profile'} className="h-full w-full object-cover" /> : (formData.name || 'U').trim().charAt(0).toUpperCase()}
             </div>
             <div>
-              <label htmlFor="profile-picture" className="inline-flex cursor-pointer items-center gap-2 text-base font-semibold text-[var(--eyebrow-fg)] hover:opacity-80"><Camera size={16} /> Change profile picture</label>
-              <input id="profile-picture" type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+              <button type="button" aria-controls="profile-picture" onClick={() => pictureInput.current?.click()} className="inline-flex cursor-pointer items-center gap-2 rounded text-left text-base font-semibold text-[var(--eyebrow-fg)] hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-text"><Camera size={16} /> Change profile picture</button>
+              <input ref={pictureInput} id="profile-picture" type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
               <p className="mt-1 text-sm text-[var(--text-secondary)]">JPG, PNG or WEBP</p>
             </div>
           </div>
