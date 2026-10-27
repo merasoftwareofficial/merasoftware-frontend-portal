@@ -19,8 +19,9 @@ export const BILLING_CYCLE_MONTHS = {
   every_3_years: 36,
 };
 
-// Nothing longer than three years is sold.
-export const MAX_TENURE_MONTHS = 36;
+// Nothing longer than one year is sold. The backend enforces the same cap
+// (servicePlanPurchase.js MAX_SERVICE_TENURE_MONTHS); this only keeps longer terms out of the list.
+export const MAX_TENURE_MONTHS = 12;
 
 // Every whole multiple of the billing period, up to the cap. A period longer
 // than the cap yields no options at all — it cannot produce a valid term.

@@ -59,7 +59,8 @@ import {
 } from "../helpers/paymentLedger";
 import { adminReturnState, getAdminReturnTarget, goToAdminReturn } from "../helpers/adminReturnNavigation";
 import focusFirstInteractiveElement, { getInteractiveElements } from "../utils/focusFirstInteractiveElement";
-import { getOrderCategoryLabel, getOrderDisplayName } from "../helpers/orderPresentation";
+import { getItemSummary, getOrderCategoryLabel, getOrderDisplayName } from "../helpers/orderPresentation";
+import { isPlanItem } from "../helpers/orderType";
 import { getPaymentMethodText, isFreeInvoice } from "../helpers/invoicePresentation";
 import PaymentMethodFields from "../components/PaymentMethodFields";
 import { createPaymentEntry, getPaymentEntryError, toPaymentRequest } from "../helpers/paymentMethodRules";
@@ -105,9 +106,6 @@ const formatDateTime = (value) => {
     minute: "2-digit",
   });
 };
-
-const isWebsiteUpdateOrder = (order) =>
-  Boolean(order?.productId?.isWebsiteUpdate || order?.productId?.category?.toLowerCase() === "website_updates");
 
 const getWorkspaceItemName = (item) =>
   item?.projectSnapshot?.displayName || item?.productId?.serviceName || "N/A";
@@ -200,6 +198,7 @@ const getProjectPhaseLabel = (order) => {
 };
 
 const getPlanTypeLabel = (plan) => {
+  if (plan?.isServicePlan) return "Service Plan";
   if (plan?.productId?.isMonthlyRenewablePlan) return "Monthly Renewable Plan";
   if (plan?.productId?.isMonthlyLimitedPlan) return "Monthly Limited Plan";
   if (plan?.productId?.isUnlimitedUpdates) return "Unlimited Update Plan";
@@ -1448,12 +1447,12 @@ const AdminClientWorkspace = () => {
   }, [customerId, fallbackClient, workspaceRefreshKey]);
 
   const projectOrders = useMemo(
-    () => allData.orders.filter((order) => !isWebsiteUpdateOrder(order)).slice().sort((a, b) => sortWorkspaceItem(a, b, getProjectSortRank)),
+    () => allData.orders.filter((order) => !isPlanItem(order)).slice().sort((a, b) => sortWorkspaceItem(a, b, getProjectSortRank)),
     [allData.orders]
   );
 
   const planOrders = useMemo(
-    () => allData.orders.filter((order) => isWebsiteUpdateOrder(order)).slice().sort((a, b) => sortWorkspaceItem(a, b, getPlanSortRank)),
+    () => allData.orders.filter((order) => isPlanItem(order)).slice().sort((a, b) => sortWorkspaceItem(a, b, getPlanSortRank)),
     [allData.orders]
   );
 
@@ -1851,12 +1850,16 @@ const AdminClientWorkspace = () => {
                 cancellingOrderId={cancellingOrderId}
                 renderMeta={(plan) => [
                   `Type: ${getPlanTypeLabel(plan)}`,
-                  `Usage: ${
-                    plan.productId?.isMonthlyRenewablePlan || plan.productId?.isMonthlyLimitedPlan
-                      ? `${plan.currentMonthUpdatesUsed || 0} used / ${plan.currentMonthUpdatesRemaining ?? "N/A"} remaining`
-                      : `${plan.updatesUsed || 0} updates used`
-                  }`,
-                ]}
+                  // A service's allowance is frozen on the order; getItemSummary reads it from
+                  // there and returns "" for a reminder-only service, which then shows no usage line.
+                  plan.isServicePlan
+                    ? (getItemSummary(plan) ? `Usage: ${getItemSummary(plan)}` : null)
+                    : `Usage: ${
+                        plan.productId?.isMonthlyRenewablePlan || plan.productId?.isMonthlyLimitedPlan
+                          ? `${plan.currentMonthUpdatesUsed || 0} used / ${plan.currentMonthUpdatesRemaining ?? "N/A"} remaining`
+                          : `${plan.updatesUsed || 0} updates used`
+                      }`,
+                ].filter(Boolean)}
                 renderRight={(plan) => (
                   <div className="flex flex-col items-end gap-2">
                     <span
