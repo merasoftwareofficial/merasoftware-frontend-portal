@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Download } from 'lucide-react';
 
 import { formatFileSize, getRequestStatusMeta } from '../helpers/clientSubmissions';
@@ -17,6 +17,15 @@ import { formatFileSize, getRequestStatusMeta } from '../helpers/clientSubmissio
 // `theme` picks the surface's visual language: 'glass' for the customer portal over
 // BG.png, 'light' for the admin panel's white cards. Only colours differ — the content,
 // the ordering and the download rule are identical, which is the point.
+//
+// Plan uploads carry a status history (helpers/uploadStatus.js on the backend): shown when
+// `showStatusHistory` is set. `onSetStatus(attempt, status, note)` adds the admin's
+// In progress / Done / Rejected buttons — only on plan uploads (attempt.isPlanUpload), the only
+// ones the backend lets change.
+
+const STATUS_NEXT = { pending: ['in_progress', 'completed', 'rejected'], in_progress: ['completed', 'rejected'] };
+const STATUS_ACTION = { in_progress: 'Mark in progress', completed: 'Mark done', rejected: 'Reject' };
+const STATUS_WORD = { in_progress: 'In progress', completed: 'Done', rejected: 'Rejected' };
 
 const UploadedDataList = ({
   uploads = [],
@@ -26,9 +35,19 @@ const UploadedDataList = ({
   emptyText = 'Nothing uploaded yet.',
   onDownload,
   downloadingId = '',
+  showStatusHistory = false,
+  onSetStatus,
+  statusBusyId = '',
 }) => {
   const isGlass = theme === 'glass';
   const t = (lightClass, glassClass) => (isGlass ? glassClass : lightClass);
+  // The note being written for one upload: { id, status, note }.
+  const [draft, setDraft] = useState(null);
+  const submitStatus = async (attempt) => {
+    if (!draft || !onSetStatus) return;
+    const saved = await onSetStatus(attempt, draft.status, draft.note.trim());
+    if (saved) setDraft(null);
+  };
 
   if (loading) {
     return <p className={t('py-4 text-sm text-slate-500', 'py-4 text-sm text-[var(--text-muted)]')}>Loading…</p>;
@@ -71,6 +90,65 @@ const UploadedDataList = ({
               )}>
                 {notes.map((note) => note?.text).filter(Boolean).join('\n')}
               </p>
+            ) : null}
+
+            {showStatusHistory && (attempt.statusHistory || []).length > 0 ? (
+              <ul className={t('mt-2 space-y-1 text-xs text-slate-600', 'mt-2 space-y-1 text-xs text-[var(--text-secondary)]')}>
+                {attempt.statusHistory.map((entry, index) => (
+                  <li key={`${entry.status}-${index}`}>
+                    <span className="font-semibold">{STATUS_WORD[entry.status] || entry.status}</span>
+                    {entry.at ? ` · ${new Date(entry.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}
+                    {entry.auto ? ' · when our team downloaded the files' : ''}
+                    {entry.note ? <span className="block whitespace-pre-line">{entry.note}</span> : null}
+                  </li>
+                ))}
+                {attempt.allowanceReturned ? <li>This update was given back, so it can be sent again.</li> : null}
+              </ul>
+            ) : null}
+
+            {onSetStatus && attempt.isPlanUpload && STATUS_NEXT[attempt.status || 'pending'] ? (
+              draft?.id === attempt.id ? (
+                <div className="mt-2 space-y-2">
+                  <textarea
+                    value={draft.note}
+                    onChange={(event) => setDraft({ ...draft, note: event.target.value })}
+                    maxLength={2000}
+                    rows={2}
+                    placeholder={draft.status === 'rejected' ? 'Reason the client sees (required): what to send again' : 'Note the client sees (optional)'}
+                    className={t('w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900', 'w-full rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg)] px-3 py-2 text-sm text-[var(--text-primary)]')}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={statusBusyId === attempt.id || (draft.status === 'rejected' && !draft.note.trim())}
+                      onClick={() => submitStatus(attempt)}
+                      className={t('rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50', 'rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50')}
+                    >
+                      {statusBusyId === attempt.id ? 'Saving…' : `${STATUS_ACTION[draft.status]} and tell the client`}
+                    </button>
+                    <button type="button" onClick={() => setDraft(null)} className={t('rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700', 'rounded-lg border border-[var(--glass-border)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)]')}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {STATUS_NEXT[attempt.status || 'pending'].map((status) => (
+                    <button
+                      key={status}
+                      type="button"
+                      disabled={Boolean(statusBusyId)}
+                      onClick={() => setDraft({ id: attempt.id, status, note: '' })}
+                      className={t(
+                        `rounded-lg border px-2.5 py-1.5 text-xs font-semibold disabled:opacity-50 ${status === 'rejected' ? 'border-rose-200 text-rose-700 hover:bg-rose-50' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`,
+                        'rounded-lg border border-[var(--glass-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--text-primary)] disabled:opacity-50'
+                      )}
+                    >
+                      {STATUS_ACTION[status]}
+                    </button>
+                  ))}
+                </div>
+              )
             ) : null}
 
             {files.length > 0 ? (

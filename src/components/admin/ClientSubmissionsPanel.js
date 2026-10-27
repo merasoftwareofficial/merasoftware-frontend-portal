@@ -25,6 +25,9 @@ const ClientSubmissionsPanel = ({
   recordLabel = "Project",
   onDownload,
   downloadingId = "",
+  // Plan uploads: status history + In progress / Done / Rejected (UploadedDataList).
+  onSetStatus,
+  statusBusyId = "",
 }) => {
   const pendingCount = (submissions || []).filter((item) => item?.status === "pending").length;
 
@@ -62,6 +65,7 @@ const ClientSubmissionsPanel = ({
           <p className="mt-1 text-sm text-slate-500">
             Data and files this client sent through this {String(recordLabel).toLowerCase()}.
             Download an upload to get all of its files as one zip.
+            {onSetStatus ? " Downloading a plan upload marks it In progress and tells the client." : ""}
           </p>
         </div>
 
@@ -74,6 +78,9 @@ const ClientSubmissionsPanel = ({
             emptyText="Nothing uploaded against this record yet."
             onDownload={onDownload}
             downloadingId={downloadingId}
+            showStatusHistory
+            onSetStatus={onSetStatus}
+            statusBusyId={statusBusyId}
           />
         </div>
       </div>

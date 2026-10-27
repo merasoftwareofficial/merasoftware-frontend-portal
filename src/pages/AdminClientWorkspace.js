@@ -50,6 +50,7 @@ import AdminProjectCheckpointDetail from "../components/admin/AdminProjectCheckp
 import PortfolioSourceSettings from "../components/admin/PortfolioSourceSettings";
 import WebsitePreviewPanel from "../components/WebsitePreviewPanel";
 import ClientSubmissionsPanel from "../components/admin/ClientSubmissionsPanel";
+import { PlanOverviewPanel, StartPlanForClient } from "../components/admin/AdminPlanPanels";
 import ReservedOffersPanel from "../components/admin/ReservedOffersPanel";
 import {
   formatCurrency,
@@ -393,6 +394,10 @@ const AdminClientWorkspace = () => {
   const [activeProjectLoading, setActiveProjectLoading] = useState(false);
   const [activeProjectError, setActiveProjectError] = useState("");
   const [activeProjectRefreshKey, setActiveProjectRefreshKey] = useState(0);
+  const [activePlanRefreshKey, setActivePlanRefreshKey] = useState(0);
+  const [uploadsRefreshKey, setUploadsRefreshKey] = useState(0);
+  const [uploadStatusBusyId, setUploadStatusBusyId] = useState("");
+  const [startPlanOpen, setStartPlanOpen] = useState(false);
   const [selectedProjectCheckpointId, setSelectedProjectCheckpointId] = useState(null);
   const [activePlan, setActivePlan] = useState(null);
   const [activePlanLoading, setActivePlanLoading] = useState(false);
@@ -684,7 +689,7 @@ const AdminClientWorkspace = () => {
     return () => {
       isMounted = false;
     };
-  }, [activePlanId]);
+  }, [activePlanId, activePlanRefreshKey]);
 
   useEffect(() => {
     const nodes = activeProject?.projectNodes || [];
@@ -1286,7 +1291,33 @@ const AdminClientWorkspace = () => {
     return () => {
       cancelled = true;
     };
-  }, [activeProjectId, activePlanId]);
+  }, [activeProjectId, activePlanId, uploadsRefreshKey]);
+
+  // Plan uploads only (the backend refuses others): In progress / Done / Rejected with the note
+  // the client sees. A rejected upload can give its update back, so the open plan reloads too.
+  const handleUploadStatus = async (attempt, status, note) => {
+    if (!attempt?.id || uploadStatusBusyId) return false;
+    try {
+      setUploadStatusBusyId(attempt.id);
+      const response = await fetch(`${SummaryApi.adminUploadStatus.url}/${attempt.id}/status`, {
+        method: SummaryApi.adminUploadStatus.method,
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, note }),
+      });
+      const result = await response.json();
+      if (!result.success) throw new Error(result.message || "Could not change the upload status");
+      toast.success(result.data?.allowanceReturned ? "Saved. The client got this update back and has been told." : "Saved. The client has been told.");
+      setUploadsRefreshKey((current) => current + 1);
+      if (activePlanId) setActivePlanRefreshKey((current) => current + 1);
+      return true;
+    } catch (error) {
+      toast.error(error.message);
+      return false;
+    } finally {
+      setUploadStatusBusyId("");
+    }
+  };
 
   const handleUploadDocument = async ({ file, source }) => {
     if (!customerId || !file) return;
@@ -1767,6 +1798,9 @@ const AdminClientWorkspace = () => {
                 submissions={submissions}
                 submissionsLoading={submissionsLoading}
                 submissionsError={submissionsError}
+                onSetUploadStatus={handleUploadStatus}
+                uploadStatusBusyId={uploadStatusBusyId}
+                onUploadsChanged={() => setUploadsRefreshKey((current) => current + 1)}
               />
             ) : (
               <>
@@ -1833,11 +1867,44 @@ const AdminClientWorkspace = () => {
                 backLabel="Back to Plans"
                 detailLabel="Plan"
                 summaryTitle="Plan activity snapshot"
+                onSoftRefresh={() => setActivePlanRefreshKey((current) => current + 1)}
+                allInvoices={allData.invoices}
+                allTransactions={allData.transactions}
                 submissions={submissions}
                 submissionsLoading={submissionsLoading}
                 submissionsError={submissionsError}
+                onSetUploadStatus={handleUploadStatus}
+                uploadStatusBusyId={uploadStatusBusyId}
+                onUploadsChanged={() => {
+                  setUploadsRefreshKey((current) => current + 1);
+                  setActivePlanRefreshKey((current) => current + 1);
+                }}
               />
             ) : (
+              <>
+              {startPlanOpen ? (
+                <StartPlanForClient
+                  customerId={customerId}
+                  projects={projectOrders.map((order) => ({ _id: order._id, name: getWorkspaceItemName(order) || "Project" }))}
+                  walletBalance={Number(allData.summary?.walletBalance ?? customer?.walletBalance ?? 0)}
+                  onClose={() => setStartPlanOpen(false)}
+                  onStarted={(orderId) => {
+                    setStartPlanOpen(false);
+                    setWorkspaceRefreshKey((current) => current + 1);
+                    if (orderId) handleOpenPlan({ _id: orderId });
+                  }}
+                />
+              ) : (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setStartPlanOpen(true)}
+                    className="rounded-2xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                  >
+                    Start plan for client
+                  </button>
+                </div>
+              )}
               <CompactWorkspaceCard
                 title="Plans"
                 subtitle={`Active plans first. ${planOrders.length} total.`}
@@ -1874,6 +1941,7 @@ const AdminClientWorkspace = () => {
                   </div>
                 )}
               />
+              </>
             )}
           </section>
         )}
@@ -4893,6 +4961,9 @@ const WorkspaceDetailSubpage = ({
   submissions = [],
   submissionsLoading = false,
   submissionsError = "",
+  onSetUploadStatus,
+  uploadStatusBusyId = "",
+  onUploadsChanged,
 }) => {
   // Client Submissions is its own subpage one level below this one: opening it replaces
   // the project/plan detail, and its Back button returns here. Local view state, like
@@ -4915,6 +4986,8 @@ const WorkspaceDetailSubpage = ({
         `uploaded-data-${attempt.id}.zip`,
       );
       toast.success("Download started");
+      // Downloading a pending plan upload marks it In progress on the server.
+      if (attempt.isPlanUpload && attempt.status === "pending") onUploadsChanged?.();
     } catch (error) {
       toast.error(error.message || "Failed to download files");
     } finally {
@@ -4931,9 +5004,7 @@ const WorkspaceDetailSubpage = ({
   const sameOrder = (ref) => String(ref?._id || ref) === String(item?._id);
   const orderInvoices = (allInvoices || []).filter((inv) => sameOrder(inv.orderId));
   const orderTransactions = (allTransactions || []).filter((txn) => sameOrder(txn.orderId));
-  const orderLedgerItems = isProjectDetail
-    ? buildLedgerItems(orderTransactions, orderInvoices)
-    : [];
+  const orderLedgerItems = buildLedgerItems(orderTransactions, orderInvoices);
   const allNodes = item?.projectNodes || [];
   const activeRun = (item?.projectRuns || []).find((run) => run.status === "active") || null;
   const runNodes = activeRun ? allNodes.filter((node) => node.runId === activeRun.runId) : allNodes;
@@ -5262,6 +5333,8 @@ const WorkspaceDetailSubpage = ({
         recordLabel={detailLabel}
         onDownload={handleUploadDownload}
         downloadingId={downloadingUploadId}
+        onSetStatus={onSetUploadStatus}
+        statusBusyId={uploadStatusBusyId}
       />
     );
   }
@@ -5469,18 +5542,21 @@ const WorkspaceDetailSubpage = ({
         </div>
       ) : (
         <div className="space-y-5">
-          {isProjectDetail ? (
+          {!isProjectDetail ? <PlanOverviewPanel item={item} onChanged={onSoftRefresh} /> : null}
+
+          {/* One ledger for projects and plans: the client's invoices (monthly bills included) and
+              payments filtered to this order. */}
             <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h3 className="text-lg font-bold text-slate-900">Payments</h3>
-                  <p className="mt-1 text-sm text-slate-500">This project's own payment and invoice history.</p>
+                  <p className="mt-1 text-sm text-slate-500">This {detailLabel.toLowerCase()}'s own payment and invoice history.</p>
                 </div>
               </div>
 
               {orderLedgerItems.length === 0 ? (
                 <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-5 text-center text-sm text-slate-500">
-                  No payment or invoice records for this project yet.
+                  No payment or invoice records for this {detailLabel.toLowerCase()} yet.
                 </div>
               ) : (
                 <div className="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200">
@@ -5520,7 +5596,6 @@ const WorkspaceDetailSubpage = ({
                 </div>
               )}
             </div>
-          ) : null}
 
           {isProjectDetail ? (
             <div className="space-y-5">
@@ -5775,6 +5850,8 @@ const WorkspaceDetailSubpage = ({
             </div>
           ) : null}
 
+          {/* Project progress; a plan shows PlanOverviewPanel above instead. */}
+          {isProjectDetail ? (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5 lg:col-span-2">
               <div className="flex items-center justify-between gap-4">
@@ -5818,6 +5895,7 @@ const WorkspaceDetailSubpage = ({
               </div>
             </div>
           </div>
+          ) : null}
 
         </div>
       )}

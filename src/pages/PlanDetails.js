@@ -54,11 +54,14 @@ const getPlanVisualStatus = (plan) => {
     // meaningful concept for it — only its duration is.
     const isReminderOnly = snapshot.serviceBehavior === 'reminder_only';
     const isUnlimited = snapshot.limitScope === 'unlimited';
-    const accessLimit = Number(snapshot.portalAccessCount || 0);
-    const accessUsed = Number(plan.serviceAccessUsedInCycle || 0);
+    // "Allowed right now" comes from the backend (order.uploadAllowance, helpers/serviceAllowance.js):
+    // with monthly release it is less than the period total, so it is never worked out here.
+    const allowance = plan.uploadAllowance || {};
+    const accessLimit = Number(allowance.limit || 0);
+    const accessUsed = Number(allowance.used ?? plan.serviceAccessUsedInCycle ?? 0);
     const accessLeft = isReminderOnly || isUnlimited
       ? null
-      : Math.max(0, accessLimit - accessUsed);
+      : Number(allowance.remaining || 0);
 
     const base = { isServicePlan: true, isRecurring: false, daysLeft, accessLeft, accessUsed, accessLimit, isReminderOnly, isUnlimited };
 

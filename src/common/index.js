@@ -688,6 +688,30 @@ const SummaryApi = {
         url: `${backendDomain}/api/admin/clients`,
         method: "post"
     },
+    // Flexible Plans (merasoftware/src/docs/plan.md). Plan list + admin quote (hidden plans too):
+    adminPlanCatalogue: {
+        url: `${backendDomain}/api/admin/plan-catalogue`,
+        method: "get"
+    },
+    adminPlanQuote: {
+        url: `${backendDomain}/api/admin/plan-catalogue/quote`,
+        method: "PATCH"
+    },
+    // `${url}/${customerId}/service-plans`
+    adminStartPlanForClient: {
+        url: `${backendDomain}/api/admin/clients`,
+        method: "post"
+    },
+    // `${url}/${orderId}/release-mode`
+    adminPlanReleaseMode: {
+        url: `${backendDomain}/api/admin/service-plans`,
+        method: "PATCH"
+    },
+    // `${url}/${requestId}/status` — plan uploads only
+    adminUploadStatus: {
+        url: `${backendDomain}/api/admin/uploads`,
+        method: "post"
+    },
     // Live (published, not expired) website offers for the Create Project form's Offer dropdown.
     adminSalesPackages: { url: `${backendDomain}/api/admin/sales-packages`, method: "get" },
     adminWebsiteOffers: {

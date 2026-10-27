@@ -208,10 +208,11 @@ export const getItemSummary = (order) => {
       // A reminder service grants no portal access, and an unlimited one has nothing to count
       // down — neither is "0 left", so neither gets a number.
       if (snapshot.limitScope === 'unlimited' || snapshot.serviceBehavior === 'reminder_only') return '';
-      const allowed = Number(snapshot.portalAccessCount || 0);
-      if (!allowed) return '';
-      const used = Number(order.serviceAccessUsedInCycle || 0);
-      return `${Math.max(0, allowed - used)} of ${allowed} left`;
+      // "Allowed right now" from the backend (order.uploadAllowance, helpers/serviceAllowance.js);
+      // with monthly release it is less than the period total, so it is never worked out here.
+      const allowance = order.uploadAllowance;
+      if (!allowance || allowance.unlimited || !allowance.limit) return '';
+      return `${allowance.remaining} of ${allowance.limit} left`;
     }
 
     if (order.productId?.isMonthlyRenewablePlan || order.productId?.isMonthlyLimitedPlan) {
