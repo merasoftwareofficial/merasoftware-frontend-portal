@@ -33,8 +33,7 @@ const formatDateTime = (date) => {
   const d = new Date(date);
   return `${formatDate(d)} at ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
 };
-// -- Visual-only status derivation, mirrors UserUpdateDashboard.js's
-// getCardVisualStatus so every page reads plan data the same way. --
+// Visual-only status for historical plan records; service plans use orderState.
 const getPlanVisualStatus = (plan) => {
   const product = plan.productId || {};
   const isRecurring = Boolean(product.isMonthlyLimitedPlan || product.isMonthlyRenewablePlan);

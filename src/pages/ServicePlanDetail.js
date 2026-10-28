@@ -274,13 +274,28 @@ const ServicePlanDetailScreen = () => {
   // A flexible plan's files and updates are chosen in the builder, so its fixed limits are not listed.
   const flexible = isFlexiblePlan(plan);
   const portalAccessLine = flexible ? null : getPortalAccessLine(servicePlan);
+  // 5. Purchase action — shown inside the builder's sticky bill (prototype layout).
+  const purchaseAction = (
+    <div>
+      <ServiceOfferSelector planId={plan._id} onChange={setPaymentOffer} />
+      <button
+        type="button"
+        onClick={handleOpenPayment}
+        disabled={!builder.ready}
+        className="inline-flex w-full items-center justify-center rounded-2xl bg-[rgb(var(--ink-rgb))] px-4 py-3 text-base font-semibold text-[var(--page-bg)] transition hover:bg-[rgb(var(--ink-rgb)/0.85)] disabled:cursor-not-allowed disabled:bg-[var(--glass-bg-strong)] disabled:text-[var(--text-muted)]"
+      >
+        {['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode) ? 'Continue with payment offer' : builder.ready ? `Pay ${formatPrice(planPrice)}` : 'Proceed to Payment'}
+      </button>
+    </div>
+  );
 
+  // overflow-clip (not hidden) keeps the rounded clip but lets the bill stay sticky.
   return (
     <DashboardLayout user={user}>
-      <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden px-4 py-8 pb-10 sm:px-6 lg:px-8 lg:py-12">
+      <div className="relative min-h-[calc(100vh-4rem)] overflow-clip px-4 py-8 pb-10 sm:px-6 lg:px-8 lg:py-12">
         <div className="pointer-events-none absolute inset-0 bg-[var(--scrim)]" />
         <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-4">
-          <article className="relative overflow-hidden rounded-[2rem] border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] text-[var(--text-primary)] shadow-[0_25px_80px_-35px_rgba(0,0,0,0.55)] backdrop-blur-2xl backdrop-saturate-150">
+          <article className="relative overflow-clip rounded-[2rem] border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] text-[var(--text-primary)] shadow-[0_25px_80px_-35px_rgba(0,0,0,0.55)] backdrop-blur-2xl backdrop-saturate-150">
             {/* Header */}
             <div className="relative bg-[var(--glass-bg-subtle)] px-5 py-5 text-[var(--text-primary)] sm:px-6 lg:px-8">
               <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-[var(--glass-sheen)] to-transparent" />
@@ -336,7 +351,7 @@ const ServicePlanDetailScreen = () => {
               <section>
                 <SectionHeading>{eligibility.allowed ? flexible ? 'Build your plan' : 'Choose your plan' : eligibility.dependency === 'project_required' ? 'This plan needs a project' : 'This plan cannot be bought here'}</SectionHeading>
                 {eligibility.allowed ? <div className="mt-4">
-                  <PlanBuilder plan={plan} onChange={setBuilder} refreshToken={refreshToken} />
+                  <PlanBuilder plan={plan} onChange={setBuilder} refreshToken={refreshToken} action={purchaseAction} />
                 </div> : <div className="mt-4 space-y-3 text-[var(--text-secondary)]"><p>{eligibility.reason}</p>
                   {eligibility.dependency === 'project_required' && <p>Open the project you want us to work on, then choose Add a Service and select this plan. If you have no eligible project, contact us before buying.</p>}
                   <button type="button" className="rounded-xl border border-[var(--glass-border-strong)] px-4 py-2 font-semibold text-[var(--text-primary)]" onClick={() => navigate('/projects-and-plans')}>Open my projects</button>
@@ -345,18 +360,6 @@ const ServicePlanDetailScreen = () => {
               </section>
             </div>
 
-            {/* 5. Purchase action */}
-            {eligibility.allowed && <div className="border-t border-[var(--glass-border)] px-5 py-6 sm:px-8 sm:py-8">
-              <ServiceOfferSelector planId={plan._id} onChange={setPaymentOffer} />
-              <button
-                type="button"
-                onClick={handleOpenPayment}
-                disabled={!builder.ready}
-                className="inline-flex w-full items-center justify-center rounded-2xl bg-[rgb(var(--ink-rgb))] px-4 py-3 text-base font-semibold text-[var(--page-bg)] transition hover:bg-[rgb(var(--ink-rgb)/0.85)] disabled:cursor-not-allowed disabled:bg-[var(--glass-bg-strong)] disabled:text-[var(--text-muted)] sm:w-auto"
-              >
-                {['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode) ? 'Continue with payment offer' : builder.ready ? `Pay ${formatPrice(planPrice)}` : 'Proceed to Payment'}
-              </button>
-            </div>}
           </article>
         </div>
       </div>

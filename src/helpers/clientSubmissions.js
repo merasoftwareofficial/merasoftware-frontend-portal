@@ -52,7 +52,7 @@ const REQUEST_STATUS_TONES = {
   // The customer portal's tones are the portal's badge recipes. They used to be
   // written out here in dark-only shades (a -300 text on a -500/20 tint), which read
   // as colour-on-colour once the light theme put the pill on a white card — the same
-  // defect PlanDetails.js and UserUpdateDashboard.js each had their own copy of.
+  // defect previously duplicated across customer plan screens.
   // The `light` map below is the ADMIN panel's and is deliberately left alone.
   glass: {
     pending: "badge badge-pending",

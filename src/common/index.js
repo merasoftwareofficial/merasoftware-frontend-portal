@@ -216,32 +216,6 @@ const SummaryApi = {
         url: `${backendDomain}/api/delete-order`,
         method: "delete"
     },
-    validateUpdatePlan: {
-        url : `${backendDomain}/api/validate-update-plan`,
-        method: "post"
-    },
-    toggleUpdatePlan: {
-        url : `${backendDomain}/api/toggle-update-plan`,
-        method: "post"
-    },
-    // OLD RENEWAL - DEPRECATED
-    renewMonthlyPlan: {
-        url : `${backendDomain}/api/renew-monthly-plan`,
-        method: "post"
-    },
-    // NEW RENEWAL SYSTEM (Approval-based flow)
-    createRenewalOrder: {
-        url: `${backendDomain}/api/create-renewal`,
-        method: "post"
-    },
-    checkPendingRenewal: {
-        url: `${backendDomain}/api/check-pending-renewal`,
-        method: "get"
-    },
-    getUserRenewalStatus: {
-        url: `${backendDomain}/api/user-renewal-status`,
-        method: "get"
-    },
     // Admin renewal management
     getPendingRenewals: {
         url: `${backendDomain}/api/pending-renewals`,
@@ -261,22 +235,6 @@ const SummaryApi = {
     },
     updateProjectProgress: {
         url : `${backendDomain}/api/update-project-progress`,
-        method: "post"
-    },
-    adminUpdatePlans : {
-        url: `${backendDomain}/api/get-update-plans`,
-        method: "get"
-    },
-    updatePlanProgress: {
-        url: `${backendDomain}/api/update-plan-progress`,
-        method: "post"
-    },
-    getUpdatePlans: {
-        url: `${backendDomain}/api/admin/get-update-plans`,
-        method: "get"
-    },
-    closePlan: {
-        url: `${backendDomain}/api/admin/close-plan`,
         method: "post"
     },
     sendProjectMessage: {
@@ -318,10 +276,6 @@ const SummaryApi = {
       deleteUserWelcome: {
         url: `${backendDomain}/api/delete-user-welcome`,
         method: "delete"
-      },
-      userUpdatePlans:{
-        url: `${backendDomain}/api/user-update-plans`,
-        method: "get"
       },
       requestUpdate: {
         url: `${backendDomain}/api/user-request-update`,
@@ -653,10 +607,6 @@ const SummaryApi = {
             url: `${backendDomain}/api/invoices`,
             method: "post"
         },
-        updateOverdueInvoices: {
-            url: `${backendDomain}/api/invoices/update-overdue`,
-            method: "post"
-        }
     },
     workspaceActivityCounts: {
         url: `${backendDomain}/api/workspace-activity-counts`,

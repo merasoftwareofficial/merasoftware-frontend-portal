@@ -24,7 +24,6 @@ const isInternalCustomerPath = (value) => {
     '/plan-details/',
     '/service-plan-detail/',
     '/wallet',
-    '/my-updates',
     '/my-invoices',
     '/documents',
     '/support',

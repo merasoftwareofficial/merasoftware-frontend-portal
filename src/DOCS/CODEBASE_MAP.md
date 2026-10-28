@@ -191,7 +191,7 @@ Every consumer now reads those two fields:
 
 - **Its markers**: product-side `isWebsiteUpdate`, `category: "website_updates"`, `updateCount`, `validityPeriod`, `isMonthlyLimitedPlan`, `isMonthlyRenewablePlan`, `yearlyPlanDuration`, `monthlyRenewalCost`; order-side `updatesUsed`, `totalYearlyDaysRemaining`, `currentMonthExpiryDate`. Seeing any of these means you are in legacy code.
 - **Its footprint**: ~10 frontend files and ~21 backend files. It is not one stray check — it includes a whole renewal subsystem (`autoRenewalCron.js`, `renewMonthlyPlan.js`, `createRenewalOrder.js`, `checkRenewalStatus.js`, `validateUpdatePlan.js`, `getUserUpdatePlans.js`) that only ever fires for legacy plans and so never fires at all.
-- **The trap**: legacy is usually the **fallback branch**, so it reads as the normal case. `orderPresentation.js`'s plan summary, `isFinishedItem`, `PlanDetails.js` and `OrderPage.js` all check service-plan first and fall through to legacy — the legacy half looks live but cannot execute. `UserUpdateDashboard.js` is built on legacy **dummy data** outright.
+- **The trap**: legacy is usually the **fallback branch**, so it reads as the normal case. `orderPresentation.js`'s plan summary, `isFinishedItem`, `PlanDetails.js` and `OrderPage.js` all check service-plan first and fall through to legacy — the legacy half looks live but cannot execute. The unused dummy-data `UserUpdateDashboard.js` and `/my-updates` route were removed with owner approval on 28 Oct 2026.
 - **Consequence**: any new plan feature modelled on what these files appear to do will be built on a dead shape. Model it on the service-plan branch (§5, §7a) only.
 - **Do not bulk-delete it** — that is a separate, deliberate decision; several of these files also serve live non-legacy paths. Recorded here so it is recognised, not so it is ripped out mid-task.
 
@@ -296,7 +296,7 @@ Management UI is the website's `/admin/email-control` (owner decisions and plan:
 
 ## 7a. Upload Data / Update Requests (SSOT — three kinds, never two)
 
-The compatibility route for "Upload Data" is: `POST /api/user-request-update` → `backend/controller/user/submitUpdateRequest.js` (`upload.any()`, files → Drive via `GoogleDriveService`, record → `updateRequestModel`). One modal serves it on the frontend: `components/UpdateRequestModal.js`, opened by `ProjectDetails.js`, `PlanDetails.js` and `UserUpdateDashboard.js`.
+The compatibility route for "Upload Data" is: `POST /api/user-request-update` → `backend/controller/user/submitUpdateRequest.js` (`upload.any()`, files → Drive via `GoogleDriveService`, record → `updateRequestModel`). One modal serves it on the frontend: `components/UpdateRequestModal.js`, opened by `ProjectDetails.js` and `PlanDetails.js`.
 
 - Upload diagnosis: backend `helpers/uploadTiming.js` (`UPLOAD_TIMING_ENABLED=true`) and frontend `utils/uploadTiming.js` (`REACT_APP_UPLOAD_TIMING_ENABLED=true` at build time) log correlated stage timings for portal and external uploads. Both default off. Procedure/boundaries: `backend/docs/upload-measurements.md`. Timing instrumentation itself adds no background jobs or speed changes; device background continuation remains excluded.
 

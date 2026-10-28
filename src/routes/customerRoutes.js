@@ -7,7 +7,6 @@ import InvoiceDetailPage from "../pages/InvoiceDetailPage";
 import ProjectDetails from "../pages/ProjectDetails";
 import PlanDetails from "../pages/PlanDetails";
 import WalletDetails from "../pages/WalletDetails";
-import UserUpdateDashboard from "../pages/UserUpdateDashboard";
 import UserInvoices from "../pages/UserInvoices";
 import DirectPayment from "../pages/DirectPayment";
 import ContactSupport from "../pages/ContactSupport";
@@ -160,14 +159,6 @@ export const customerRoutes = [
     element: (
       <CustomerProtectedRoute>
         <MyReferredLeadsPage/>
-      </CustomerProtectedRoute>
-    )
-  },
-  {
-    path: "my-updates",
-    element: (
-      <CustomerProtectedRoute>
-        <UserUpdateDashboard/>
       </CustomerProtectedRoute>
     )
   },
