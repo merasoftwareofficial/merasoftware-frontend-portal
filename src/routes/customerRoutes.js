@@ -24,6 +24,7 @@ import ChessPage from "../chess/ChessPage";
 import SetNewPassword from "../pages/SetNewPassword";
 import CustomerDocuments from "../pages/CustomerDocuments";
 import StartProjectRequest from "../pages/StartProjectRequest";
+import StartProjectRequestDetails from "../pages/StartProjectRequestDetails";
 import MyReferredLeadsPage from "../pages/MyReferredLeadsPage";
 
 const CustomerProtectedRoute = ({ children }) => (
@@ -74,9 +75,14 @@ export const customerRoutes = [
     )
   },
   {
-    // Get a Service → Start a Project: callback request (pages/StartProjectRequest.js).
+    // Get a Service → Start a Project: choose a project type (pages/StartProjectRequest.js) …
     path: "start-new-project/project",
     element: <CustomerProtectedRoute><StartProjectRequest/></CustomerProtectedRoute>
+  },
+  {
+    // … then the details form that sends the callback request (pages/StartProjectRequestDetails.js).
+    path: "start-new-project/project/:category",
+    element: <CustomerProtectedRoute><StartProjectRequestDetails/></CustomerProtectedRoute>
   },
   {
     // The old website questionnaire and online Customize pages are unlinked; old links land on Start a Project.
