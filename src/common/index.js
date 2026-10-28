@@ -755,6 +755,15 @@ const SummaryApi = {
         url: `${backendDomain}/api/customer/project-categories`,
         method: "get"
     },
+    // Get a Service → Start a Project: project types to ask about, and the callback request (saved as a lead).
+    projectRequestCategories: {
+        url: `${backendDomain}/api/customer/project-request/categories`,
+        method: "get"
+    },
+    projectRequest: {
+        url: `${backendDomain}/api/customer/project-request`,
+        method: "post"
+    },
     getMessageTemplates: {
         url: `${backendDomain}/api/admin/message-templates`,
         method: "get"

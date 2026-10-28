@@ -1,143 +1,133 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  Layers3,
-  BriefcaseBusiness,
-  ArrowRight,
-  X,
-} from 'lucide-react';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import DashboardLayout from '../components/DashboardLayout';
 import { AnimatedSection, getStaggerDelay } from '../components/PageMotion';
-import { useSelector } from 'react-redux';
 
-const CATEGORIES = [
+// "Get a Service" (/start-new-project): one screen with two choices, each with one button.
+// Start a Project → pages/StartProjectRequest.js (callback request); Buy a Service → the plans
+// page (pages/StartNewProject.js). The pictures are decoration only, nothing in them is clickable.
+
+const line = 'block h-1.5 rounded bg-[var(--glass-border)]';
+
+// New work: a dashed sketch behind, the finished site in front, a phone beside it.
+const ProjectArt = () => (
+  <div aria-hidden="true" className="relative h-44 overflow-hidden rounded-[22px] border border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] lg:h-48">
+    <div className="pointer-events-none absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-300/20 blur-3xl" />
+    <div className="absolute left-[14%] top-[20%] grid h-[62%] w-[46%] content-start gap-2 rounded-xl border-[1.5px] border-dashed border-[var(--glass-border-strong)] p-3.5 transition-transform duration-300 group-hover:-translate-x-1 group-hover:translate-y-0.5">
+      <i className="block h-1.5 w-3/5 rounded border border-dashed border-[var(--glass-border-strong)]" />
+      <i className="block h-1.5 rounded border border-dashed border-[var(--glass-border-strong)]" />
+      <i className="block h-1.5 w-2/5 rounded border border-dashed border-[var(--glass-border-strong)]" />
+    </div>
+    <div className="absolute left-[32%] top-[14%] h-[66%] w-1/2 overflow-hidden rounded-xl border border-[var(--glass-border)] bg-[var(--page-bg)] shadow-[0_20px_40px_-24px_rgba(0,0,0,0.55)] transition-transform duration-300 group-hover:-translate-y-1">
+      <div className="flex gap-1 border-b border-[var(--glass-border)] px-2.5 py-2">
+        {[0, 1, 2].map((dot) => <i key={dot} className="h-1.5 w-1.5 rounded-full bg-[var(--glass-border-strong)]" />)}
+      </div>
+      <div className="m-2.5 h-[34%] rounded-lg bg-gradient-to-r from-[var(--accent-soft-bg)] to-transparent" />
+      <i className={`${line} mx-2.5 mb-1.5`} />
+      <i className={`${line} mx-2.5 w-2/5`} />
+    </div>
+    <div className="absolute left-[74%] top-[38%] grid h-1/2 w-[13%] min-w-[42px] content-start gap-1.5 rounded-[10px] border border-[var(--glass-border)] bg-[var(--page-bg)] p-1.5 shadow-[0_16px_30px_-18px_rgba(0,0,0,0.55)] transition-transform duration-300 group-hover:-translate-y-1.5">
+      <i className="block h-5 rounded bg-[var(--accent-soft-bg)]" />
+      <i className={line} />
+      <i className={line} />
+    </div>
+  </div>
+);
+
+// Ongoing work: three months of updates, the next one waiting.
+const MONTHS = [['October', ['done', 'done', 'done']], ['November', ['done', 'next', '']], ['December', ['', '', '']]];
+const PlansArt = () => (
+  <div aria-hidden="true" className="relative h-44 overflow-hidden rounded-[22px] border border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] lg:h-48">
+    <div className="pointer-events-none absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-300/20 blur-3xl" />
+    <div className="absolute inset-0 grid grid-cols-3 items-end gap-3.5 px-6 pb-5 pt-6">
+      {MONTHS.map(([month, updates]) => (
+        <div key={month} className="flex flex-col items-center gap-2">
+          <div className="flex w-full max-w-[92px] flex-col-reverse gap-1.5">
+            {updates.map((state, index) => (
+              <span
+                key={index}
+                className={`relative h-[22px] rounded-[7px] border transition-colors duration-300 ${state === 'done'
+                  ? 'border-[var(--accent-soft-border)] bg-[var(--accent-soft-bg)]'
+                  : state === 'next'
+                    ? 'border-dashed border-[var(--accent-soft-border)] bg-[var(--page-bg)] group-hover:bg-[var(--accent-soft-bg)]'
+                    : 'border-[var(--glass-border)] bg-[var(--page-bg)]'}`}
+              >
+                {state === 'done' && <span className="absolute left-1/2 top-[44%] h-[5px] w-[9px] -translate-x-1/2 -translate-y-1/2 -rotate-45 border-b-2 border-l-2 border-[var(--accent-soft-fg)]" />}
+              </span>
+            ))}
+          </div>
+          <b className="text-xs font-semibold text-[var(--text-muted)]">{month}</b>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const CHOICES = [
   {
-    id: 'custom-project',
-    title: 'Create a Custom Project',
-    description: 'Build a private website, software, or app project for your own workspace.',
-    action: 'Customize Project',
-    icon: BriefcaseBusiness,
+    id: 'project',
+    kind: 'New work',
+    title: 'Start a Project',
+    text: 'A new website, online store or app, built for you. Tell us what you need and our team will call you with a proposal.',
+    action: 'Start a Project',
+    to: '/start-new-project/project',
+    Art: ProjectArt,
   },
   {
-    id: 'services',
-    title: 'Start a Service or Add-ons',
-    description: 'Start a standalone service or add a service to an existing project.',
-    action: 'Browse services',
-    icon: Layers3,
+    id: 'plans',
+    kind: 'Ongoing work',
+    title: 'Buy a Service',
+    text: 'Monthly plans for regular website updates. Pick what you need, see the price, and pay right here.',
+    action: 'Browse Plans',
+    to: '/start-new-project/services',
+    Art: PlansArt,
   },
 ];
 
 const StartProject = () => {
-  const navigate = useNavigate();
   const user = useSelector((state) => state?.user?.user);
-  const [serviceChoiceOpen, setServiceChoiceOpen] = useState(false);
-
-  const handleSelect = (category) => {
-    if (category.id === 'custom-project') {
-      navigate('/start-new-project/build/new_website');
-      return;
-    }
-    setServiceChoiceOpen(true);
-  };
 
   return (
     <DashboardLayout user={user}>
-      <div
-        className="relative min-h-[calc(100vh-4rem)] overflow-hidden px-4 py-10 sm:px-6 lg:px-8 lg:py-14"
-      >
+      <div className="relative flex min-h-[calc(100vh-4rem)] flex-col justify-center overflow-hidden px-4 py-8 sm:px-6 lg:px-8">
         <div className="pointer-events-none absolute inset-0 bg-[var(--scrim)]" />
 
-        <div className="relative mx-auto max-w-6xl">
+        <div className="relative mx-auto flex w-full max-w-5xl flex-col gap-5">
           <div className="text-center">
             <span className="inline-flex items-center rounded-full border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] px-4 py-1.5 text-sm font-medium text-[var(--text-primary)] shadow-[var(--card-shadow)] backdrop-blur-2xl">
               Get a Service
             </span>
-            <h1 className="mt-5 text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl lg:text-4xl">
-              Choose a service
+            <h1 className="mt-4 text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl lg:text-4xl">
+              What would you like to do?
             </h1>
-            <p className="mx-auto mt-3 max-w-2xl text-base text-[var(--text-secondary)] sm:text-lg">
-              Start a standalone service or add one to a project your admin has created for you.
+            <p className="mx-auto mt-2 max-w-2xl text-base text-[var(--text-secondary)] sm:text-lg">
+              Start something new with us, or keep your website fresh every month.
             </p>
           </div>
 
-          <div className="mt-10 grid w-full grid-cols-1 gap-6 sm:mt-12 sm:grid-cols-2">
-            {CATEGORIES.map((category, index) => {
-              const Icon = category.icon;
-              return (
-                <AnimatedSection key={category.id} delay={getStaggerDelay(index)}>
-                  <button
-                    type="button"
-                    onClick={() => handleSelect(category)}
-                    className="group relative w-full overflow-hidden rounded-3xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] p-6 text-left shadow-[var(--card-shadow)] backdrop-blur-2xl backdrop-saturate-150 transition-all duration-300 hover:-translate-y-1.5 hover:border-accent-300/60 hover:bg-[var(--glass-bg-strong)] hover:shadow-[0_24px_48px_rgb(var(--accent-500)/0.28)] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-text"
+          {CHOICES.map(({ id, kind, title, text, action, to, Art }, index) => (
+            <AnimatedSection key={id} delay={getStaggerDelay(index)}>
+              <section className="group relative grid items-center gap-6 overflow-hidden rounded-[28px] border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] p-5 shadow-[var(--card-shadow)] backdrop-blur-2xl backdrop-saturate-150 transition-colors duration-300 hover:border-[var(--accent-soft-border)] sm:p-7 md:grid-cols-2 md:gap-9">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-[var(--glass-sheen)] to-transparent" />
+                <div className={`relative flex min-w-0 flex-col items-start gap-2 ${index % 2 ? 'md:order-2' : ''}`}>
+                  <span className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--accent-soft-fg)]">{kind}</span>
+                  <h2 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] lg:text-3xl">{title}</h2>
+                  <p className="max-w-md text-base text-[var(--text-secondary)]">{text}</p>
+                  <Link
+                    to={to}
+                    className="mt-2 inline-flex items-center gap-2.5 rounded-2xl bg-[rgb(var(--ink-rgb))] px-5 py-3 text-base font-semibold text-[var(--page-bg)] transition hover:bg-[rgb(var(--ink-rgb)/0.85)] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-text"
                   >
-                  {/* glass sheen */}
-                  <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-[var(--glass-sheen)] to-transparent" />
-                  <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-accent-300/30 opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-100" />
-                  <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-[var(--glass-border)] transition-all duration-300 group-hover:ring-accent-300/40" />
-
-                  <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-colors duration-300 group-hover:border-accent-400/50 group-hover:bg-accent-500/15">
-                    <Icon className="h-7 w-7 text-[var(--text-primary)] transition-colors duration-300 group-hover:text-accent-text" strokeWidth={1.75} />
-                  </div>
-
-                  <h3 className="relative mt-5 text-xl font-semibold text-[var(--text-primary)]">
-                    {category.title}
-                  </h3>
-                  <p className="relative mt-2 text-base leading-relaxed text-[var(--text-secondary)]">
-                    {category.description}
-                  </p>
-
-                  <div className="relative mt-5 inline-flex items-center gap-2 rounded-xl border border-accent-400/40 bg-accent-500/20 px-4 py-2 text-base font-medium text-[var(--text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] backdrop-blur-md transition-all duration-300 group-hover:gap-3 group-hover:border-accent-300/60 group-hover:bg-accent-500/35">
-                    {category.action}
-                    <ArrowRight className="h-4 w-4" strokeWidth={2} />
-                  </div>
-                  </button>
-                </AnimatedSection>
-              );
-            })}
-          </div>
+                    {action}
+                    <span className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
+                  </Link>
+                </div>
+                <div className="relative order-first md:order-none"><Art /></div>
+              </section>
+            </AnimatedSection>
+          ))}
         </div>
       </div>
-
-      {serviceChoiceOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div
-            className="absolute inset-0 bg-[var(--glass-bg-subtle)] backdrop-blur-sm"
-            onClick={() => setServiceChoiceOpen(false)}
-          />
-          <AnimatedSection className="relative w-full max-w-xl overflow-hidden rounded-3xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] p-7 shadow-[0_24px_64px_rgba(0,0,0,0.5)] backdrop-blur-2xl backdrop-saturate-150">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-[var(--glass-sheen)] to-transparent" />
-
-            <button
-              type="button"
-              onClick={() => setServiceChoiceOpen(false)}
-              className="absolute right-4 top-4 rounded-lg border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] p-1.5 text-[var(--text-primary)] transition-colors duration-200 hover:border-accent-300/60 hover:bg-[var(--glass-bg-strong)]"
-            >
-              <X className="h-4 w-4" strokeWidth={2} />
-            </button>
-
-            <h3 className="relative text-center text-xl font-semibold text-[var(--text-primary)]">
-              Choose how you want to continue
-            </h3>
-            <p className="relative mt-2 text-center text-base leading-relaxed text-[var(--text-secondary)]">
-              Services can start independently, or be attached to a project you already own.
-            </p>
-
-            <div className="relative mt-6 grid gap-3 sm:grid-cols-2">
-              <button type="button" onClick={() => navigate('/start-new-project/services?tab=services')} className="rounded-2xl border border-accent-400/40 bg-accent-500/20 p-4 text-left text-[var(--text-primary)] transition hover:border-accent-300/70 hover:bg-accent-500/30">
-                <Layers3 className="h-6 w-6 text-accent-text" strokeWidth={1.75} />
-                <span className="mt-3 block text-base font-semibold">Start a Service</span>
-                <span className="mt-1 block text-sm text-[var(--text-secondary)]">Browse services that can begin without a project.</span>
-              </button>
-              <button type="button" onClick={() => navigate('/projects-and-plans')} className="rounded-2xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] p-4 text-left text-[var(--text-primary)] transition hover:border-sky-300/60 hover:bg-[var(--glass-bg-strong)]">
-                <BriefcaseBusiness className="h-6 w-6 text-sky-200" strokeWidth={1.75} />
-                <span className="mt-3 block text-base font-semibold">Add to a Project</span>
-                <span className="mt-1 block text-sm text-[var(--text-secondary)]">Open your project, then add its service or add-on.</span>
-              </button>
-            </div>
-          </AnimatedSection>
-        </div>
-      )}
-
     </DashboardLayout>
   );
 };

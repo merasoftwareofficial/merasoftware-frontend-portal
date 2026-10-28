@@ -23,8 +23,7 @@ import GamesListPage from "../chess/GamesListPage";
 import ChessPage from "../chess/ChessPage";
 import SetNewPassword from "../pages/SetNewPassword";
 import CustomerDocuments from "../pages/CustomerDocuments";
-import StartNewWebsiteBuild from "../pages/StartNewWebsiteBuild";
-import StartNewWebsiteCustomize from "../pages/StartNewWebsiteCustomize";
+import StartProjectRequest from "../pages/StartProjectRequest";
 import MyReferredLeadsPage from "../pages/MyReferredLeadsPage";
 
 const CustomerProtectedRoute = ({ children }) => (
@@ -75,12 +74,14 @@ export const customerRoutes = [
     )
   },
   {
-    path: "start-new-project/build/new_website",
-    element: <CustomerProtectedRoute><StartNewWebsiteBuild/></CustomerProtectedRoute>
+    // Get a Service → Start a Project: callback request (pages/StartProjectRequest.js).
+    path: "start-new-project/project",
+    element: <CustomerProtectedRoute><StartProjectRequest/></CustomerProtectedRoute>
   },
   {
-    path: "start-new-project/build/new_website/customize",
-    element: <CustomerProtectedRoute><StartNewWebsiteCustomize/></CustomerProtectedRoute>
+    // The old website questionnaire and online Customize pages are unlinked; old links land on Start a Project.
+    path: "start-new-project/build/*",
+    element: <Navigate to="/start-new-project/project" replace />
   },
   {
     path: "start-new-project/:projectId",
