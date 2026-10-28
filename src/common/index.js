@@ -194,6 +194,11 @@ const SummaryApi = {
         url : `${backendDomain}/api/customer/service-plan-order`,
         method: "post"
     },
+    // The plan builder's price: { planId, purchase, tenureMonths, files, updates, releaseMode } → quote + quoteKey
+    servicePlanQuote : {
+        url : `${backendDomain}/api/customer/service-plan-quote`,
+        method: "post"
+    },
     stopServiceRenewal : {
         url : `${backendDomain}/api/customer/service-plan/stop-renewal`,
         method: "post"
@@ -710,6 +715,11 @@ const SummaryApi = {
     // `${url}/${requestId}/status` — plan uploads only
     adminUploadStatus: {
         url: `${backendDomain}/api/admin/uploads`,
+        method: "post"
+    },
+    // `${url}/${orderId}/work-updates` { text } — plans without uploads only
+    adminPlanWorkUpdate: {
+        url: `${backendDomain}/api/admin/service-plans`,
         method: "post"
     },
     // Live (published, not expired) website offers for the Create Project form's Offer dropdown.

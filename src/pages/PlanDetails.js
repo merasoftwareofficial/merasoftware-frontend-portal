@@ -15,6 +15,7 @@ import { getInvoiceStatusText, isStatementInvoice } from '../helpers/invoicePres
 import { getNextCycleOutcome, getTimeUntilText, getTermRemainingText, CYCLE_OUTCOME } from '../helpers/servicePlanCycle';
 import { goToCustomerReturn } from '../helpers/customerReturnNavigation';
 import UploadedDataList from '../components/UploadedDataList';
+import PlanUpdateCards from '../components/PlanUpdateCards';
 import OfferPaymentTerms from '../components/OfferPaymentTerms';
 import { downloadAuthenticatedFile } from '../helpers/downloadFile';
 
@@ -70,7 +71,8 @@ const getPlanVisualStatus = (plan) => {
     if (status === 'expired') return { ...base, badge: 'Expired', tone: 'expired', canRequest: false };
     if (status === 'paused') return { ...base, badge: 'Paused', tone: 'paused', canRequest: false };
     if (daysLeft === 0) return { ...base, badge: 'Expired', tone: 'expired', canRequest: false };
-    if (accessLeft === 0) return { ...base, badge: 'Cycle limit used', tone: 'used_up', canRequest: false };
+    // With monthly release the period still holds updates that open later; say when.
+    if (accessLeft === 0) return { ...base, badge: allowance.nextReleaseAt ? `Next updates open on ${formatDate(allowance.nextReleaseAt)}` : 'Cycle limit used', tone: 'used_up', canRequest: false };
     if (plan.paymentAccess && !plan.paymentAccess.allowed) return { ...base, badge: 'Payment required', tone: 'paused', canRequest: false };
 
     return { ...base, badge: 'Active', tone: 'active', canRequest: !isReminderOnly };
@@ -133,6 +135,26 @@ const BADGE_TONE_CLASSES = {
   expired: 'badge badge-neutral',
   paused: 'badge badge-error',
   closed: 'badge badge-neutral',
+};
+
+// What the customer bought, read from the order's frozen snapshot and its own billing fields
+// (servicePlanPurchase.js buildServicePlanOrderData) — never from today's catalogue plan.
+const PURCHASE_WORDS = { monthly: 'Monthly', quarterly: 'Every 3 months', half_yearly: 'Every 6 months', yearly: 'Yearly' };
+const getBoughtFacts = (plan) => {
+  const s = plan.servicePlanSnapshot || {};
+  const facts = [];
+  if (s.capability === 'upload_data') {
+    if (s.filesLimit) facts.push(['Files per update', s.filesLimit]);
+    if (s.updatesPerMonth) facts.push(['Updates per month', s.updatesPerMonth]);
+    else if (s.chosenUpdates && !s.selectedBillingCycle) facts.push(['Updates', s.chosenUpdates]);
+  }
+  facts.push(['How you pay', PURCHASE_WORDS[s.selectedBillingCycle] || 'One-time']);
+  const cycleMonths = Number(plan.serviceBillingCycleMonths) || 0;
+  const cycles = Number(plan.serviceTotalCycles) || 0;
+  if (s.selectedBillingCycle && cycleMonths && cycles) facts.push(['Plan length', `${cycleMonths * cycles} months`]);
+  if (Number(plan.serviceCyclePrice) > 0) facts.push([s.selectedBillingCycle ? 'Price per period' : 'Price', `₹${Number(plan.serviceCyclePrice).toLocaleString('en-IN')}`]);
+  if (s.capability === 'upload_data' && s.selectedBillingCycle && s.releaseMode) facts.push(['Updates open', s.releaseMode === 'monthly' ? 'Month by month' : 'All at once']);
+  return facts;
 };
 
 const PlanDetails = ({ isProjectServiceView = false }) => {
@@ -413,6 +435,38 @@ const PlanDetails = ({ isProjectServiceView = false }) => {
                   </p>
                 )}
 
+                {/* What was bought: the order's own frozen choices. */}
+                {isServiceKind && (
+                  <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-[var(--glass-border)] pt-3 sm:grid-cols-3 lg:grid-cols-6">
+                    {getBoughtFacts(plan).map(([label, value]) => (
+                      <div key={label}>
+                        <dt className="text-xs text-[var(--text-muted)]">{label}</dt>
+                        <dd className="mt-0.5 text-base font-semibold text-[var(--text-primary)]">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+
+                {/* A plan without uploads: what our team did, posted by the admin
+                    (backend POST /api/admin/service-plans/:orderId/work-updates; each one is also mailed). */}
+                {plan.servicePlanSnapshot?.capability === 'send_reminders' && (
+                  <div className="mt-4 border-t border-[var(--glass-border)] pt-3">
+                    <h2 className="text-lg font-semibold text-[var(--text-primary)]">What we did</h2>
+                    {(plan.serviceWorkUpdates || []).length ? (
+                      <ol className="mt-2 space-y-2">
+                        {plan.serviceWorkUpdates.slice().reverse().map((entry) => (
+                          <li key={entry._id} className="rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)] px-4 py-2.5">
+                            <p className="text-xs text-[var(--text-muted)]">{formatDateTime(entry.at)}</p>
+                            <p className="mt-0.5 whitespace-pre-line text-base text-[var(--text-primary)]">{entry.text}</p>
+                          </li>
+                        ))}
+                      </ol>
+                    ) : (
+                      <p className="mt-1 text-sm text-[var(--text-secondary)]">Our team will post here what was done on your plan. You will also get a mail each time.</p>
+                    )}
+                  </div>
+                )}
+
                 {/* What this plan costs, on one line.
                     This was a heading, a total, a paid/due line, a "Your bill" heading and a row
                     under it — five stacked lines on a full-width band, with the right half of the
@@ -475,6 +529,11 @@ const PlanDetails = ({ isProjectServiceView = false }) => {
                   </div>
                 ) : null}
               </section>
+            )}
+
+            {/* One card per update of this period (owner decision Q7). */}
+            {isServiceKind && plan.servicePlanSnapshot?.capability === 'upload_data' && (
+              <PlanUpdateCards plan={plan} uploads={requests} />
             )}
 
             {/* Desktop 3-column layout, same skeleton as ProjectDetails.js */}
@@ -551,7 +610,9 @@ const PlanDetails = ({ isProjectServiceView = false }) => {
                         for a date it has already parsed — so it never renders an empty wait. */}
                     {status.tone === 'used_up' && (
                       <p className="mt-2 text-center text-sm text-[var(--badge-pending-fg)]">
-                        {isServiceKind
+                        {isServiceKind && plan.uploadAllowance?.nextReleaseAt
+                          ? `Your next updates open ${getTimeUntilText(plan.uploadAllowance.nextReleaseAt)}.`
+                          : isServiceKind
                           ? nextCycle.outcome === CYCLE_OUTCOME.RETURNS
                             ? `You can send again ${getTimeUntilText(nextCycle.returnsOn)}.`
                             : nextCycle.outcome === CYCLE_OUTCOME.FINISHED
@@ -650,6 +711,7 @@ const PlanDetails = ({ isProjectServiceView = false }) => {
                       emptyText="Nothing uploaded yet. Anything you send appears here."
                       onDownload={handleUploadDownload}
                       downloadingId={downloadingUploadId}
+                      showStatusHistory
                     />
                   </div>
                 </div>
@@ -758,6 +820,7 @@ const PlanDetails = ({ isProjectServiceView = false }) => {
                       emptyText="Nothing uploaded yet. Anything you send appears here."
                       onDownload={handleUploadDownload}
                       downloadingId={downloadingUploadId}
+                      showStatusHistory
                     />
                   </div>
                 </section>

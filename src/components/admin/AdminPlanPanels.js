@@ -28,6 +28,74 @@ const Line = ({ label, children }) => (
   </div>
 );
 
+// Plans without uploads (capability send_reminders): our team posts what was done; the client
+// sees it on the plan page and gets a mail (backend servicePlanAdmin.js addWorkUpdate).
+const WorkUpdatesBox = ({ item, onChanged }) => {
+  const [text, setText] = useState("");
+  const [posting, setPosting] = useState(false);
+  const entries = (item?.serviceWorkUpdates || []).slice().reverse();
+
+  const post = async () => {
+    const value = text.trim();
+    if (!value || posting) return;
+    try {
+      setPosting(true);
+      const response = await fetch(`${SummaryApi.adminPlanWorkUpdate.url}/${item._id}/work-updates`, {
+        method: SummaryApi.adminPlanWorkUpdate.method,
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: value }),
+      });
+      const result = await response.json();
+      if (!result.success) throw new Error(result.message || "Could not post the work update");
+      toast.success("Work update posted. The client gets a mail.");
+      setText("");
+      onChanged?.();
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  return (
+    <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5">
+      <h3 className="text-lg font-bold text-slate-900">Work updates</h3>
+      <p className="mt-1 text-sm text-slate-500">Tell the client what was done. They see it on their plan page and get a mail.</p>
+      <textarea
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        maxLength={2000}
+        rows={3}
+        placeholder="For example: Live chat is now on every page of your website."
+        className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500"
+      />
+      <div className="mt-2 flex justify-end">
+        <button
+          type="button"
+          onClick={post}
+          disabled={posting || !text.trim()}
+          className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {posting ? "Posting…" : "Post work update"}
+        </button>
+      </div>
+      {entries.length ? (
+        <ol className="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200">
+          {entries.map((entry) => (
+            <li key={entry._id} className="px-4 py-3 text-sm">
+              <p className="text-xs text-slate-500">{formatDate(entry.at)}</p>
+              <p className="mt-0.5 whitespace-pre-line text-slate-900">{entry.text}</p>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="mt-3 text-sm text-slate-500">Nothing posted yet.</p>
+      )}
+    </div>
+  );
+};
+
 export const PlanOverviewPanel = ({ item, onChanged }) => {
   const [saving, setSaving] = useState(false);
   const snapshot = item?.servicePlanSnapshot || {};
@@ -121,6 +189,8 @@ export const PlanOverviewPanel = ({ item, onChanged }) => {
           ) : null}
         </div>
       </div>
+
+      {snapshot.capability === "send_reminders" ? <WorkUpdatesBox item={item} onChanged={onChanged} /> : null}
 
       {history.length > 0 ? (
         <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5">

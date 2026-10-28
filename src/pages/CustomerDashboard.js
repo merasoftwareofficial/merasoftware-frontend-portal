@@ -199,7 +199,8 @@ const CustomerDashboard = () => {
     }
 
     if (activeProjects.length === 0 && activePlans.length === 1) {
-      return { label: 'Request Website Update', to: '/my-updates' };
+      // The plan's own page (uploads, status, bills); /my-updates was the old mock page.
+      return { label: 'Open My Plan', to: `/plan-details/${activePlans[0]._id}` };
     }
 
     if (activeProjects.length > 0 && activePlans.length > 0) {

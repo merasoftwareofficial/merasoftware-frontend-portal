@@ -13,6 +13,7 @@ import GlassPageState from '../components/GlassPageState';
 // The admin's dependency rule — this catalogue sells services with no project,
 // so anything the admin marked project-only does not belong here.
 import { SURFACE, canBuyOnSurface } from '../helpers/serviceDependency';
+import { priceRangeText } from '../helpers/serviceTenure';
 
 const CATEGORY_STYLE = {
   website_updates: { icon: Layers3, color: 'text-teal-600' },
@@ -168,6 +169,10 @@ const StartNewProject = () => {
                               {project.serviceName}
                             </h3>
                             <p className="mt-1 line-clamp-2 text-sm text-[var(--text-secondary)]">{description}</p>
+                            {/* The plan's own range from the backend (one update at min … max files). */}
+                            {priceRangeText(project.priceRange) && (
+                              <p className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{priceRangeText(project.priceRange)}</p>
+                            )}
                           </div>
                         </div>
                       </div>

@@ -7,10 +7,11 @@ import { goToCustomerReturn } from '../helpers/customerReturnNavigation';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import SummaryApi from '../common';
-import { BILLING_CYCLE_MONTHS, buildTenureOptions } from '../helpers/serviceTenure';
 import Context from '../context';
 import GlassPageState from '../components/GlassPageState';
 import ServiceOfferSelector from '../components/ServiceOfferSelector';
+import PlanBuilder from '../components/PlanBuilder';
+import { isFlexiblePlan } from '../helpers/serviceTenure';
 
 const PLAN_TYPE_LABELS = {
   website_updates: 'Website Update',
@@ -37,26 +38,8 @@ const MANUAL_UNIT_LABELS = {
   month: 'month(s)',
 };
 
-const VALIDITY_UNIT_LABELS = {
-  day: 'Day(s)',
-  week: 'Week(s)',
-  month: 'Month(s)',
-  year: 'Year(s)',
-};
-
-const BILLING_CYCLE_LABELS = {
-  weekly: 'Billed Weekly',
-  monthly: 'Billed Monthly',
-  quarterly: 'Billed Quarterly',
-  half_yearly: 'Billed Every 6 Months',
-  yearly: 'Billed Yearly',
-  every_2_years: 'Billed Every 2 Years',
-  every_3_years: 'Billed Every 3 Years',
-  every_4_years: 'Billed Every 4 Years',
-  every_5_years: 'Billed Every 5 Years',
-};
-
-// Billing periods and tenure choices come from the shared SSOT (helpers/serviceTenure.js).
+// How to buy, for how long and the price come from the plan builder (components/PlanBuilder.js):
+// its choices from helpers/serviceTenure.js, its price from the backend quote.
 
 const formatPrice = (value) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
@@ -75,19 +58,6 @@ const getPortalAccessLine = (servicePlan) => {
 
   const scopeLabel = LIMIT_SCOPE_LABELS[servicePlan.limitScope] || '';
   return `${servicePlan.portalAccessCount} use(s) ${scopeLabel}`;
-};
-
-const getValidityLine = (servicePlan) => {
-  if (!servicePlan) return null;
-  if (!servicePlan.billingCycle && !servicePlan.totalBillingCycles && !servicePlan.validityInDays) {
-    return 'No automatic expiry';
-  }
-  if (servicePlan.billingCycle && servicePlan.totalBillingCycles) {
-    const cycles = Number(servicePlan.totalBillingCycles);
-    return `Ends after ${cycles} billing cycle${cycles === 1 ? '' : 's'}`;
-  }
-  const unitLabel = VALIDITY_UNIT_LABELS[servicePlan.validityUnit] || '';
-  return `${servicePlan.validityValue} ${unitLabel}`;
 };
 
 const SectionHeading = ({ children }) => (
@@ -115,8 +85,9 @@ const ServicePlanDetail = () => {
   const [upiTransactionId, setUpiTransactionId] = useState('');
   const [payProcessing, setPayProcessing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [selectedBillingCycle, setSelectedBillingCycle] = useState('');
-  const [tenureMonths, setTenureMonths] = useState('');
+  // What the builder chose + the backend quote for it; refreshToken re-asks the price.
+  const [builder, setBuilder] = useState({ ready: false, quote: null, body: null });
+  const [refreshToken, setRefreshToken] = useState(0);
   const [paymentOffer, setPaymentOffer] = useState(null);
   const [purchaseKey] = useState(() => crypto.randomUUID());
 
@@ -161,8 +132,8 @@ const ServicePlanDetail = () => {
         purchaseKey,
         offerQuoteKey: paymentOffer?.quoteKey,
         deferPayment: ['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode),
-        selectedBillingCycle: plan?.servicePlan?.billingOptions?.length ? selectedBillingCycle : undefined,
-        tenureMonths: tenureMonths === '' ? undefined : Number(tenureMonths),
+        // purchase, tenureMonths, files, updates, releaseMode, quoteKey — exactly what was quoted.
+        ...builder.body,
         paymentDetails: {
           transactionId: txnId,
           upiTransactionId: upiRef || null,
@@ -171,32 +142,40 @@ const ServicePlanDetail = () => {
     });
     const result = await response.json();
     if (!result.success) {
-      throw new Error(result.message || 'Could not complete the purchase');
+      throw Object.assign(new Error(result.message || 'Could not complete the purchase'), { status: response.status });
     }
     return result.data;
+  };
+
+  // 409 = the plan or its price changed after the quote: nothing was bought. Show the new price.
+  const handlePurchaseError = (error, fallback) => {
+    if (error.status === 409) {
+      setShowQR(false);
+      setShowPaymentModal(false);
+      setRefreshToken((value) => value + 1);
+      toast.error('The price of this plan changed. Please check the new price and pay again.');
+      return;
+    }
+    toast.error(error.message || fallback);
   };
 
   // Wallet/UPI split for display + flow choice. The wallet is the customer's own
   // money so it applies first; only the remainder needs UPI. The backend
   // independently re-derives this same split from the real balance.
-  const catalogueBillingOptions = plan?.servicePlan?.billingOptions || [];
-  const selectedBillingOption = catalogueBillingOptions.find((option) => option.billingCycle === selectedBillingCycle);
-  const selectedCycleMonths = BILLING_CYCLE_MONTHS[selectedBillingCycle] || 0;
-  const planPrice = Number(selectedBillingOption?.pricePerCycle ?? plan?.sellingPrice ?? plan?.price ?? 0);
+  const planPrice = Number(builder.quote?.firstPayment || 0);
   const currentWalletBalance = Number(context?.walletBalance || 0);
   const currentWalletPart = Math.min(currentWalletBalance, planPrice);
   const currentUpiPart = Math.max(0, planPrice - currentWalletPart);
   const isDeferredOffer = ['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode);
   const handleOpenPayment = () => {
+    if (!builder.ready) return toast.error(builder.error || 'Please wait for the price, then continue.');
     setShowPaymentModal(true);
   };
 
   // Step 1: customer confirmed the summary → start the wallet/UPI flow.
   const handleConfirmPayment = async () => {
     if (payProcessing) return;
-    if (catalogueBillingOptions.length && !selectedBillingOption) return toast.error('Select a billing period first.');
-    if (catalogueBillingOptions.length && !tenureMonths) return toast.error('Select the total service tenure.');
-    if (catalogueBillingOptions.length && (!Number.isInteger(Number(tenureMonths)) || Number(tenureMonths) < selectedCycleMonths || Number(tenureMonths) % selectedCycleMonths !== 0)) return toast.error('Total tenure must be a whole multiple of the billing period.');
+    if (!builder.ready) return toast.error('Please wait for the price, then continue.');
     try {
       setPayProcessing(true);
       if (['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode)) {
@@ -227,7 +206,7 @@ const ServicePlanDetail = () => {
       );
       setShowQR(true);
     } catch (error) {
-      toast.error(error.message || 'Payment failed. Please try again.');
+      handlePurchaseError(error, 'Payment failed. Please try again.');
     } finally {
       setPayProcessing(false);
     }
@@ -249,7 +228,7 @@ const ServicePlanDetail = () => {
       setShowPaymentModal(false);
       setShowSuccess(true);
     } catch (error) {
-      toast.error(error.message || 'Verification failed. Please try again.');
+      handlePurchaseError(error, 'Verification failed. Please try again.');
     } finally {
       setPayProcessing(false);
     }
@@ -292,12 +271,9 @@ const ServicePlanDetail = () => {
   const description = plan.formattedDescriptions?.[0]?.content || '';
   const planTypeLabel = PLAN_TYPE_LABELS[servicePlan.planType] || 'Service Plan';
   const isReminderOnly = servicePlan.serviceBehavior === 'reminder_only';
-  const portalAccessLine = getPortalAccessLine(servicePlan);
-  const validityLine = getValidityLine(servicePlan);
-  const billingCycleLabel = BILLING_CYCLE_LABELS[servicePlan.billingCycle];
-  const hasPrice = plan.price !== undefined && plan.price !== null;
-  const hasSellingPrice = plan.sellingPrice !== undefined && plan.sellingPrice !== null;
-  const showStrikethroughBasePrice = hasPrice && hasSellingPrice && Number(plan.price) !== Number(plan.sellingPrice);
+  // A flexible plan's files and updates are chosen in the builder, so its fixed limits are not listed.
+  const flexible = isFlexiblePlan(plan);
+  const portalAccessLine = flexible ? null : getPortalAccessLine(servicePlan);
 
   return (
     <DashboardLayout user={user}>
@@ -336,7 +312,7 @@ const ServicePlanDetail = () => {
 
               {/* 2. What You Get — a reminder-only service has no portal
                   allowance to list, so the whole section is skipped. */}
-              {!isReminderOnly && (
+              {!isReminderOnly && !flexible && (
               <section>
                 <SectionHeading>What You Get</SectionHeading>
                 <ul className="mt-3 space-y-2">
@@ -356,37 +332,13 @@ const ServicePlanDetail = () => {
               </section>
               )}
 
-              {/* 3. Plan Validity */}
+              {/* 3. Builder: how to buy, for how long, files/updates, and the server's price. */}
               <section>
-                <SectionHeading>Plan Validity</SectionHeading>
-                <ul className="mt-3 space-y-2">
-                  {validityLine && (
-                    <li className="flex items-start gap-2.5 text-base text-[var(--text-secondary)]">
-                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-soft-fg)]" />
-                      Valid for {validityLine}
-                    </li>
-                  )}
-                  {billingCycleLabel && (
-                    <li className="flex items-start gap-2.5 text-base text-[var(--text-secondary)]">
-                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-soft-fg)]" />
-                      {billingCycleLabel}
-                    </li>
-                  )}
-                </ul>
+                <SectionHeading>{flexible ? 'Build your plan' : 'Choose your plan'}</SectionHeading>
+                <div className="mt-4">
+                  <PlanBuilder plan={plan} onChange={setBuilder} refreshToken={refreshToken} />
+                </div>
               </section>
-
-              {/* 4. Price */}
-              {hasSellingPrice && (
-                <section>
-                  <SectionHeading>Price</SectionHeading>
-                  <div className="mt-3 flex items-baseline gap-3">
-                    {showStrikethroughBasePrice && (
-                      <span className="text-lg text-[var(--text-muted)] line-through">{formatPrice(plan.price)}</span>
-                    )}
-                    <span className="text-2xl font-bold text-[var(--text-primary)]">{formatPrice(plan.sellingPrice)}</span>
-                  </div>
-                </section>
-              )}
             </div>
 
             {/* 5. Purchase action */}
@@ -395,9 +347,10 @@ const ServicePlanDetail = () => {
               <button
                 type="button"
                 onClick={handleOpenPayment}
-                className="inline-flex w-full items-center justify-center rounded-2xl bg-[rgb(var(--ink-rgb))] px-4 py-3 text-base font-semibold text-[var(--page-bg)] transition hover:bg-[rgb(var(--ink-rgb)/0.85)] sm:w-auto"
+                disabled={!builder.ready}
+                className="inline-flex w-full items-center justify-center rounded-2xl bg-[rgb(var(--ink-rgb))] px-4 py-3 text-base font-semibold text-[var(--page-bg)] transition hover:bg-[rgb(var(--ink-rgb)/0.85)] disabled:cursor-not-allowed disabled:bg-[var(--glass-bg-strong)] disabled:text-[var(--text-muted)] sm:w-auto"
               >
-                {['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode) ? 'Continue with payment offer' : 'Proceed to Payment'}
+                {['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode) ? 'Continue with payment offer' : builder.ready ? `Pay ${formatPrice(planPrice)}` : 'Proceed to Payment'}
               </button>
             </div>
           </article>
@@ -413,13 +366,11 @@ const ServicePlanDetail = () => {
                 <h2 className="text-xl font-bold text-[var(--text-primary)]">Confirm your purchase</h2>
                 <p className="mt-1 text-base text-[var(--text-secondary)]">{plan.serviceName}</p>
 
-                {catalogueBillingOptions.length > 0 && (
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <label><span className="mb-1.5 block text-sm font-semibold text-[var(--text-secondary)]">Billing period</span><select className="w-full rounded-xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] px-3 py-2.5 text-sm text-[var(--text-primary)]" value={selectedBillingCycle} onChange={(event) => { setSelectedBillingCycle(event.target.value); setTenureMonths(''); }}><option value="">Select billing period</option>{catalogueBillingOptions.map((option) => <option key={option.billingCycle} value={option.billingCycle}>{BILLING_CYCLE_LABELS[option.billingCycle]} — {formatPrice(option.pricePerCycle)}</option>)}</select></label>
-                    <label><span className="mb-1.5 block text-sm font-semibold text-[var(--text-secondary)]">Total tenure</span><select required className="w-full rounded-xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] px-3 py-2.5 text-sm text-[var(--text-primary)] disabled:opacity-50" disabled={!selectedBillingCycle} value={tenureMonths} onChange={(event) => setTenureMonths(event.target.value)}><option value="">Select tenure</option>{buildTenureOptions(selectedCycleMonths).map((option) => <option key={option.months} value={option.months}>{option.label}</option>)}</select></label>
-                  </div>
+                {builder.quote?.purchase && builder.quote.purchase !== 'one_time' && (
+                  <p className="mt-2 text-sm text-[var(--text-muted)]">
+                    {builder.quote.tenureMonths} months, {builder.quote.totalCycles} payment{builder.quote.totalCycles === 1 ? '' : 's'}. The first is paid now; the next bills follow each period until the plan ends.
+                  </p>
                 )}
-                {catalogueBillingOptions.length > 0 && <p className="mt-2 text-xs text-[var(--text-muted)]">{tenureMonths && selectedCycleMonths ? `${Number(tenureMonths) / selectedCycleMonths} billing cycles. ` : ''}First selected period is paid now; further invoices follow this billing period until the selected tenure ends.</p>}
 
                 <div className="mt-5 space-y-2 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] p-4">
                   <div className="flex items-center justify-between text-base text-[var(--text-secondary)]">

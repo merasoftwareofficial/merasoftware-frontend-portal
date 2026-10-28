@@ -14,7 +14,8 @@ import {
 } from '../helpers/serviceDependency';
 // How long a service may be bought for — shared with the standalone page so the
 // two surfaces can never offer different terms.
-import { BILLING_CYCLE_MONTHS, buildTenureOptions } from '../helpers/serviceTenure';
+import { priceRangeText } from '../helpers/serviceTenure';
+import PlanBuilder from './PlanBuilder';
 import Modal from './Modal';
 import GlassButton from './GlassButton';
 import ServiceOfferSelector from './ServiceOfferSelector';
@@ -126,7 +127,9 @@ const AddServiceModal = ({
   // before leaving the project, so the sale is redirected rather than refused.
   const [redirectPlan, setRedirectPlan] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
-  const [selections, setSelections] = useState({});
+  // The compact builder's choice + backend quote for the selected service (components/PlanBuilder.js).
+  const [builder, setBuilder] = useState({ ready: false, quote: null, body: null });
+  const [refreshToken, setRefreshToken] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [purchasedSummary, setPurchasedSummary] = useState(null);
   // UPI step (only reached when the wallet doesn't cover the total)
@@ -143,7 +146,7 @@ const AddServiceModal = ({
     // Reset per-open so a previous session's selection never carries over.
     setSelectedId(null);
     setPurchaseKey(crypto.randomUUID());
-    setSelections({});
+    setBuilder({ ready: false, quote: null, body: null });
     setRedirectPlan(null);
     setPurchasedSummary(null);
     setShowQR(false);
@@ -190,22 +193,9 @@ const AddServiceModal = ({
     [plans, selectedId]
   );
 
-  const getSelectedPrice = (plan) => {
-    const cycle = selections[plan._id]?.selectedBillingCycle;
-    const option = plan.servicePlan?.billingOptions?.find((item) => item.billingCycle === cycle);
-    return Number(option?.pricePerCycle ?? getPriceOf(plan));
-  };
-
-  const hasCompleteSelection = (() => {
-    if (!selectedPlan) return false;
-    const options = selectedPlan.servicePlan?.billingOptions || [];
-    if (!options.length) return true;
-    const choice = selections[selectedPlan._id] || {};
-    const cycleMonths = BILLING_CYCLE_MONTHS[choice.selectedBillingCycle] || 0;
-    return Boolean(cycleMonths) && Boolean(choice.tenureMonths) && Number.isInteger(Number(choice.tenureMonths)) && Number(choice.tenureMonths) >= cycleMonths && Number(choice.tenureMonths) % cycleMonths === 0;
-  })();
-
-  const total = selectedPlan ? getSelectedPrice(selectedPlan) : 0;
+  // The amount is the backend quote's first payment; nothing is priced here.
+  const hasCompleteSelection = Boolean(selectedPlan) && builder.ready;
+  const total = selectedPlan && builder.ready ? Number(builder.quote?.firstPayment || 0) : 0;
 
   // Display-only split. The server re-derives this from the real balance and is the
   // authority — the client never tells the backend what to charge where.
@@ -223,7 +213,19 @@ const AddServiceModal = ({
       setRedirectPlan(plan);
       return;
     }
+    setBuilder({ ready: false, quote: null, body: null });
     setSelectedId((current) => (current === planId ? null : planId));
+  };
+
+  // 409 = the plan or its price changed after the quote: nothing was bought. Show the new price.
+  const handlePurchaseError = (error) => {
+    if (error.status === 409) {
+      setShowQR(false);
+      setRefreshToken((value) => value + 1);
+      toast.error('The price of this service changed. Please check the new price and pay again.');
+      return;
+    }
+    toast.error(error.message || 'Could not add the service');
   };
 
   // Confirmed: leave the project and continue on the page that actually sells
@@ -239,8 +241,6 @@ const AddServiceModal = ({
   // page uses, with the project attached. One payment, one order: no grouping,
   // no separate approval object.
   const createOrder = async ({ txnId, upiRef }) => {
-    const choice = selections[selectedPlan._id] || {};
-    const hasBillingOptions = Boolean(selectedPlan.servicePlan?.billingOptions?.length);
     const response = await fetch(SummaryApi.createServicePlanOrder.url, {
       method: SummaryApi.createServicePlanOrder.method,
       credentials: 'include',
@@ -251,8 +251,8 @@ const AddServiceModal = ({
         purchaseKey,
         offerQuoteKey: paymentOffer?.quoteKey,
         deferPayment: ['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode),
-        selectedBillingCycle: hasBillingOptions ? choice.selectedBillingCycle : undefined,
-        tenureMonths: choice.tenureMonths === '' || choice.tenureMonths === undefined ? undefined : Number(choice.tenureMonths),
+        // purchase, tenureMonths, files, updates, releaseMode, quoteKey — exactly what was quoted.
+        ...builder.body,
         linkedProjectOrderId: projectOrderId,
         addedDuringProjectPhase: isProjectFinished ? 'after_completion' : 'in_progress',
         paymentDetails: {
@@ -262,7 +262,7 @@ const AddServiceModal = ({
       }),
     });
     const result = await response.json();
-    if (!result.success) throw new Error(result.message || 'Could not add the service');
+    if (!result.success) throw Object.assign(new Error(result.message || 'Could not add the service'), { status: response.status });
     return result.data;
   };
 
@@ -274,7 +274,7 @@ const AddServiceModal = ({
     const txnId = `SVCB${Date.now()}${Math.floor(Math.random() * 10000)}`;
     if (['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode)) {
       try { setSubmitting(true); const data = await createOrder({}); setPurchasedSummary(data); onPurchased?.(); }
-      catch (error) { toast.error(error.message); } finally { setSubmitting(false); }
+      catch (error) { handlePurchaseError(error); } finally { setSubmitting(false); }
       return;
     }
 
@@ -286,7 +286,7 @@ const AddServiceModal = ({
         onPurchased?.();
         setTimeout(() => onClose?.(), 1800);
       } catch (error) {
-        toast.error(error.message || 'Could not add the service');
+        handlePurchaseError(error);
       } finally {
         setSubmitting(false);
       }
@@ -320,7 +320,7 @@ const AddServiceModal = ({
       onPurchased?.();
       setTimeout(() => onClose?.(), 1800);
     } catch (error) {
-      toast.error(error.message || 'Could not add the service');
+      handlePurchaseError(error);
     } finally {
       setSubmitting(false);
     }
@@ -448,8 +448,10 @@ const AddServiceModal = ({
               {plans.map((plan) => {
                 const isSelected = selectedId === plan._id;
                 const servicePlan = plan.servicePlan || {};
-                const accessLine = getAccessLine(servicePlan);
-                const validityLine = getValidityLine(servicePlan);
+                // A plan saved through the new catalogue (pricingMode set) states its length and
+                // allowance in the builder; the old validity fields describe only older plans.
+                const accessLine = servicePlan.pricingMode === 'flexible' ? null : getAccessLine(servicePlan);
+                const validityLine = servicePlan.pricingMode ? null : getValidityLine(servicePlan);
                 // Listed, but bought elsewhere — tapping explains and redirects.
                 const isSeparatePurchase = isRedirectableFromProject(plan);
                 // Bought here and linked here; it simply starts once the project is
@@ -499,7 +501,7 @@ const AddServiceModal = ({
                         <span className="flex flex-wrap items-baseline justify-between gap-2">
                           <span className="text-base font-semibold text-[var(--text-primary)]">{plan.serviceName}</span>
                           <span className="text-base font-semibold text-[var(--text-primary)]">
-                            {formatPrice(getSelectedPrice(plan))}
+                            {priceRangeText(plan.priceRange) || formatPrice(getPriceOf(plan))}
                           </span>
                         </span>
                         <span className="mt-1 block text-sm text-[var(--text-secondary)]">
@@ -521,10 +523,9 @@ const AddServiceModal = ({
                             Starts when this project is completed
                           </span>
                         )}
-                        {isSelected && servicePlan.billingOptions?.length > 0 && (
-                          <span className="mt-3 grid gap-2 sm:grid-cols-2" onClick={(event) => event.stopPropagation()}>
-                            <label><span className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Billing period</span><select className="w-full rounded-lg border border-[var(--glass-border-strong)] bg-[var(--glass-bg-subtle)] px-2.5 py-2 text-sm text-[var(--text-primary)]" value={selections[plan._id]?.selectedBillingCycle || ''} onChange={(event) => setSelections((current) => ({ ...current, [plan._id]: { ...current[plan._id], selectedBillingCycle: event.target.value, tenureMonths: '' } }))}><option value="">Select period</option>{servicePlan.billingOptions.map((option) => <option key={option.billingCycle} value={option.billingCycle}>{BILLING_CYCLE_LABELS[option.billingCycle]} — {formatPrice(option.pricePerCycle)}</option>)}</select></label>
-                            <label><span className="mb-1 block text-xs font-semibold text-[var(--text-secondary)]">Total tenure</span><select required className="w-full rounded-lg border border-[var(--glass-border-strong)] bg-[var(--glass-bg-subtle)] px-2.5 py-2 text-sm text-[var(--text-primary)] disabled:opacity-50" disabled={!selections[plan._id]?.selectedBillingCycle} value={selections[plan._id]?.tenureMonths || ''} onChange={(event) => setSelections((current) => ({ ...current, [plan._id]: { ...current[plan._id], tenureMonths: event.target.value } }))}><option value="">Select tenure</option>{buildTenureOptions(BILLING_CYCLE_MONTHS[selections[plan._id]?.selectedBillingCycle]).map((option) => <option key={option.months} value={option.months}>{option.label}</option>)}</select></label>
+                        {isSelected && (
+                          <span className="mt-3 block cursor-default" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+                            <PlanBuilder compact key={plan._id} plan={plan} onChange={setBuilder} refreshToken={refreshToken} />
                           </span>
                         )}
                       </span>
