@@ -135,12 +135,14 @@ const PlanBuilder = ({ plan, compact = false, onChange, refreshToken = 0 }) => {
     };
   }, [purchase, tenureMonths, flexible, fileCount, updateCount, releaseChoice, releaseMode]);
 
+  const request = JSON.stringify({ planId: plan?._id, choice, refreshToken });
+
   // Ask the backend for the price whenever a choice changes; only the newest answer counts.
   useEffect(() => {
     if (!choice || !plan?._id) return undefined;
     const ticket = requestRef.current + 1;
     requestRef.current = ticket;
-    setState((current) => ({ ...current, loading: true, error: '' }));
+    setState({ request, loading: true, error: '', quote: null, quoteKey: '' });
     const timer = setTimeout(async () => {
       try {
         const response = await fetch(SummaryApi.servicePlanQuote.url, {
@@ -152,25 +154,26 @@ const PlanBuilder = ({ plan, compact = false, onChange, refreshToken = 0 }) => {
         const result = await response.json().catch(() => ({}));
         if (requestRef.current !== ticket) return;
         if (!response.ok || !result.success) throw new Error(result.message || 'Could not work out the price. Please try again.');
-        setState({ loading: false, error: '', quote: result.data.quote, quoteKey: result.data.quoteKey });
+        setState({ request, loading: false, error: '', quote: result.data.quote, quoteKey: result.data.quoteKey });
       } catch (error) {
         if (requestRef.current !== ticket) return;
-        setState({ loading: false, error: error.message, quote: null, quoteKey: '' });
+        setState({ request, loading: false, error: error.message, quote: null, quoteKey: '' });
       }
     }, 250);
-    return () => clearTimeout(timer);
-  }, [choice, plan?._id, refreshToken]);
+    return () => { clearTimeout(timer); requestRef.current += 1; };
+  }, [choice, plan?._id, refreshToken, request]);
 
   useEffect(() => {
-    const ready = Boolean(state.quote && state.quoteKey && !state.loading && !state.error);
+    const current = state.request === request;
+    const ready = Boolean(current && state.quote && state.quoteKey && !state.loading && !state.error);
     onChangeRef.current?.({
       ready,
-      loading: state.loading,
-      error: state.error,
-      quote: state.quote,
+      loading: !current || state.loading,
+      error: current ? state.error : '',
+      quote: current ? state.quote : null,
       body: ready ? { ...choice, quoteKey: state.quoteKey } : null,
     });
-  }, [state, choice]);
+  }, [state, choice, request]);
 
   const choosePurchase = (value) => {
     setPurchase(value);
@@ -275,7 +278,7 @@ const PlanBuilder = ({ plan, compact = false, onChange, refreshToken = 0 }) => {
     }
   }
 
-  const bill = <QuoteBill plan={plan} quote={state.quote} loading={state.loading} error={state.error} compact={compact} />;
+  const bill = <QuoteBill plan={plan} quote={state.request === request ? state.quote : null} loading={state.request !== request || state.loading} error={state.request === request ? state.error : ''} compact={compact} />;
 
   if (compact) {
     return (

@@ -6,19 +6,16 @@ import { KeyRound } from "lucide-react";
 import SummaryApi from "../common";
 import { getPortalHome } from "../helpers/portalHome";
 import { WEBSITE_URL } from '../helpers/brand';
+import { passwordContinuation } from '../helpers/planAuthReturn';
 
 const SetNewPassword = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useSelector((state) => state?.user?.user);
   const requested = new URLSearchParams(location.search).get('next');
-  let websiteReturn = null;
-  try {
-    const target = new URL(requested);
-    if (target.origin === new URL(WEBSITE_URL).origin && (/^\/offer\/[a-z0-9-]+$/.test(target.pathname) || target.pathname === '/account/offers') && !target.search && !target.hash) websiteReturn = target.toString();
-  } catch { /* Only explicit website offer destinations may leave the portal. */ }
-  const portalHome = requested === '/my-offers' ? '/my-offers' : getPortalHome(user?.role);
-  const goBack = () => websiteReturn ? window.location.assign(websiteReturn) : navigate(portalHome, { replace: true });
+  const destination = passwordContinuation(requested, user?.role, WEBSITE_URL);
+  const goBack = () => destination.external ? window.location.assign(destination.external)
+    : navigate(destination.internal || getPortalHome(user?.role), { replace: true });
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [saving, setSaving] = useState(false);

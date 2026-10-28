@@ -2,6 +2,7 @@ import CookieManager from "../utils/cookieManager";
 import StorageService from "../utils/storageService";
 import { setUserDetails, updateWalletBalance } from "../store/userSlice";
 import { getPortalHome } from "./portalHome";
+import { loginContinuation } from './planAuthReturn';
 
 const postLogin = ({
   dataApi,
@@ -46,11 +47,8 @@ const postLogin = ({
 
   // First-login password reset (soft): users auto-created via lead convert
   // land on the set-password page but can skip to their portal home.
-  if (dataApi?.data?.mustResetPassword) {
-    navigate(returnTo === '/my-offers' ? '/set-new-password?next=%2Fmy-offers' : '/set-new-password', { replace: true });
-  } else {
-    navigate(returnTo === '/my-offers' ? returnTo : getPortalHome(user.role), { replace: true });
-  }
+  navigate(loginContinuation({ role: user.role, mustResetPassword: dataApi.data.mustResetPassword,
+    returnTo, home: getPortalHome(user.role) }), { replace: true });
 
 };
 

@@ -1,6 +1,7 @@
 import { useSelector } from "react-redux";
 import { Navigate, useLocation } from "react-router-dom";
 import SessionPending from './SessionPending';
+import { planLoginUrl } from '../helpers/planAuthReturn';
 
 const ProtectedRoute = ({ children, requireRole }) => {
   const location = useLocation();
@@ -12,7 +13,7 @@ const ProtectedRoute = ({ children, requireRole }) => {
   }
 
   if (!user?._id) {
-    return <Navigate to={location.pathname === '/my-offers' ? '/login?next=%2Fmy-offers' : '/login'} replace />;
+    return <Navigate to={planLoginUrl(location.pathname)} replace />;
   }
 
   // Optional: Only for specific sensitive routes (admin routes)

@@ -12,14 +12,8 @@ import GlassPageState from '../components/GlassPageState';
 import ServiceOfferSelector from '../components/ServiceOfferSelector';
 import PlanBuilder from '../components/PlanBuilder';
 import { isFlexiblePlan } from '../helpers/serviceTenure';
-
-const PLAN_TYPE_LABELS = {
-  website_updates: 'Website Update',
-  digital_marketing: 'Digital Marketing',
-  google_business_setup: 'Google Business Setup',
-  social_media_marketing: 'Social Media Marketing',
-  other: 'Other',
-};
+import { readCustomerPlanCatalogue } from '../helpers/customerPlanCatalogue';
+import { evaluateServiceSurface, SURFACE } from '../helpers/serviceDependency';
 
 const LIMIT_SCOPE_LABELS = {
   per_day: 'per day',
@@ -66,7 +60,7 @@ const SectionHeading = ({ children }) => (
   </h2>
 );
 
-const ServicePlanDetail = () => {
+const ServicePlanDetailScreen = () => {
   const user = useSelector((state) => state?.user?.user);
   const navigate = useNavigate();
   const location = useLocation();
@@ -74,12 +68,14 @@ const ServicePlanDetail = () => {
   const context = useContext(Context);
   const [plan, setPlan] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  const [categoryLabel, setCategoryLabel] = useState('More plans');
   const [loadError, setLoadError] = useState('');
 
   // In-page payment step: the order and its payment are created together
   // in one backend call, so a payment-less order can never exist.
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showQR, setShowQR] = useState(false);
+  const [paymentChoiceKey, setPaymentChoiceKey] = useState('');
   const [upiLink, setUpiLink] = useState('');
   const [payTxnId, setPayTxnId] = useState('');
   const [upiTransactionId, setUpiTransactionId] = useState('');
@@ -92,24 +88,17 @@ const ServicePlanDetail = () => {
   const [purchaseKey] = useState(() => crypto.randomUUID());
 
   useEffect(() => {
-    const fetchPlan = async () => {
-      try {
-        setLoadError('');
-        const response = await fetch(SummaryApi.productDetails.url, {
-          method: SummaryApi.productDetails.method,
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ productId: planId }),
-        });
-        if (!response.ok) throw new Error('Could not load this service');
-        const dataResponse = await response.json();
-        setPlan(dataResponse?.data || null);
-      } catch (error) {
-        setLoadError(error.message || 'Could not load this service.');
-      } finally {
-        setLoaded(true);
-      }
-    };
-    fetchPlan();
+    const controller = new AbortController();
+    readCustomerPlanCatalogue(controller.signal).then(catalogue => {
+      if (controller.signal.aborted) return;
+      const found = catalogue.plans.find(row => row._id === planId);
+      setPlan(found || null);
+      setCategoryLabel(catalogue.categories.find(row => row.key === found?.servicePlan?.categoryKey)?.label || 'More plans');
+      if (!found) setLoadError('This plan is no longer available. Explore the current plans instead.');
+    }).catch(error => {
+      if (!controller.signal.aborted) setLoadError(error.message || 'Could not load this service.');
+    }).finally(() => { if (!controller.signal.aborted) setLoaded(true); });
+    return () => controller.abort();
   }, [planId]);
 
   const handleBack = () => goToCustomerReturn(navigate, location, '/start-new-project/services?tab=services');
@@ -120,6 +109,7 @@ const ServicePlanDetail = () => {
   // Creates the order + its payment atomically. The backend re-derives the price
   // and the wallet/UPI split itself — nothing here is trusted for money.
   const createServicePlanOrder = async ({ txnId, upiRef }) => {
+    if (!builder.ready || !builder.body) throw new Error('Please check the current plan price before paying.');
     const response = await fetch(SummaryApi.createServicePlanOrder.url, {
       method: SummaryApi.createServicePlanOrder.method,
       credentials: 'include',
@@ -169,8 +159,16 @@ const ServicePlanDetail = () => {
   const isDeferredOffer = ['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode);
   const handleOpenPayment = () => {
     if (!builder.ready) return toast.error(builder.error || 'Please wait for the price, then continue.');
+    setPaymentChoiceKey(JSON.stringify(builder.body));
     setShowPaymentModal(true);
   };
+
+  useEffect(() => {
+    if (showPaymentModal && (!builder.ready || JSON.stringify(builder.body) !== paymentChoiceKey)) {
+      setShowPaymentModal(false); setShowQR(false);
+      setPayTxnId(''); setUpiTransactionId(''); setUpiLink('');
+    }
+  }, [showPaymentModal, builder.ready, builder.body, paymentChoiceKey]);
 
   // Step 1: customer confirmed the summary → start the wallet/UPI flow.
   const handleConfirmPayment = async () => {
@@ -214,6 +212,7 @@ const ServicePlanDetail = () => {
 
   // Step 2 (QR path): customer entered their UPI reference → submit for approval.
   const handleVerifyUpi = async () => {
+    if (payProcessing || !builder.ready) return;
     const trimmedUpiId = upiTransactionId.trim();
     // UPI UTR/reference is 12-digit numeric — same rule as the customize flow.
     if (!/^\d{12,}$/.test(trimmedUpiId)) {
@@ -269,8 +268,9 @@ const ServicePlanDetail = () => {
 
   const servicePlan = plan.servicePlan || {};
   const description = plan.formattedDescriptions?.[0]?.content || '';
-  const planTypeLabel = PLAN_TYPE_LABELS[servicePlan.planType] || 'Service Plan';
-  const isReminderOnly = servicePlan.serviceBehavior === 'reminder_only';
+  const planTypeLabel = categoryLabel;
+  const eligibility = evaluateServiceSurface(plan, SURFACE.STANDALONE);
+  const isReminderOnly = servicePlan.capability === 'send_reminders';
   // A flexible plan's files and updates are chosen in the builder, so its fixed limits are not listed.
   const flexible = isFlexiblePlan(plan);
   const portalAccessLine = flexible ? null : getPortalAccessLine(servicePlan);
@@ -334,15 +334,19 @@ const ServicePlanDetail = () => {
 
               {/* 3. Builder: how to buy, for how long, files/updates, and the server's price. */}
               <section>
-                <SectionHeading>{flexible ? 'Build your plan' : 'Choose your plan'}</SectionHeading>
-                <div className="mt-4">
+                <SectionHeading>{eligibility.allowed ? flexible ? 'Build your plan' : 'Choose your plan' : eligibility.dependency === 'project_required' ? 'This plan needs a project' : 'This plan cannot be bought here'}</SectionHeading>
+                {eligibility.allowed ? <div className="mt-4">
                   <PlanBuilder plan={plan} onChange={setBuilder} refreshToken={refreshToken} />
-                </div>
+                </div> : <div className="mt-4 space-y-3 text-[var(--text-secondary)]"><p>{eligibility.reason}</p>
+                  {eligibility.dependency === 'project_required' && <p>Open the project you want us to work on, then choose Add a Service and select this plan. If you have no eligible project, contact us before buying.</p>}
+                  <button type="button" className="rounded-xl border border-[var(--glass-border-strong)] px-4 py-2 font-semibold text-[var(--text-primary)]" onClick={() => navigate('/projects-and-plans')}>Open my projects</button>
+                </div>}
+                {isReminderOnly && <p className="mt-4 text-sm text-[var(--text-secondary)]">We do the work and post progress updates on your plan. No file uploads are needed.</p>}
               </section>
             </div>
 
             {/* 5. Purchase action */}
-            <div className="border-t border-[var(--glass-border)] px-5 py-6 sm:px-8 sm:py-8">
+            {eligibility.allowed && <div className="border-t border-[var(--glass-border)] px-5 py-6 sm:px-8 sm:py-8">
               <ServiceOfferSelector planId={plan._id} onChange={setPaymentOffer} />
               <button
                 type="button"
@@ -352,7 +356,7 @@ const ServicePlanDetail = () => {
               >
                 {['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode) ? 'Continue with payment offer' : builder.ready ? `Pay ${formatPrice(planPrice)}` : 'Proceed to Payment'}
               </button>
-            </div>
+            </div>}
           </article>
         </div>
       </div>
@@ -400,7 +404,7 @@ const ServicePlanDetail = () => {
                   <button
                     type="button"
                     onClick={handleConfirmPayment}
-                    disabled={payProcessing}
+                    disabled={payProcessing || !builder.ready}
                     className="inline-flex flex-1 items-center justify-center rounded-2xl bg-[rgb(var(--ink-rgb))] px-4 py-3 text-base font-semibold text-[var(--page-bg)] transition hover:bg-[rgb(var(--ink-rgb)/0.85)] disabled:cursor-not-allowed disabled:bg-[var(--glass-bg-strong)] disabled:text-[var(--text-muted)]"
                   >
                     {payProcessing ? 'Processing…' : ['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode) ? 'Activate with payment pending' : currentUpiPart === 0 ? 'Pay from Wallet' : 'Continue to UPI'}
@@ -446,7 +450,7 @@ const ServicePlanDetail = () => {
                   <button
                     type="button"
                     onClick={handleVerifyUpi}
-                    disabled={payProcessing || upiTransactionId.trim().length < 12}
+                    disabled={payProcessing || !builder.ready || upiTransactionId.trim().length < 12}
                     className="inline-flex flex-1 items-center justify-center rounded-2xl bg-[rgb(var(--ink-rgb))] px-4 py-3 text-base font-semibold text-[var(--page-bg)] transition hover:bg-[rgb(var(--ink-rgb)/0.85)] disabled:cursor-not-allowed disabled:bg-[var(--glass-bg-strong)] disabled:text-[var(--text-muted)]"
                   >
                     {payProcessing ? 'Submitting…' : 'Send payment for checking'}
@@ -493,4 +497,8 @@ const ServicePlanDetail = () => {
   );
 };
 
-export default ServicePlanDetail;
+// A plan-ID change remounts the purchase screen: no previous quote/payment state can leak.
+export default function ServicePlanDetail() {
+  const { planId } = useParams();
+  return <ServicePlanDetailScreen key={planId} />;
+}

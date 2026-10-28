@@ -7,6 +7,7 @@ import { useDispatch } from "react-redux";
 import SummaryApi from "../common";
 import Context from "../context";
 import postLogin from "../helpers/postLogin";
+import { customerReturnTarget } from '../helpers/planAuthReturn';
 import GuestLoginModal from "../components/GuestLoginModal";
 import BrandLogo from "../components/BrandLogo";
 
@@ -21,7 +22,7 @@ const Login = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const returnTo = new URLSearchParams(location.search).get('next') === '/my-offers' ? '/my-offers' : undefined;
+  const returnTo = customerReturnTarget(new URLSearchParams(location.search).get('next'));
   const dispatch = useDispatch();
   const { fetchUserDetails } = useContext(Context);
 
