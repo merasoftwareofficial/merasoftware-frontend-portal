@@ -55,10 +55,10 @@ const segClass = (on) => `flex flex-col items-center gap-0.5 rounded-xl border p
   ? 'border-[var(--accent-soft-border)] bg-[var(--accent-soft-bg)] text-[var(--text-primary)] shadow-[inset_0_0_0_1px_var(--accent-soft-border)]'
   : 'border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] text-[var(--text-primary)] hover:bg-[var(--glass-bg)]'}`;
 
-const Step = ({ number, title, extra, children, compact }) => (
+// Each step heading is a direct question, with no step number.
+const Step = ({ title, extra, children, compact }) => (
   <div className={`flex flex-col gap-3 border-t border-[var(--glass-border)] first:border-t-0 ${compact ? 'py-3' : 'p-5'}`}>
     <div className="flex items-baseline gap-3">
-      {!compact && <span className="font-mono text-sm font-bold text-[var(--accent-soft-fg)]">{number}</span>}
       <h3 className={`${compact ? 'text-sm' : 'text-base'} font-semibold text-[var(--text-primary)]`}>{title}</h3>
       {extra && <span className="self-center">{extra}</span>}
     </div>
@@ -257,9 +257,10 @@ const PlanBuilder = ({ plan, compact = false, onChange, refreshToken = 0, action
     </InfoBubble>
   );
   const steps = [];
+  // Full size asks each step as a question; the compact pop-up keeps its short labels.
   if (flexible) {
     steps.push(
-      <Step key="files" number={steps.length + 1} title="Files per update" extra={pricing} compact={compact}>
+      <Step key="files" title={compact ? 'Files per update' : 'How many files in each update?'} extra={pricing} compact={compact}>
         <div className="flex flex-wrap items-baseline gap-2">
           <span className={`${compact ? 'text-2xl' : 'text-4xl'} font-mono font-extrabold leading-none text-[var(--text-primary)]`}>{fileCount}</span>
           <span className="text-sm text-[var(--text-muted)]">files in each update</span>
@@ -283,7 +284,13 @@ const PlanBuilder = ({ plan, compact = false, onChange, refreshToken = 0, action
           </div>
         )}
       </Step>,
-      <Step key="updates" number={steps.length + 2} title={oneTime ? 'Number of updates' : 'Updates per month'} compact={compact}>
+      <Step
+        key="updates"
+        title={compact
+          ? oneTime ? 'Number of updates' : 'Updates per month'
+          : oneTime ? 'How many updates do you need?' : 'How many updates do you need each month?'}
+        compact={compact}
+      >
         {compact ? (
           <div className="grid grid-cols-4 gap-2">
             {updates.map((value) => (
@@ -310,7 +317,7 @@ const PlanBuilder = ({ plan, compact = false, onChange, refreshToken = 0, action
   }
   if (purchases.length > 1 || !oneTime) {
     steps.push(
-      <Step key="purchase" number={steps.length + 1} title="How do you want to pay?" compact={compact}>
+      <Step key="purchase" title="How do you want to pay?" compact={compact}>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {purchases.map((option) => (
             <button key={option.value} type="button" aria-pressed={purchase === option.value} className={segClass(purchase === option.value)} onClick={() => choosePurchase(option.value)}>
@@ -326,7 +333,7 @@ const PlanBuilder = ({ plan, compact = false, onChange, refreshToken = 0, action
   }
   if (!oneTime) {
     steps.push(
-      <Step key="length" number={steps.length + 1} title="For how long?" compact={compact}>
+      <Step key="length" title="For how long?" compact={compact}>
         <div className="flex flex-wrap gap-2">
           {tenures.map((option) => (
             <button key={option.months} type="button" aria-pressed={tenureMonths === option.months} className={chipClass(tenureMonths === option.months)} onClick={() => setTenureMonths(option.months)}>{option.label}</button>
@@ -337,7 +344,7 @@ const PlanBuilder = ({ plan, compact = false, onChange, refreshToken = 0, action
     );
     if (releaseChoice) {
       steps.push(
-        <Step key="release" number={steps.length + 1} title="When should your updates open?" compact={compact}>
+        <Step key="release" title="When should your updates open?" compact={compact}>
           <div className="grid grid-cols-2 gap-2">
             <button type="button" aria-pressed={releaseMode === 'all_at_once'} className={segClass(releaseMode === 'all_at_once')} onClick={() => setReleaseMode('all_at_once')}>
               <b className="text-sm">All at once</b><span className="text-xs text-[var(--text-muted)]">use them any time in the period</span>
@@ -369,7 +376,7 @@ const PlanBuilder = ({ plan, compact = false, onChange, refreshToken = 0, action
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
       <div className="flex flex-col rounded-2xl border border-[var(--glass-border)] bg-[var(--menu-bg)]">
-        {steps.length ? steps : <Step number={1} title="One-time purchase"><p className="text-sm text-[var(--text-secondary)]">Nothing to choose: this plan is bought once.</p></Step>}
+        {steps.length ? steps : <Step title="One-time purchase"><p className="text-sm text-[var(--text-secondary)]">Nothing to choose: this plan is bought once.</p></Step>}
       </div>
       <aside className="flex flex-col gap-4 rounded-2xl border border-[var(--glass-border)] bg-[var(--menu-bg)] p-5 lg:sticky lg:top-20">
         <div>

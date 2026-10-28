@@ -30,7 +30,7 @@ export default function StartNewProject() {
       <div className="pointer-events-none absolute inset-0 bg-[var(--scrim)]" />
       <div className="relative mx-auto max-w-7xl space-y-6">
         <Surface as="header" size="card">
-          <p className="text-sm font-semibold text-[var(--eyebrow-fg)]">Explore Services</p>
+          <p className="text-sm font-semibold text-[var(--eyebrow-fg)]">Get a Service</p>
           <h1 className="mt-2 text-2xl font-bold text-[var(--text-primary)]">Choose a plan for your work</h1>
           <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">Browse by category, see what is included, then choose your options and pay in the portal.</p>
         </Surface>

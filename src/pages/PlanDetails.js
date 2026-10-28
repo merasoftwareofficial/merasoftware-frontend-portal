@@ -282,7 +282,7 @@ const PlanDetails = ({ isProjectServiceView = false }) => {
               onClick={handleBack}
               className="rounded-lg bg-[rgb(var(--ink-rgb))] px-4 py-2 text-base font-semibold text-[var(--page-bg)] transition hover:bg-[rgb(var(--ink-rgb)/0.85)]"
             >
-              Back to Projects and Plans
+              Back to My Projects and Plans
             </button>
           </div>
         </div>

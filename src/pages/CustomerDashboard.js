@@ -215,7 +215,7 @@ const CustomerDashboard = () => {
       return { label: `${activePlans.length} Active Plans`, to: '/projects-and-plans' };
     }
 
-    return { label: 'Explore Services', to: '/start-new-project' };
+    return { label: 'Get a Service', to: '/start-new-project' };
   })();
 
   useEffect(() => {
@@ -302,7 +302,7 @@ const CustomerDashboard = () => {
                 <div className="mt-5">
                   <GlassButton as={Link} to="/start-new-project" variant="primary" size="lg">
                     <PlusCircle className="h-4 w-4" />
-                    Explore Services
+                    Get a Service
                   </GlassButton>
                 </div>
               </>

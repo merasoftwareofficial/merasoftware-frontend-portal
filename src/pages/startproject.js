@@ -22,7 +22,7 @@ const CATEGORIES = [
     id: 'services',
     title: 'Start a Service or Add-ons',
     description: 'Start a standalone service or add a service to an existing project.',
-    action: 'Explore Services',
+    action: 'Browse services',
     icon: Layers3,
   },
 ];
@@ -50,7 +50,7 @@ const StartProject = () => {
         <div className="relative mx-auto max-w-6xl">
           <div className="text-center">
             <span className="inline-flex items-center rounded-full border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] px-4 py-1.5 text-sm font-medium text-[var(--text-primary)] shadow-[var(--card-shadow)] backdrop-blur-2xl">
-              Explore Services
+              Get a Service
             </span>
             <h1 className="mt-5 text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl lg:text-4xl">
               Choose a service
