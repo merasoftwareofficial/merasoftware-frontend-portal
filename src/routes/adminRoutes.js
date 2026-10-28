@@ -7,8 +7,8 @@ import AdminLeadDetailPage from "../pages/AdminLeadDetailPage";
 import AdminClientWorkspace from "../pages/AdminClientWorkspace";
 import AdminPaymentRecordDetail from "../pages/AdminPaymentRecordDetail";
 import ProjectDetails from "../pages/ProjectDetails";
-import AdminPlanProductsPage from "../pages/AdminPlanProductsPage";
-import AdminCreateServicePage from "../pages/AdminCreateServicePage";
+import { Navigate } from "react-router-dom";
+import AdminPlansPage from "../pages/AdminPlansPage";
 import AdminCategoryBasePricePage from "../pages/AdminCategoryBasePricePage";
 import AdminFeatureProductsPage from "../pages/AdminFeatureProductsPage";
 import AdminTrashPage from "../pages/AdminTrashPage";
@@ -68,7 +68,7 @@ export const adminRoutes = [
     path: "admin-panel/website-management/services/add",
     element: (
       <ProtectedRoute requireRole={['admin']}>
-        <AdminCreateServicePage />
+        <Navigate to="/admin-panel/website-management/plans?create=1" replace />
       </ProtectedRoute>
     )
   },
@@ -76,7 +76,7 @@ export const adminRoutes = [
     path: "admin-panel/website-management/plans",
     element: (
       <ProtectedRoute requireRole={['admin']}>
-        <AdminPlanProductsPage/>
+        <AdminPlansPage/>
       </ProtectedRoute>
     )
   },

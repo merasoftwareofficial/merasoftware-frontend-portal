@@ -698,6 +698,10 @@ const SummaryApi = {
         url: `${backendDomain}/api/admin/plan-catalogue`,
         method: "get"
     },
+    adminPlanCategories: {
+        url: `${backendDomain}/api/admin/plan-categories`,
+        method: "PATCH"
+    },
     adminPlanQuote: {
         url: `${backendDomain}/api/admin/plan-catalogue/quote`,
         method: "PATCH"
