@@ -33,9 +33,9 @@ const filePresets = ({ min, max, step }) => {
   return picks.length >= 2 ? picks : [min, max].filter((value, index, all) => all.indexOf(value) === index);
 };
 
-// Full-size builder: picks 10–90 in tens, only those inside the plan's range and step.
+// Full-size builder: at most five quick picks, only those inside the plan's range and step.
 const wideFilePresets = ({ min, max, step }) =>
-  [10, 20, 30, 40, 50, 60, 70, 80, 90].filter((value) => value >= min && value <= max && (value - min) % step === 0);
+  [10, 20, 40, 60, 90].filter((value) => value >= min && value <= max && (value - min) % step === 0);
 
 // Rows of the plan's own per-file rates (marginal slabs), for reading only.
 const slabRows = (plan) => {
@@ -118,10 +118,27 @@ export const QuoteBill = ({ plan, quote, loading, error, compact }) => {
         {!oneTime && months > 1 && <Row label={`× ${months} months`} value={formatPrice(quote.subtotal)} />}
         {!oneTime && quote.discount > 0 && <Row tone="good" label={`${quote.discountPercent}% period discount`} value={`− ${formatPrice(quote.discount)}`} />}
       </div>
-      <div className="flex flex-wrap items-baseline justify-between gap-3 border-t border-dashed border-[var(--glass-border)] pt-3">
-        <span className="text-sm text-[var(--text-muted)]">{oneTime ? 'Pay once' : months === 1 ? 'Pay per month' : `Pay every ${PERIOD_WORDS[quote.purchase]}`}</span>
-        <span className={`${compact ? 'text-2xl' : 'text-3xl'} font-mono font-extrabold tabular-nums text-[var(--text-primary)]`}>{formatPrice(quote.firstPayment)}</span>
-      </div>
+      {!compact && !oneTime ? (
+        // Full size: the highlighted figure is the cost per month (backend period price ÷ its
+        // months, display only); what is actually paid each period sits under it.
+        <div className="flex flex-col gap-1 border-t border-dashed border-[var(--glass-border)] pt-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <span className="text-sm text-[var(--text-muted)]">{months === 1 ? 'Per month' : 'Works out to'}</span>
+            <span className="font-mono text-3xl font-extrabold tabular-nums text-[var(--text-primary)]">
+              {formatPrice(Math.round(Number(quote.cyclePrice) / months))}<span className="text-base font-semibold text-[var(--text-muted)]"> / month</span>
+            </span>
+          </div>
+          <div className="flex flex-wrap justify-between gap-3 text-sm text-[var(--text-secondary)]">
+            <span>{months === 1 ? 'Billed monthly' : `Pay every ${PERIOD_WORDS[quote.purchase]}`}</span>
+            {months > 1 && <span className="font-mono tabular-nums">{formatPrice(quote.firstPayment)}</span>}
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-baseline justify-between gap-3 border-t border-dashed border-[var(--glass-border)] pt-3">
+          <span className="text-sm text-[var(--text-muted)]">{oneTime ? 'Pay once' : months === 1 ? 'Pay per month' : `Pay every ${PERIOD_WORDS[quote.purchase]}`}</span>
+          <span className={`${compact ? 'text-2xl' : 'text-3xl'} font-mono font-extrabold tabular-nums text-[var(--text-primary)]`}>{formatPrice(quote.firstPayment)}</span>
+        </div>
+      )}
       <div className={`flex flex-col gap-1 rounded-xl px-3 py-2.5 text-sm ${compact ? 'bg-[var(--glass-bg-subtle)]' : 'bg-[rgb(var(--ink-rgb)/0.05)]'}`}>
         {isUpload && perCycleUpdates ? (
           <b className="text-[var(--text-primary)]">

@@ -82,11 +82,12 @@ export const updateChoices = (plan) => {
 };
 
 // A plan card's price, from the backend's priceRange (GET /api/get-product). Display only.
+// A range shows only its lowest price ("From ₹500 / update"), never the top of the range.
 const RANGE_UNITS = { update: '/ update', month: '/ month', one_time: 'one-time' };
 export const priceRangeText = (range) => {
   if (!range || !(Number(range.from) > 0)) return '';
   const money = (value) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(value));
-  const amount = Number(range.to) > Number(range.from) ? `${money(range.from)} – ${money(range.to)}` : money(range.from);
+  const amount = Number(range.to) > Number(range.from) ? `From ${money(range.from)}` : money(range.from);
   return `${amount} ${RANGE_UNITS[range.unit] || ''}`.trim();
 };
 
