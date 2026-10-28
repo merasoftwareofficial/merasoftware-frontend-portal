@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
-import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
+import CustomerPageHeader from '../components/CustomerPageHeader';
 import GlassButton from '../components/GlassButton';
 import GlassPageState from '../components/GlassPageState';
 import { BUDGET_OPTIONS, CALL_TIME_OPTIONS, DETAILS_MAX, readProjectRequestCategories, sendProjectRequest } from '../helpers/projectRequest';
@@ -75,20 +76,11 @@ const StartProjectRequestDetails = () => {
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
           className="relative mx-auto w-full max-w-5xl"
         >
-          <div className="relative flex items-center justify-center">
-            <button
-              type="button"
-              onClick={() => navigate('/start-new-project/project')}
-              className="absolute left-0 inline-flex w-fit shrink-0 items-center gap-2 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)] px-5 py-3 text-lg font-semibold text-[var(--text-primary)] backdrop-blur-md transition hover:bg-[var(--glass-bg-strong)]"
-            >
-              <ArrowLeft className="h-5 w-5" />
-              Back
-            </button>
-            <header className="text-center">
-              <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl lg:text-4xl">{chosen?.label || 'Start a Project'}</h1>
-              <p className="mx-auto mt-3 max-w-2xl text-base text-[var(--text-secondary)] sm:text-lg">A few details, then we call you.</p>
-            </header>
-          </div>
+          <CustomerPageHeader
+            title={chosen?.label || 'Start a Project'}
+            subtitle="A few details, then we call you."
+            onBack={() => navigate('/start-new-project/project')}
+          />
 
           <div className="mx-auto mt-10 max-w-3xl">
             {loadError ? <GlassPageState type="error" message={loadError} onRetry={() => setRetry((value) => value + 1)} />

@@ -19,6 +19,7 @@ import {
 // and the exact purchase body (incl. quoteKey) to send to /api/customer/service-plan-order.
 // `refreshToken` changing re-asks the price (the parent bumps it after a 409 "price changed").
 // `action` (full size only) is the parent's pay control, shown at the bottom of the sticky bill.
+// `intro` (full size only) is the parent's plan description, shown above the steps.
 
 const formatPrice = (value) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(value) || 0);
@@ -160,7 +161,7 @@ export const QuoteBill = ({ plan, quote, loading, error, compact }) => {
   );
 };
 
-const PlanBuilder = ({ plan, compact = false, onChange, refreshToken = 0, action = null }) => {
+const PlanBuilder = ({ plan, compact = false, onChange, refreshToken = 0, action = null, intro = null }) => {
   const flexible = isFlexiblePlan(plan);
   const purchases = useMemo(() => purchaseOptions(plan), [plan]);
   const files = useMemo(() => fileChoices(plan), [plan]);
@@ -236,7 +237,8 @@ const PlanBuilder = ({ plan, compact = false, onChange, refreshToken = 0, action
   };
 
   if (!purchases.length) {
-    return <p className="text-sm text-[var(--text-muted)]">This plan cannot be bought right now. Please contact support.</p>;
+    const unavailable = <p className="text-sm text-[var(--text-muted)]">This plan cannot be bought right now. Please contact support.</p>;
+    return compact || !intro ? unavailable : <div className="flex flex-col gap-6">{intro}{unavailable}</div>;
   }
 
   const oneTime = purchase === 'one_time';
@@ -372,11 +374,16 @@ const PlanBuilder = ({ plan, compact = false, onChange, refreshToken = 0, action
   const choiceTitle = flexible
     ? `${fileCount} files × ${updateCount} update${updateCount === 1 ? '' : 's'}, ${BUY_WORDS[purchase] || ''}`
     : plan.serviceName;
-  // Solid cards on the page glass, as in the approved prototype; the bill sticks below the 4rem top bar.
+  // Solid cards on the page glass, as in the approved prototype. This grid is the whole page layout:
+  // `intro` (the page's plan description) sits above the steps, so the bill can stay sticky below the
+  // 4rem top bar for the full page. Every ancestor must keep overflow visible or clip, never hidden.
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-      <div className="flex flex-col rounded-2xl border border-[var(--glass-border)] bg-[var(--menu-bg)]">
-        {steps.length ? steps : <Step title="One-time purchase"><p className="text-sm text-[var(--text-secondary)]">Nothing to choose: this plan is bought once.</p></Step>}
+      <div className="flex min-w-0 flex-col gap-6">
+        {intro}
+        <div className="flex flex-col rounded-2xl border border-[var(--glass-border)] bg-[var(--menu-bg)]">
+          {steps.length ? steps : <Step title="One-time purchase"><p className="text-sm text-[var(--text-secondary)]">Nothing to choose: this plan is bought once.</p></Step>}
+        </div>
       </div>
       <aside className="flex flex-col gap-4 rounded-2xl border border-[var(--glass-border)] bg-[var(--menu-bg)] p-5 lg:sticky lg:top-20">
         <div>

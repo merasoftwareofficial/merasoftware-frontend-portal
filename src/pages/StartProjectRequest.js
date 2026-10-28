@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
-import { ArrowLeft } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
+import CustomerPageHeader from '../components/CustomerPageHeader';
 import GlassPageState from '../components/GlassPageState';
 import { AnimatedSection } from '../components/PageMotion';
 import { ProjectArt } from '../components/GetServiceArt';
@@ -44,20 +44,11 @@ const StartProjectRequest = () => {
       <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
         <div className="pointer-events-none absolute inset-0 bg-[var(--scrim)]" />
         <div className="relative mx-auto w-full max-w-5xl">
-          <div className="relative flex items-center justify-center">
-            <button
-              type="button"
-              onClick={() => navigate('/start-new-project')}
-              className="absolute left-0 inline-flex w-fit shrink-0 items-center gap-2 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)] px-5 py-3 text-lg font-semibold text-[var(--text-primary)] backdrop-blur-md transition hover:bg-[var(--glass-bg-strong)]"
-            >
-              <ArrowLeft className="h-5 w-5" />
-              Back
-            </button>
-            <header className="text-center">
-              <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl lg:text-4xl">What do you want to build?</h1>
-              <p className="mx-auto mt-3 max-w-2xl text-base text-[var(--text-secondary)] sm:text-lg">Choose a type, then tell us a little about it on the next step.</p>
-            </header>
-          </div>
+          <CustomerPageHeader
+            title="What do you want to build?"
+            subtitle="Choose a type, then tell us a little about it on the next step."
+            onBack={() => navigate('/start-new-project')}
+          />
 
           <div className="mt-10">
             {error ? <GlassPageState type="error" message={error} onRetry={() => setRetry((value) => value + 1)} />

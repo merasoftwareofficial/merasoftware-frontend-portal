@@ -4,8 +4,9 @@ import { useSelector } from 'react-redux';
 import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
 import { goToCustomerReturn } from '../helpers/customerReturnNavigation';
-import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
+import CustomerPageHeader from '../components/CustomerPageHeader';
 import SummaryApi from '../common';
 import Context from '../context';
 import GlassPageState from '../components/GlassPageState';
@@ -233,137 +234,9 @@ const ServicePlanDetailScreen = () => {
     }
   };
 
-  if (!loaded) {
-    return (
-      <DashboardLayout user={user}>
-        <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
-          <div className="pointer-events-none absolute inset-0 bg-[var(--scrim)]" />
-          <div className="relative mx-auto w-full max-w-7xl"><GlassPageState message="Loading service details…" /></div>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  if (!plan) {
-    return (
-      <DashboardLayout user={user}>
-        <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden px-4 py-8 pb-10 sm:px-6 lg:px-8 lg:py-12">
-          <div className="pointer-events-none absolute inset-0 bg-[var(--scrim)]" />
-          <div className="mx-auto flex w-full max-w-7xl flex-col gap-4">
-            <div className="relative overflow-hidden rounded-[2rem] border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] px-5 py-10 text-center text-[var(--text-primary)] shadow-[0_25px_80px_-35px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
-              <GlassPageState type="error" message={loadError || 'This service could not be found.'} onRetry={() => window.location.reload()} />
-              <button
-                type="button"
-                onClick={handleBack}
-                className="mt-4 rounded-2xl bg-[rgb(var(--ink-rgb))] px-4 py-2 text-base font-semibold text-[var(--page-bg)] transition hover:bg-[rgb(var(--ink-rgb)/0.85)]"
-              >
-                Back to Plans
-              </button>
-            </div>
-          </div>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  const servicePlan = plan.servicePlan || {};
-  const description = plan.formattedDescriptions?.[0]?.content || '';
-  const planTypeLabel = categoryLabel;
-  const eligibility = evaluateServiceSurface(plan, SURFACE.STANDALONE);
-  const isReminderOnly = servicePlan.capability === 'send_reminders';
-  // A flexible plan's files and updates are chosen in the builder, so its fixed limits are not listed.
-  const flexible = isFlexiblePlan(plan);
-  const portalAccessLine = flexible ? null : getPortalAccessLine(servicePlan);
-  // 5. Purchase action — shown inside the builder's sticky bill (prototype layout).
-  const purchaseAction = (
-    <div>
-      <ServiceOfferSelector planId={plan._id} onChange={setPaymentOffer} />
-      <button
-        type="button"
-        onClick={handleOpenPayment}
-        disabled={!builder.ready}
-        className="inline-flex w-full items-center justify-center rounded-2xl bg-[rgb(var(--ink-rgb))] px-4 py-3 text-base font-semibold text-[var(--page-bg)] transition hover:bg-[rgb(var(--ink-rgb)/0.85)] disabled:cursor-not-allowed disabled:bg-[var(--glass-bg-strong)] disabled:text-[var(--text-muted)]"
-      >
-        {['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode) ? 'Continue with payment offer' : builder.ready ? `Pay ${formatPrice(planPrice)}` : 'Proceed to Payment'}
-      </button>
-    </div>
-  );
-
-  // overflow-clip (not hidden) keeps the rounded clip but lets the bill stay sticky.
-  return (
-    <DashboardLayout user={user}>
-      <div className="relative min-h-[calc(100vh-4rem)] overflow-clip px-4 py-8 pb-10 sm:px-6 lg:px-8 lg:py-12">
-        <div className="pointer-events-none absolute inset-0 bg-[var(--scrim)]" />
-        <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-4">
-          <article className="relative overflow-clip rounded-[2rem] border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] text-[var(--text-primary)] shadow-[0_25px_80px_-35px_rgba(0,0,0,0.55)] backdrop-blur-2xl backdrop-saturate-150">
-            {/* Header */}
-            <div className="relative bg-[var(--glass-bg-subtle)] px-5 py-5 text-[var(--text-primary)] sm:px-6 lg:px-8">
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-[var(--glass-sheen)] to-transparent" />
-              <button
-                type="button"
-                onClick={handleBack}
-                className="inline-flex items-center gap-2 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)] px-3 py-2 text-base font-semibold text-[var(--text-primary)] transition hover:bg-[var(--glass-bg-strong)]"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </button>
-              <h1 className="mt-4 text-2xl font-bold tracking-tight text-[var(--text-primary)]">
-                {plan.serviceName}
-              </h1>
-              <p className="mt-2 text-base font-medium text-[var(--text-primary)]">{planTypeLabel}</p>
-            </div>
-
-            <div className="space-y-8 px-5 py-6 sm:px-8 sm:py-8">
-              {/* 1. Description */}
-              {description && (
-                <section>
-                  <SectionHeading>What is this plan?</SectionHeading>
-                  <div
-                    className="prose prose-lg prose-invert mt-3 max-w-none text-base leading-7 text-[var(--text-secondary)]"
-                    dangerouslySetInnerHTML={{ __html: description }}
-                  />
-                </section>
-              )}
-
-              {/* 2. What You Get — a reminder-only service has no portal
-                  allowance to list, so the whole section is skipped. */}
-              {!isReminderOnly && !flexible && (
-              <section>
-                <SectionHeading>What You Get</SectionHeading>
-                <ul className="mt-3 space-y-2">
-                  {portalAccessLine && (
-                    <li className="flex items-start gap-2.5 text-base text-[var(--text-secondary)]">
-                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-soft-fg)]" />
-                      {portalAccessLine}
-                    </li>
-                  )}
-                  {servicePlan.filesLimit && (
-                    <li className="flex items-start gap-2.5 text-base text-[var(--text-secondary)]">
-                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-soft-fg)]" />
-                      Up to {servicePlan.filesLimit} file(s) per request
-                    </li>
-                  )}
-                </ul>
-              </section>
-              )}
-
-              {/* 3. Builder: how to buy, for how long, files/updates, and the server's price. */}
-              <section>
-                <SectionHeading>{eligibility.allowed ? flexible ? 'Build your plan' : 'Choose your plan' : eligibility.dependency === 'project_required' ? 'This plan needs a project' : 'This plan cannot be bought here'}</SectionHeading>
-                {eligibility.allowed ? <div className="mt-4">
-                  <PlanBuilder plan={plan} onChange={setBuilder} refreshToken={refreshToken} action={purchaseAction} />
-                </div> : <div className="mt-4 space-y-3 text-[var(--text-secondary)]"><p>{eligibility.reason}</p>
-                  {eligibility.dependency === 'project_required' && <p>Open the project you want us to work on, then choose Add a Service and select this plan. If you have no eligible project, contact us before buying.</p>}
-                  <button type="button" className="rounded-xl border border-[var(--glass-border-strong)] px-4 py-2 font-semibold text-[var(--text-primary)]" onClick={() => navigate('/projects-and-plans')}>Open my projects</button>
-                </div>}
-                {isReminderOnly && <p className="mt-4 text-sm text-[var(--text-secondary)]">We do the work and post progress updates on your plan. No file uploads are needed.</p>}
-              </section>
-            </div>
-
-          </article>
-        </div>
-      </div>
-
+  // Purchase pop-ups (confirm, pay, success); rendered only once the plan has loaded.
+  const renderModals = () => (
+    <>
       {/* Payment confirmation — wallet first, UPI QR only for any remainder. */}
       {showPaymentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--glass-bg-subtle)] px-4 py-6">
@@ -496,7 +369,111 @@ const ServicePlanDetailScreen = () => {
           </div>
         </div>
       )}
+    </>
+  );
+
+  // overflow-clip (not hidden) on the page wrapper: an overflow-hidden ancestor would stop the
+  // builder's bill from staying sticky (PlanBuilder.js). Header and Back: components/CustomerPageHeader.js.
+  const page = (header, content) => (
+    <DashboardLayout user={user}>
+      <div className="relative min-h-[calc(100vh-4rem)] overflow-clip px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+        <div className="pointer-events-none absolute inset-0 bg-[var(--scrim)]" />
+        <div className="relative mx-auto w-full max-w-7xl">
+          {header}
+          <div className={header ? 'mt-10' : ''}>{content}</div>
+        </div>
+      </div>
+      {loaded && plan && renderModals()}
     </DashboardLayout>
+  );
+
+  if (!loaded) return page(null, <GlassPageState message="Loading service details…" />);
+
+  if (!plan) {
+    return page(
+      <CustomerPageHeader title="Plan not available" onBack={handleBack} />,
+      <GlassPageState type="error" message={loadError || 'This service could not be found.'} onRetry={() => window.location.reload()} />,
+    );
+  }
+
+  const servicePlan = plan.servicePlan || {};
+  const description = plan.formattedDescriptions?.[0]?.content || '';
+  const eligibility = evaluateServiceSurface(plan, SURFACE.STANDALONE);
+  const isReminderOnly = servicePlan.capability === 'send_reminders';
+  // A flexible plan's files and updates are chosen in the builder, so its fixed limits are not listed.
+  const flexible = isFlexiblePlan(plan);
+  const portalAccessLine = flexible ? null : getPortalAccessLine(servicePlan);
+  const showWhatYouGet = !isReminderOnly && !flexible && (portalAccessLine || servicePlan.filesLimit);
+
+  // The plan's own information, shown above the builder steps (left column).
+  const intro = (description || showWhatYouGet || isReminderOnly) ? (
+    <section className="flex flex-col gap-6 rounded-2xl border border-[var(--glass-border)] bg-[var(--menu-bg)] p-5 sm:p-6">
+      {description && (
+        <div>
+          <SectionHeading>What is this plan?</SectionHeading>
+          <div
+            className="prose prose-lg prose-invert mt-3 max-w-none text-base leading-7 text-[var(--text-secondary)]"
+            dangerouslySetInnerHTML={{ __html: description }}
+          />
+        </div>
+      )}
+      {/* A reminder-only service has no portal allowance to list. */}
+      {showWhatYouGet && (
+        <div>
+          <SectionHeading>What You Get</SectionHeading>
+          <ul className="mt-3 space-y-2">
+            {portalAccessLine && (
+              <li className="flex items-start gap-2.5 text-base text-[var(--text-secondary)]">
+                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-soft-fg)]" />
+                {portalAccessLine}
+              </li>
+            )}
+            {servicePlan.filesLimit && (
+              <li className="flex items-start gap-2.5 text-base text-[var(--text-secondary)]">
+                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent-soft-fg)]" />
+                Up to {servicePlan.filesLimit} file(s) per request
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
+      {isReminderOnly && <p className="text-sm text-[var(--text-secondary)]">We do the work and post progress updates on your plan. No file uploads are needed.</p>}
+    </section>
+  ) : null;
+
+  // Purchase action — shown inside the builder's sticky bill (prototype layout).
+  const purchaseAction = (
+    <div>
+      <ServiceOfferSelector planId={plan._id} onChange={setPaymentOffer} />
+      <button
+        type="button"
+        onClick={handleOpenPayment}
+        disabled={!builder.ready}
+        className="inline-flex w-full items-center justify-center rounded-2xl bg-[rgb(var(--ink-rgb))] px-4 py-3 text-base font-semibold text-[var(--page-bg)] transition hover:bg-[rgb(var(--ink-rgb)/0.85)] disabled:cursor-not-allowed disabled:bg-[var(--glass-bg-strong)] disabled:text-[var(--text-muted)]"
+      >
+        {['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode) ? 'Continue with payment offer' : builder.ready ? `Pay ${formatPrice(planPrice)}` : 'Proceed to Payment'}
+      </button>
+    </div>
+  );
+
+  // Not buyable here (needs a project, or not sold on its own): the plan's information and the reason.
+  const notBuyable = (
+    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+      {intro}
+      <section className="flex flex-col gap-3 rounded-2xl border border-[var(--glass-border)] bg-[var(--menu-bg)] p-5 text-[var(--text-secondary)] sm:p-6">
+        <SectionHeading>{eligibility.dependency === 'project_required' ? 'This plan needs a project' : 'This plan cannot be bought here'}</SectionHeading>
+        <p>{eligibility.reason}</p>
+        {eligibility.dependency === 'project_required' && <p>Open the project you want us to work on, then choose Add a Service and select this plan. If you have no eligible project, contact us before buying.</p>}
+        <button type="button" className="self-start rounded-xl border border-[var(--glass-border-strong)] px-4 py-2 font-semibold text-[var(--text-primary)]" onClick={() => navigate('/projects-and-plans')}>Open my projects</button>
+      </section>
+    </div>
+  );
+
+  return page(
+    <CustomerPageHeader title={plan.serviceName} subtitle={categoryLabel} onBack={handleBack} />,
+    eligibility.allowed
+      ? <PlanBuilder plan={plan} onChange={setBuilder} refreshToken={refreshToken} action={purchaseAction} intro={intro} />
+      : notBuyable,
   );
 };
 

@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import DashboardLayout from '../components/DashboardLayout';
+import CustomerPageHeader from '../components/CustomerPageHeader';
 import { AnimatedSection, getStaggerDelay } from '../components/PageMotion';
 import { ProjectArt, PlansArt } from '../components/GetServiceArt';
 
@@ -39,14 +40,7 @@ const StartProject = () => {
         <div className="pointer-events-none absolute inset-0 bg-[var(--scrim)]" />
 
         <div className="relative mx-auto w-full max-w-5xl">
-          <header className="text-center">
-            <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl lg:text-4xl">
-              What would you like to do?
-            </h1>
-            <p className="mx-auto mt-3 max-w-2xl text-base text-[var(--text-secondary)] sm:text-lg">
-              Start something new with us, or keep your website fresh every month.
-            </p>
-          </header>
+          <CustomerPageHeader title="What would you like to do?" subtitle="Start something new with us, or keep your website fresh every month." />
 
           <div className="mt-10 flex flex-col gap-5">
             {CHOICES.map(({ id, kind, title, text, action, to, Art }, index) => (
