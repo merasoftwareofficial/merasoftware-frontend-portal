@@ -584,6 +584,36 @@
 }
 
 /* ==========================================================================
+   THE LOADING MARK — the portal's one loader (no skeletons)
+   Drawn by components/Spinner.js, and by the boot loader in public/index.html
+   before React starts (this file is a render-blocking <link>, so the tokens are
+   there on the first frame). It fades in after 120ms, so work that ends sooner
+   never flashes it. CSS only: transform + opacity, no script.
+   ========================================================================== */
+.portal-spinner {
+  opacity: 0;
+  animation: portal-spinner-in 0.15s ease 0.12s forwards, portal-spinner-turn 1s linear infinite;
+}
+.portal-spinner--accent { color: var(--accent-soft-fg); }
+/* Words that go with a wait (e.g. "Confirming your payment…"): the same 120ms fade-in, no turn. */
+.portal-wait {
+  opacity: 0;
+  animation: portal-spinner-in 0.15s ease 0.12s forwards;
+}
+@keyframes portal-spinner-in { to { opacity: 1; } }
+@keyframes portal-spinner-turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .portal-spinner { animation: portal-spinner-in 0.15s ease 0.12s forwards; }
+}
+.portal-boot {
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+}
+.portal-boot svg { width: 2.5rem; height: 2.5rem; }
+
+/* ==========================================================================
    THE FILL/BORDER RULE
    Every tinted surface in the portal — card, badge, field, dialog — pairs its
    fill with a border of the SAME HUE, rendered DENSER. Nothing here may pair a

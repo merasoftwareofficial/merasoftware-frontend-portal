@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { BILLING_CYCLES, DEPENDENCIES, LIMIT_SCOPES, TIMINGS, blankPlanForm, categoryKeyFrom, formFromPlan, planBody, planState, rangeText, rupees, } from "../../helpers/adminPlanForm";
+import { BILLING_CYCLES, DEPENDENCIES, LIMIT_SCOPES, TIMINGS, blankPlanForm, formFromPlan, planBody, planState, rangeText, rupees, } from "../../helpers/adminPlanForm";
 import { useBlocker } from "react-router-dom";
 import s from "./AdminPlansManager.module.css";
 import { PlanCategoryPicker } from "./PlanCategoryPicker";
@@ -8,16 +8,15 @@ const send = sendAdminPlan;
 const message = (cause, fallback) => cause instanceof Error ? cause.message : fallback;
 export function PlansManager({ initial, startCreating = false }) {
     const [catalogue, setCatalogue] = useState(initial);
-    const [form, setForm] = useState(() => startCreating ? blankPlanForm(initial.categories.find(c => c.status === "active")?.key || "") : null);
-    const [baseline, setBaseline] = useState(() => JSON.stringify(startCreating ? blankPlanForm(initial.categories.find(c => c.status === "active")?.key || "") : null));
-    const [categoryDirty, setCategoryDirty] = useState(false);
+    const [form, setForm] = useState(() => startCreating ? blankPlanForm(initial.categories.find(c => !c.legacy && c.status === "active")?.key || "") : null);
+    const [baseline, setBaseline] = useState(() => JSON.stringify(startCreating ? blankPlanForm(initial.categories.find(c => !c.legacy && c.status === "active")?.key || "") : null));
     const [status, setStatus] = useState("all");
     const [search, setSearch] = useState("");
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
     const dirty = !!form && JSON.stringify(form) !== baseline;
-    const blocker = useBlocker(dirty || categoryDirty);
+    const blocker = useBlocker(dirty);
     useEffect(() => {
         if (blocker.state === "blocked") {
             if (window.confirm("Discard unsaved changes and leave Plans?")) blocker.proceed();
@@ -25,18 +24,17 @@ export function PlansManager({ initial, startCreating = false }) {
         }
     }, [blocker]);
     useEffect(() => {
-        if (!dirty && !categoryDirty) return;
+        if (!dirty) return;
         const warn = (e) => { e.preventDefault(); e.returnValue = ""; };
         window.addEventListener("beforeunload", warn);
         return () => window.removeEventListener("beforeunload", warn);
-    }, [dirty, categoryDirty]);
+    }, [dirty]);
     async function reload() {
         setCatalogue(await readAdminPlanCatalogue());
     }
     function open(next) {
-        if ((dirty || categoryDirty) && !window.confirm("Discard unsaved plan changes?"))
+        if ((dirty) && !window.confirm("Discard unsaved plan changes?"))
             return;
-        setCategoryDirty(false);
         setForm(next);
         setBaseline(JSON.stringify(next));
         setError("");
@@ -77,7 +75,7 @@ export function PlansManager({ initial, startCreating = false }) {
     ].filter(group => group.plans.length);
     return <div className={`${s.manager} ${s.stack}`}>
     <p>A plan is repeat or ongoing work a client buys in the portal. Clients pay the price the portal works out from these settings; old purchases always keep what they bought.</p>
-    <div className="form-actions"><button type="button" className="admin-action" disabled={busy} onClick={() => reload().catch(cause => setError(message(cause, "Could not reload plans.")))}>Refresh plans</button><button className="admin-button" disabled={busy} onClick={() => open(blankPlanForm(catalogue.categories.find(c => c.status === "active")?.key || ""))}>New plan +</button></div>
+    <div className="form-actions"><button type="button" className="admin-action" disabled={busy} onClick={() => reload().catch(cause => setError(message(cause, "Could not reload plans.")))}>Refresh plans</button><button className="admin-button" disabled={busy} onClick={() => open(blankPlanForm(catalogue.categories.find(c => !c.legacy && c.status === "active")?.key || ""))}>New plan +</button></div>
     {error && <p className="form-error" role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
     <div className="form-columns"><label className="admin-field">Search plans<input type="search" value={search} onChange={e => setSearch(e.target.value)}/></label><label className="admin-field">Status<select value={status} onChange={e => setStatus(e.target.value)}>{["all", "On sale", "Hidden", "Retired"].map(value => <option key={value} value={value}>{value === "all" ? "All plans" : value}</option>)}</select></label></div>
     {!filtered.length && <p className={s.muted}>No plans yet.</p>}
@@ -99,69 +97,28 @@ export function PlansManager({ initial, startCreating = false }) {
         </div>
       </article>)}
     </section>)}
-    <CategoriesPanel catalogue={catalogue} onChange={setCatalogue} onDirty={setCategoryDirty}/>
+    <CategoriesPanel catalogue={catalogue} onChange={setCatalogue}/>
   </div>;
 }
-function CategoriesPanel({ catalogue, onChange, onDirty }) {
-    const [draft, setDraft] = useState(null);
-    const [busy, setBusy] = useState(false);
-    const [error, setError] = useState("");
-    useEffect(() => { onDirty(!!draft); return () => onDirty(false); }, [draft, onDirty]);
-    async function saveCategory(e) {
-        e.preventDefault();
-        if (!draft)
-            return;
-        setBusy(true);
-        setError("");
-        try {
-            const { creating, key, label, description, linkedProjectCategory, status, sortOrder, updatedAt } = draft;
-            await send({ target: "category", ...(creating ? { creating: true } : {}), key, label, expectedUpdatedAt: creating ? undefined : updatedAt ?? null, description: description || "", linkedProjectCategory: linkedProjectCategory || null, status, sortOrder: Number(sortOrder) });
-            onChange(await readAdminPlanCatalogue());
-            setDraft(null);
-        }
-        catch (cause) {
-            setError(message(cause, "Could not save the category."));
-        }
-        finally {
-            setBusy(false);
-        }
-    }
-    return <section className={`admin-form ${s.group}`}>
-    <h2>Plan categories</h2>
-    <p className={s.muted}>Groups for plans, separate from project categories. A category is never deleted, only archived; its key stays the same for ever.</p>
-    <ul className={s.list}>{catalogue.categories.map(category => <li key={category.key}>
-      <span><strong>{category.label}</strong> <small className={s.muted}>{category.key} · {category.usage?.plans ?? 0} plan(s){category.status === "archived" ? " · archived" : ""}{category.linkedProjectCategory ? ` · linked to ${catalogue.projectCategories.find(p => p.category === category.linkedProjectCategory)?.label ?? category.linkedProjectCategory}` : ""}</small></span>
-      <button type="button" className="admin-action" onClick={() => setDraft({ ...category, creating: false })}>Edit</button>
-    </li>)}</ul>
-    {draft ? <form className={s.stack} onSubmit={saveCategory}><fieldset disabled={busy} className={s.plain}>
-      <div className="form-columns">
-        <label className="admin-field"><span>Category name</span><input required maxLength={60} value={draft.label} onChange={e => setDraft({ ...draft, label: e.target.value, key: draft.creating ? categoryKeyFrom(e.target.value) : draft.key })}/></label>
-        <label className="admin-field"><span>Permanent key</span><input required disabled={!draft.creating} pattern="[a-z][a-z0-9_]{2,39}" value={draft.key} onChange={e => setDraft({ ...draft, key: e.target.value })}/><small>Made from the name. Cannot be changed later.</small></label>
-      </div>
-      <label className="admin-field"><span>Description (optional)</span><textarea maxLength={500} rows={2} value={draft.description || ""} onChange={e => setDraft({ ...draft, description: e.target.value })}/></label>
-      <div className="form-columns">
-        <label className="admin-field"><span>Linked project category (optional)</span><select value={draft.linkedProjectCategory || ""} onChange={e => setDraft({ ...draft, linkedProjectCategory: e.target.value || null })}><option value="">Not linked</option>{catalogue.projectCategories.filter(p => p.status !== "archived" || p.category === draft.linkedProjectCategory).map(p => <option key={p.category} value={p.category}>{p.label}</option>)}</select></label>
-        <label className="admin-field"><span>Status</span><select value={draft.status} onChange={e => setDraft({ ...draft, status: e.target.value })}><option value="active">Active</option><option value="archived">Archived</option></select></label>
-        <label className="admin-field"><span>Display order</span><input type="number" min={0} max={9999} required value={draft.sortOrder} onChange={e => setDraft({ ...draft, sortOrder: Number(e.target.value) })}/></label>
-      </div>
-      <div className="form-actions"><button className="admin-button">{busy ? "Saving…" : draft.creating ? "Create category" : "Save category"}</button><button type="button" className="admin-action" onClick={() => { setDraft(null); setError(""); }}>Cancel</button>{!draft.creating && <button type="button" className="admin-action" onClick={async () => {
-                    if (!window.confirm("Discard category changes and reload?"))
-                        return;
-                    try {
-                        const current = await readAdminPlanCatalogue();
-                        onChange(current);
-                        const category = current.categories.find(row => row.key === draft.key);
-                        setDraft(category ? { ...category, creating: false } : null);
-                        setError("");
-                    }
-                    catch (cause) {
-                        setError(message(cause, "Could not reload categories."));
-                    }
-                }}>Reload category</button>}</div>
-    </fieldset></form> : <div><button type="button" className="admin-action" onClick={() => setDraft({ creating: true, key: "", label: "", description: "", linkedProjectCategory: null, status: "active", sortOrder: catalogue.categories.length })}>+ New category</button></div>}
-    {error && <p className="form-error" role="alert">{error}</p>}
+function CategoriesPanel({ catalogue, onChange }) {
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const legacy = (catalogue.legacyCategories || []).filter(row => !row.linkedProjectCategory);
+  return <section className={s.stack}>
+    <p>Main project categories are used for plans. Create a new category from the plan form or manage it in Project Categories.</p>
+    {legacy.length > 0 && <><h3>Older categories awaiting mapping</h3><p>Choose the main category for each older group. Existing plans and purchased agreements are preserved.</p>
+      {legacy.map(row => <label key={row.key} className="admin-field"><span>{row.label}</span><select aria-label={`Map ${row.label}`} value="" disabled={busy} onChange={async event => {
+        const key = event.target.value; if (!key) return;
+        setBusy(true); setError("");
+        try { await send({ target: "category", key: row.key, expectedUpdatedAt: row.updatedAt ?? null, linkedProjectCategory: key }); onChange(await readAdminPlanCatalogue()); }
+        catch (cause) { setError(cause instanceof Error ? cause.message : "Could not map the category."); }
+        finally { setBusy(false); }
+      }}><option value="">Choose main category</option>{catalogue.projectCategories.filter(row => row.status !== "archived").map(row => <option key={row.category} value={row.category}>{row.label}</option>)}</select></label>)}
+    </>}
+    {error && <p role="alert">{error}</p>}
   </section>;
 }
+
 function PlanEditor({ form, setForm, catalogue, dirty, onBack, onSaved, onCategories }) {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
@@ -243,8 +200,8 @@ function PlanEditor({ form, setForm, catalogue, dirty, onBack, onSaved, onCatego
       <h2>{form.planId ? "Edit plan" : "New plan"}</h2>
       <div className="form-columns">
         <label className="admin-field"><span>Plan name</span><input required maxLength={120} value={form.serviceName} onChange={e => update("serviceName", e.target.value)}/></label>
-        <PlanCategoryPicker catalogue={catalogue} categoryKey={form.categoryKey} busy={busy} onBusy={setBusy}
-          onSelect={key => update("categoryKey", key)} onCatalogue={onCategories} send={send} reload={readAdminPlanCatalogue} />
+        <PlanCategoryPicker catalogue={catalogue} categoryKey={form.categoryKey} busy={busy}
+          onSelect={key => update("categoryKey", key)} onCatalogue={onCategories} reload={readAdminPlanCatalogue} />
       </div>
       <label className="admin-field"><span>Description</span><textarea maxLength={2000} rows={3} value={form.description} onChange={e => update("description", e.target.value)}/><small>What the client gets. Shown on the plan card.</small></label>
 

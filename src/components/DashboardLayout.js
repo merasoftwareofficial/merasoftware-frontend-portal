@@ -19,6 +19,7 @@ import SidebarNavItem from './SidebarNavItem';
 import DraftOrderSavedDrawer from './DraftOrderSavedDrawer';
 import Modal from './Modal';
 import GlassButton from './GlassButton';
+import Spinner from './Spinner';
 import FloatingCartButton from './FloatingCartButton';
 import { ThemeProvider } from '../context/ThemeContext';
 import { PageTransition } from './PageMotion';
@@ -165,16 +166,12 @@ const DashboardLayout = ({ children, user, walletBalance, cartCount, isLoading, 
     setShowLogoutConfirmation(false);
   };
 
-  // Loading state or no user
+  // Loading state or no user: the portal's spinner, centred like the boot loader in
+  // public/index.html so the hand-over from page load to sign-in check looks like one wait.
   if (!currentUser) {
     return (
-      <div className="portal-surface flex min-h-full">
-        <div className="w-full p-4 flex flex-col">
-          <div className="animate-pulse">
-            <div className="h-32 rounded mb-4 bg-[var(--glass-bg-subtle)]"></div>
-            <div className="h-64 rounded bg-[var(--glass-bg-subtle)]"></div>
-          </div>
-        </div>
+      <div className="portal-surface portal-boot" role="status" aria-label="Loading">
+        <Spinner size="page" />
       </div>
     );
   }

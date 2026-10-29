@@ -1,5 +1,6 @@
 import React from 'react';
-import { AlertTriangle, Loader2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
+import Spinner from './Spinner';
 import Surface from './Surface';
 import GlassButton from './GlassButton';
 
@@ -34,9 +35,9 @@ const GlassPageState = ({ type = 'loading', message, onRetry }) => {
         {isError ? (
           <AlertTriangle className="mx-auto h-10 w-10 text-[var(--badge-pending-fg)]" />
         ) : (
-          <Loader2 className="mx-auto h-10 w-10 animate-spin text-[var(--accent-soft-fg)]" />
+          <Spinner size="page" className="mx-auto" />
         )}
-        <p className="mt-4 text-base font-semibold text-[var(--text-primary)]">
+        <p className="mt-4 text-base font-semibold text-[var(--text-primary)]" role={isError ? undefined : 'status'}>
           {message || (isError ? 'Something went wrong.' : 'Loading…')}
         </p>
         {isError && onRetry && (

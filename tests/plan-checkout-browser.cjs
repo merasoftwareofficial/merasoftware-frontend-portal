@@ -82,7 +82,10 @@ const shots = path.join(require('node:os').tmpdir(), `plan-checkout-${Date.now()
   app.get('/api/customer/service-plan-catalogue', authToken, quotes.customerCatalogue);
   app.post('/api/customer/service-plan-quote', authToken, quotes.customerQuote);
   app.get('/api/customer/service-plan-offers/:planId', authToken, require(path.join(backend, 'controller/order/servicePlanOffers')));
-  app.post('/api/customer/service-plan-order', authToken, require(path.join(backend, 'controller/order/customerCreateServicePlanOrder')));
+  // `orderDelay` slows the purchase answer when a test wants to see the waiting state.
+  let orderDelay = 0;
+  const slowOrder = (req, res, next) => (orderDelay ? setTimeout(next, orderDelay) : next());
+  app.post('/api/customer/service-plan-order', slowOrder, authToken, require(path.join(backend, 'controller/order/customerCreateServicePlanOrder')));
   app.get('/api/order-details/:orderId', authToken, require(path.join(backend, 'controller/order/getOrderDetails')));
   app.get('/api/orders/:orderId/uploads', authToken, require(path.join(backend, 'controller/order/getOrderUploads')));
   app.post('/api/wallet/reject-transaction', authToken, approvals.rejectTransaction);
@@ -140,13 +143,41 @@ const shots = path.join(require('node:os').tmpdir(), `plan-checkout-${Date.now()
     }
 
     // 2. A second website purchase is left alone: after 10 seconds it returns to the website's My purchases.
+    //    Its answer is slow (9s): the waiting state shows (not in the first moment, so fast work never
+    //    flashes it), the card is locked, and after 8s the line says it can take a few seconds.
     {
       const { page, context } = await openAt(`/checkout/${plan._id}?purchase=one_time&from=website`);
-      await payButton(page, 'Pay ₹1,500 from wallet').click();
-      await page.getByRole('heading', { name: 'Your plan is active' }).waitFor();
+      await payButton(page, 'Pay ₹1,500 from wallet').waitFor();
+      orderDelay = 9000;
+      const firstMoment = await page.evaluate(async () => {
+        [...document.querySelectorAll('button')].find((button) => button.textContent === 'Pay ₹1,500 from wallet').click();
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        const seen = (selector) => [...document.querySelectorAll(selector)].some((node) => Number(getComputedStyle(node).opacity) > 0);
+        return { spinner: seen('.portal-spinner'), words: seen('.portal-wait') };
+      });
+      assert.deepEqual(firstMoment, { spinner: false, words: false }, 'nothing flashes in the first moment');
+      await page.getByRole('button', { name: 'Processing…' }).locator('svg.portal-spinner').waitFor();
+      await page.getByRole('status').filter({ hasText: 'Confirming your payment… please don’t close this page.' }).waitFor();
+      assert.equal(await page.getByRole('link', { name: 'Change' }).getAttribute('aria-disabled'), 'true', 'Change is locked while paying');
+      assert.equal(await page.getByLabel('Service payment offer').isDisabled(), true, 'the offer is locked while paying');
+      await page.getByRole('status').filter({ hasText: 'Still working, this can take a few seconds. Please keep this page open.' }).waitFor({ timeout: 10_000 });
+      await page.getByRole('heading', { name: 'Your plan is active' }).waitFor({ timeout: 15_000 });
+      orderDelay = 0;
       const orderId = await newestOrder();
+      // The website takes a moment to answer: the result shows it is taking the client there.
+      await context.route(`${WEBSITE}/account/**`, (route) => setTimeout(() => route.fulfill({ contentType: 'text/html', body: '<h1>Website fixture</h1>' }), 1500));
+      // Read inside the page: Playwright waits on the started navigation, the page itself does not.
+      const leavingShown = await page.evaluate(() => new Promise((resolve) => {
+        const timer = setInterval(() => {
+          const line = [...document.querySelectorAll('[role="status"]')].find((node) => node.textContent === 'Taking you to your purchases on our website…');
+          const spinner = line?.querySelector('svg.portal-spinner');
+          if (spinner && Number(getComputedStyle(spinner).opacity) > 0) { clearInterval(timer); resolve(true); }
+        }, 50);
+        setTimeout(() => { clearInterval(timer); resolve(false); }, 13_000);
+      }));
+      assert.equal(leavingShown, true, 'the automatic return shows a spinner while the website loads');
       await page.waitForURL(`${WEBSITE}/account/purchases?new=${orderId}`, { timeout: 15_000 });
-      console.log('PASS the result returns a website client to My purchases on the website, the new plan marked');
+      console.log('PASS slow payment: no flash, spinner + locked card + waiting line, the slow line after 8s; the result returns a website client to My purchases, with a spinner on the way');
       await context.close();
     }
 
@@ -170,8 +201,14 @@ const shots = path.join(require('node:os').tmpdir(), `plan-checkout-${Date.now()
       await page.getByRole('heading', { name: 'Pay ₹1,100 by UPI' }).waitFor();
       await page.getByPlaceholder('12-digit reference number').fill('412345678901');
       const ordersBefore = await Order.countDocuments();
+      orderDelay = 1500; // slow refusal: the UPI step locks with a spinner, then unlocks with the message
       await payButton(page, 'Send payment for checking').click();
+      await page.getByRole('button', { name: 'Sending…' }).locator('svg.portal-spinner').waitFor();
+      assert.equal(await page.getByPlaceholder('12-digit reference number').isDisabled(), true, 'the reference is locked while sending');
+      assert.equal(await page.locator('section').getByRole('button', { name: 'Back', exact: true }).isDisabled(), true);
       await page.getByRole('alert').filter({ hasText: 'The plan or its price changed. Check the new price and try again.' }).waitFor();
+      orderDelay = 0;
+      assert.equal(await page.locator('.portal-wait').count(), 0, 'the waiting line goes with the answer');
       assert.equal(await Order.countDocuments(), ordersBefore, 'nothing bought at the old price');
       assert.equal(await wallet(), 400, 'nothing taken at the old price');
       await page.getByText('₹1,800').first().waitFor();

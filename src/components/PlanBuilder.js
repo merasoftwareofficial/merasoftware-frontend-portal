@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Info } from 'lucide-react';
 import usePlanQuote from '../hooks/usePlanQuote';
+import Spinner from './Spinner';
 import {
   buildTenureOptions,
   canChooseRelease,
@@ -110,11 +111,19 @@ export const QuoteBill = ({ plan, quote, loading, error, compact }) => {
   const isUpload = plan?.servicePlan?.capability === 'upload_data';
   const flexible = isFlexiblePlan(plan);
   if (error) return <p className="rounded-xl border border-[var(--badge-error-border)] bg-[var(--badge-error-bg)] px-3 py-2 text-sm text-[var(--badge-error-fg)]">{error}</p>;
-  if (!quote) return <p className="text-sm text-[var(--text-muted)]">{loading ? 'Working out the price…' : 'Choose the options to see the price.'}</p>;
+  if (!quote) {
+    return loading
+      ? <p className="flex items-center gap-2 text-sm text-[var(--text-muted)]" role="status"><Spinner />Working out the price…</p>
+      : <p className="text-sm text-[var(--text-muted)]">Choose the options to see the price.</p>;
+  }
   const oneTime = quote.purchase === 'one_time';
   const months = Number(quote.cycleMonths) || 1;
   const perCycleUpdates = quote.allowancePerCycle;
+  // A new choice keeps the last bill on screen, dimmed, with the spinner over it until the
+  // new price is in: nothing moves, and the client sees it is being worked out.
   return (
+    <div className="relative" aria-busy={loading}>
+    {loading && <span className="absolute inset-0 z-10 flex items-center justify-center" role="status" aria-label="Updating the price"><Spinner size="page" /></span>}
     <div className={`flex flex-col gap-3 transition-opacity ${loading ? 'opacity-60' : ''}`} aria-live="polite">
       <div className="flex flex-col gap-2">
         {flexible && <Row label={`1 update · ${quote.files} files`} value={formatPrice(quote.updatePrice)} />}
@@ -160,6 +169,7 @@ export const QuoteBill = ({ plan, quote, loading, error, compact }) => {
         {/* The order uses the validity only for upload plans (backend servicePlanPurchase.js). */}
         {oneTime && isUpload && quote.validityDays ? <span className="text-[var(--text-secondary)]">Use your updates within {quote.validityDays} days.</span> : null}
       </div>
+    </div>
     </div>
   );
 };

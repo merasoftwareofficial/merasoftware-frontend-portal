@@ -50,7 +50,9 @@
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
+    <!-- Boot loader: shows while the app script downloads; React replaces it on its first render.
+         Same mark as src/components/Spinner.js (lucide Loader2), styled by .portal-spinner in src/index.css. -->
+    <div id="root"><div class="portal-surface portal-boot" role="status" aria-label="Loading"><svg class="portal-spinner portal-spinner--accent" xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg></div></div>
     <!--
       This HTML file is a template.
       If you open it directly in the browser, you will see an empty page.
