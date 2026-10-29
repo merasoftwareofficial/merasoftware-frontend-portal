@@ -65,6 +65,10 @@ const getPlanVisualStatus = (plan) => {
 
     const base = { isServicePlan: true, isRecurring: false, daysLeft, accessLeft, accessUsed, accessLimit, isReminderOnly, isUnlimited };
 
+    // No upload before the payment is confirmed (plan.md decision 10); the backend refuses it too
+    // (helpers/uploadOrderPolicy.js). Same labels as the status engine (orderStatusEngine.js).
+    if (plan.orderVisibility === 'pending-approval') return { ...base, badge: 'Approval Pending', tone: 'awaiting', canRequest: false };
+    if (plan.orderVisibility === 'payment-rejected') return { ...base, badge: 'Payment Rejected', tone: 'rejected', canRequest: false };
     if (status === 'pending_activation') return { ...base, badge: 'Waiting for project completion', tone: 'paused', canRequest: false };
     if (status === 'inactive' || status === 'cancelled') return { ...base, badge: 'Inactive', tone: 'closed', canRequest: false };
     if (status === 'expired') return { ...base, badge: 'Expired', tone: 'expired', canRequest: false };
@@ -134,6 +138,8 @@ const BADGE_TONE_CLASSES = {
   expired: 'badge badge-neutral',
   paused: 'badge badge-error',
   closed: 'badge badge-neutral',
+  awaiting: 'badge badge-pending',
+  rejected: 'badge badge-error',
 };
 
 // What the customer bought, read from the order's frozen snapshot and its own billing fields
@@ -292,6 +298,18 @@ const PlanDetails = ({ isProjectServiceView = false }) => {
 
   const product = plan.productId || {};
   const status = getPlanVisualStatus(plan);
+  // Why uploads are closed while the payment is checked or after it was rejected; shown under the
+  // Request Update button in both the desktop and the phone layout.
+  const paymentNote = status.tone === 'awaiting' ? (
+    <p className="mt-2 text-center text-sm text-[var(--badge-pending-fg)]">
+      We are checking your payment. You can send your data once it is approved.
+    </p>
+  ) : status.tone === 'rejected' ? (
+    <p className="mt-2 flex items-start justify-center gap-1.5 text-center text-sm text-[var(--badge-error-fg)]">
+      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      {plan.rejectionReason ? `Your payment was not approved: ${plan.rejectionReason}` : 'Your payment was not approved.'}
+    </p>
+  ) : null;
 
   // What the customer bought is recorded ON THEIR ORDER, not only on the plan template:
   // orderItems[] snapshots the name/price at purchase time and servicePlanSnapshot freezes the
@@ -633,6 +651,7 @@ const PlanDetails = ({ isProjectServiceView = false }) => {
                         Payment overdue — clear invoice to continue.
                       </p>
                     )}
+                    {paymentNote}
                     {status.tone === 'closed' && (
                       <p className="mt-2 flex items-start gap-1.5 text-center text-sm text-[var(--text-secondary)]">
                         <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -799,6 +818,7 @@ const PlanDetails = ({ isProjectServiceView = false }) => {
                       <Upload className="h-4 w-4" />
                       Request Update
                     </button>
+                    {paymentNote}
                   </div>
                 </section>
 

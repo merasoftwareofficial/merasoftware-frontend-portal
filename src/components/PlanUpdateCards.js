@@ -62,9 +62,13 @@ const PlanUpdateCards = ({ plan, uploads = [] }) => {
       </Card>
     );
   });
+  // No upload before the payment is confirmed (plan.md decision 10): the open updates wait for it.
+  const [openPill, openClass] = plan.orderVisibility === 'pending-approval' ? ['Opens after payment approval', 'badge badge-pending']
+    : plan.orderVisibility === 'payment-rejected' ? ['Not available', 'badge badge-neutral']
+    : ['Ready to use', 'badge badge-success'];
   for (let i = 0; i < remaining; i += 1) {
     cards.push(
-      <Card key={`open-${i}`} pill="Ready to use" pillClass="badge badge-success" title={`Update ${counted.length + i + 1} of ${total}`}>
+      <Card key={`open-${i}`} pill={openPill} pillClass={openClass} title={`Update ${counted.length + i + 1} of ${total}`}>
         <p className="text-sm text-[var(--text-secondary)]">{filesLimit > 0 ? `Send up to ${filesLimit} files.` : 'Send your data any time.'}</p>
       </Card>
     );

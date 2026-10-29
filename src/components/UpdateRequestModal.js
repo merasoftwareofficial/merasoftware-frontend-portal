@@ -40,7 +40,8 @@ const UpdateRequestModal = ({ plan, onClose, onSubmitSuccess }) => {
     // service's allowance and reporting that service's limits back to the customer.
     if (isProjectUpload) return;
     fetch(SummaryApi.ordersList.url, { credentials: 'include' }).then((response) => response.json()).then((result) => {
-      const services = (result.data || []).filter((order) => order.isServicePlan && order.servicePlanStatus === 'active' && (order.servicePlanSnapshot?.capability === 'upload_data' || order.servicePlanSnapshot?.serviceBehavior === 'portal_access_control'));
+      // A plan whose payment is still being checked or was rejected takes no upload (helpers/uploadOrderPolicy.js).
+      const services = (result.data || []).filter((order) => order.isServicePlan && order.servicePlanStatus === 'active' && !['pending-approval', 'payment-rejected', 'cancelled'].includes(order.orderVisibility) && (order.servicePlanSnapshot?.capability === 'upload_data' || order.servicePlanSnapshot?.serviceBehavior === 'portal_access_control'));
       setUploadServices(services);
       setSelectedServiceId(services[0]?._id || '');
     }).catch(() => toast.error('Could not load upload services.'));

@@ -15,6 +15,7 @@ import PlanBuilder from '../components/PlanBuilder';
 import { initialPlanChoice, isFlexiblePlan } from '../helpers/serviceTenure';
 import { readCustomerPlanCatalogue } from '../helpers/customerPlanCatalogue';
 import { evaluateServiceSurface, SURFACE } from '../helpers/serviceDependency';
+import { WEBSITE_URL } from '../helpers/brand';
 
 const LIMIT_SCOPE_LABELS = {
   per_day: 'per day',
@@ -81,7 +82,9 @@ const ServicePlanDetailScreen = () => {
   const [payTxnId, setPayTxnId] = useState('');
   const [upiTransactionId, setUpiTransactionId] = useState('');
   const [payProcessing, setPayProcessing] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
+  // The bought order, from the backend's answer: its id for "View my plan", and whether a UPI part
+  // still waits for approval. Not re-derived from the wallet balance, which drops after paying.
+  const [purchased, setPurchased] = useState(null);
   // What the builder chose + the backend quote for it; refreshToken re-asks the price.
   const [builder, setBuilder] = useState({ ready: false, quote: null, body: null });
   const [refreshToken, setRefreshToken] = useState(0);
@@ -171,6 +174,15 @@ const ServicePlanDetailScreen = () => {
     }
   }, [showPaymentModal, builder.ready, builder.body, paymentChoiceKey]);
 
+  // Paid (wallet) or sent for checking (UPI part): close the payment steps and show the result.
+  // A repeated purchase key answers with the earlier order and `paymentPending` instead.
+  const showPurchased = (created) => {
+    context?.fetchWalletBalance?.();
+    setShowQR(false);
+    setShowPaymentModal(false);
+    setPurchased({ orderId: created.orderId, pending: Number(created.upiPending || 0) > 0 || created.paymentPending === true });
+  };
+
   // Step 1: customer confirmed the summary → start the wallet/UPI flow.
   const handleConfirmPayment = async () => {
     if (payProcessing) return;
@@ -186,10 +198,7 @@ const ServicePlanDetailScreen = () => {
 
       // Wallet covers the whole amount → instant debit, auto-approved, no UPI.
       if (currentUpiPart === 0) {
-        await createServicePlanOrder({ txnId: generateTransactionId() });
-        context?.fetchWalletBalance?.();
-        setShowPaymentModal(false);
-        setShowSuccess(true);
+        showPurchased(await createServicePlanOrder({ txnId: generateTransactionId() }));
         return;
       }
 
@@ -222,11 +231,7 @@ const ServicePlanDetailScreen = () => {
     }
     try {
       setPayProcessing(true);
-      await createServicePlanOrder({ txnId: payTxnId, upiRef: trimmedUpiId });
-      context?.fetchWalletBalance?.();
-      setShowQR(false);
-      setShowPaymentModal(false);
-      setShowSuccess(true);
+      showPurchased(await createServicePlanOrder({ txnId: payTxnId, upiRef: trimmedUpiId }));
     } catch (error) {
       handlePurchaseError(error, 'Verification failed. Please try again.');
     } finally {
@@ -347,25 +352,32 @@ const ServicePlanDetailScreen = () => {
       )}
 
       {/* Success */}
-      {showSuccess && (
+      {/* Two ways on (plan.md 4.1): the plan itself, where its status and uploads are, or back to the website. */}
+      {purchased && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--glass-bg-subtle)] px-4 py-6">
-          <div className="w-full max-w-md rounded-[1.75rem] border border-[var(--glass-border-strong)] bg-[var(--menu-bg)] p-6 text-center text-[var(--text-primary)] shadow-2xl backdrop-blur-2xl">
+          <div role="dialog" aria-modal="true" aria-labelledby="plan-bought-title" className="w-full max-w-md rounded-[1.75rem] border border-[var(--glass-border-strong)] bg-[var(--menu-bg)] p-6 text-center text-[var(--text-primary)] shadow-2xl backdrop-blur-2xl">
             <CheckCircle2 className="mx-auto h-12 w-12 text-[var(--badge-success-fg)]" />
-            <h2 className="mt-4 text-xl font-bold text-[var(--text-primary)]">
-              {currentUpiPart === 0 ? 'Your service is active' : 'Payment submitted'}
+            <h2 id="plan-bought-title" className="mt-4 text-xl font-bold text-[var(--text-primary)]">
+              {purchased.pending ? 'Payment submitted' : 'Your plan is active'}
             </h2>
             <p className="mt-2 text-base text-[var(--text-secondary)]">
-              {currentUpiPart === 0
-                ? `${plan.serviceName} has been activated.`
-                : 'We’re checking your payment. We’ll let you know when it is confirmed.'}
+              {purchased.pending
+                ? 'We are checking your payment and will let you know when it is approved. You can send your data after that.'
+                : `${plan.serviceName} is active. You can send your data from your plan page.`}
             </p>
             <button
               type="button"
-              onClick={() => navigate('/projects-and-plans')}
+              onClick={() => navigate(`/plan-details/${purchased.orderId}`)}
               className="mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-[rgb(var(--ink-rgb))] px-4 py-3 text-base font-semibold text-[var(--page-bg)] transition hover:bg-[rgb(var(--ink-rgb)/0.85)]"
             >
-              View My Plans
+              View my plan →
             </button>
+            <a
+              href={WEBSITE_URL}
+              className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-[var(--glass-border-strong)] px-4 py-3 text-base font-semibold text-[var(--text-primary)] transition hover:bg-[var(--glass-bg-subtle)]"
+            >
+              Back to website
+            </a>
           </div>
         </div>
       )}
