@@ -129,8 +129,8 @@ export default function ReservedOffersPanel({ customerId, projects = [], onChang
       <p className="text-sm text-slate-500">Reservations stay here as history. Times are India time.</p>
       <ul className="mt-4 space-y-3">
         {rows.map(row => {
-          const canExtend = !row.confirmedAt && row.status !== 'confirmed' && (!row.resolution || row.resolution === 'unchanged');
-          const canForce = row.status !== 'confirmed' && row.resolution !== 'force_applied';
+          const canExtend = !row.reuseNeedsReview && !row.confirmedAt && row.status !== 'confirmed' && (!row.resolution || row.resolution === 'unchanged');
+          const canForce = !row.reuseNeedsReview && row.status !== 'confirmed' && row.resolution !== 'force_applied';
           const project = projects.find(item => String(item._id) === row.projectId);
           return (
             <li key={row.id} className="rounded-2xl border border-slate-200 p-4">
@@ -140,6 +140,8 @@ export default function ReservedOffersPanel({ customerId, projects = [], onChang
               </div>
               <p className="mt-1 text-sm text-slate-600">Reserved {ist(row.reservedAt)} · Deadline {ist(row.deadline)}{row.extendedUntil ? ` (original ${ist(row.expiresAt)})` : ''}</p>
               <p className="text-sm text-slate-600">{project ? `Project: ${projectName(project)}` : row.projectId ? 'Linked to a project' : 'No project yet'}</p>
+              {row.reuseNeedsReview && <p className="text-sm font-medium text-amber-700">The previous project is closed. Its payment or offer usage history prevents automatic reuse; financial review is required.</p>}
+              {row.releases?.length > 0 && <p className="text-sm text-slate-600">Released from a previous project on {ist(row.releases[row.releases.length - 1].at)}. Original reservation deadline retained.</p>}
               {row.resolution && <p className="text-sm font-medium text-amber-700">{RESOLUTION[row.resolution] || row.resolution}{row.resolutionNote ? ` — ${row.resolutionNote}` : ''}</p>}
               {row.walletCredit > 0 && <p className="text-sm font-semibold text-emerald-700">Surplus credited to customer wallet: {inr(row.walletCredit)}</p>}
               {row.extensions?.length > 0 && <p className="text-xs text-slate-500">Extended {row.extensions.length} time(s); last reason: {row.extensions[row.extensions.length - 1].reason}</p>}
