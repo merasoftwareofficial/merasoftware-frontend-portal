@@ -20,6 +20,8 @@ import {
 // `refreshToken` changing re-asks the price (the parent bumps it after a 409 "price changed").
 // `action` (full size only) is the parent's pay control, shown at the bottom of the sticky bill.
 // `intro` (full size only) is the parent's plan description, shown above the steps.
+// `initial` (optional) is a starting choice already checked against this plan
+// (helpers/serviceTenure.js initialPlanChoice); without it the builder starts on its defaults.
 
 const formatPrice = (value) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(value) || 0);
@@ -161,19 +163,19 @@ export const QuoteBill = ({ plan, quote, loading, error, compact }) => {
   );
 };
 
-const PlanBuilder = ({ plan, compact = false, onChange, refreshToken = 0, action = null, intro = null }) => {
+const PlanBuilder = ({ plan, compact = false, onChange, refreshToken = 0, action = null, intro = null, initial = null }) => {
   const flexible = isFlexiblePlan(plan);
   const purchases = useMemo(() => purchaseOptions(plan), [plan]);
   const files = useMemo(() => fileChoices(plan), [plan]);
   const updates = useMemo(() => updateChoices(plan), [plan]);
 
-  const [purchase, setPurchase] = useState(() => purchases[0]?.value || '');
+  const [purchase, setPurchase] = useState(() => initial?.purchase || purchases[0]?.value || '');
   const cycleMonths = purchases.find((option) => option.value === purchase)?.months || null;
   const tenures = useMemo(() => buildTenureOptions(plan, cycleMonths), [plan, cycleMonths]);
-  const [tenureMonths, setTenureMonths] = useState(() => purchases[0]?.months || null);
-  const [fileCount, setFileCount] = useState(() => files.min || null);
-  const [updateCount, setUpdateCount] = useState(() => updates[0] || null);
-  const [releaseMode, setReleaseMode] = useState(plan?.servicePlan?.releaseMode || 'all_at_once');
+  const [tenureMonths, setTenureMonths] = useState(() => initial?.tenureMonths || purchases[0]?.months || null);
+  const [fileCount, setFileCount] = useState(() => initial?.files || files.min || null);
+  const [updateCount, setUpdateCount] = useState(() => initial?.updates || updates[0] || null);
+  const [releaseMode, setReleaseMode] = useState(() => initial?.releaseMode || plan?.servicePlan?.releaseMode || 'all_at_once');
   const [state, setState] = useState({ loading: false, error: '', quote: null, quoteKey: '' });
   const requestRef = useRef(0);
   const onChangeRef = useRef(onChange);

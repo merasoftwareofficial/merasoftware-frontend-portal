@@ -8,7 +8,39 @@ const load = async (path, transform = value => value) => {
 const auth = await load('../src/helpers/planAuthReturn.js');
 const { planGroups, planBenefit } = await load('../src/helpers/customerPlanCatalogue.js', source => source.replace("import SummaryApi from '../common';", 'const SummaryApi = {};'));
 const { canBuyOnSurface, SURFACE } = await load('../src/helpers/serviceDependency.js');
+const { initialPlanChoice } = await load('../src/helpers/serviceTenure.js');
 const planPath = '/service-plan-detail/6a90417d77eae0db8156833d';
+
+test('a plan address may carry the website choice through login, nothing else', () => {
+  const chosen = `${planPath}?purchase=quarterly&months=6&files=20&updates=2&release=monthly`;
+  assert.equal(auth.customerReturnTarget(chosen), chosen);
+  assert.equal(auth.planLoginUrl(chosen), `/login?next=${encodeURIComponent(chosen)}`);
+  assert.equal(auth.loginContinuation({ role: 'customer', returnTo: chosen, home: '/dashboard' }), chosen);
+  assert.equal(auth.passwordContinuation(chosen, 'customer', 'https://www.merasoftware.com').internal, chosen);
+  for (const bad of [`${planPath}?purchase=weekly`, `${planPath}?files=20&files=30`, `${planPath}?months=13`, `${planPath}?files=0`,
+    `${planPath}?purchase=monthly&x=1`, `${planPath}?purchase=monthly#x`, `${planPath}?purchase=monthly?x`, `${planPath}?`, `${planPath}?files=%32%30`]) {
+    assert.equal(auth.customerReturnTarget(bad), null, bad);
+  }
+  // A protected page keeps the plan even when its query is not allowed.
+  assert.equal(auth.protectedLoginUrl({ pathname: planPath, search: '?purchase=quarterly&months=6' }), `/login?next=${encodeURIComponent(`${planPath}?purchase=quarterly&months=6`)}`);
+  assert.equal(auth.protectedLoginUrl({ pathname: planPath, search: '?next=https://evil.test' }), `/login?next=${encodeURIComponent(planPath)}`);
+  assert.equal(auth.protectedLoginUrl({ pathname: '/dashboard', search: '' }), '/login');
+});
+
+test('the builder starts on the address choice only where the plan offers it', () => {
+  const flexible = { servicePlan: { pricingMode: 'flexible', allowOneTime: true, files: { min: 5, max: 100, step: 5 }, updatesPerMonth: { min: 1, max: 4 },
+    maxTenureMonths: 12, customerCanChooseRelease: true, billingOptions: [{ billingCycle: 'monthly' }, { billingCycle: 'quarterly', discountPercent: 5 }] } };
+  assert.deepEqual(initialPlanChoice(flexible, '?purchase=quarterly&months=6&files=20&updates=2&release=monthly'),
+    { purchase: 'quarterly', tenureMonths: 6, files: 20, updates: 2, releaseMode: 'monthly' });
+  // Off-step files, a length that is not a whole number of quarters, too many updates: defaults.
+  assert.deepEqual(initialPlanChoice(flexible, '?purchase=quarterly&months=4&files=22&updates=9&release=sometimes'),
+    { purchase: 'quarterly', tenureMonths: 3, files: 5, updates: 1, releaseMode: 'all_at_once' });
+  // Monthly billing cannot choose a release; an unknown purchase falls back to the first one.
+  assert.equal(initialPlanChoice(flexible, '?purchase=monthly&release=monthly').releaseMode, 'all_at_once');
+  assert.equal(initialPlanChoice(flexible, '?purchase=yearly').purchase, 'one_time');
+  assert.deepEqual(initialPlanChoice(flexible, ''), { purchase: 'one_time', tenureMonths: null, files: 5, updates: 1, releaseMode: 'all_at_once' });
+  assert.equal(initialPlanChoice({ servicePlan: {} }, '?purchase=monthly'), null);
+});
 
 test('normal and guest login continuation preserves selected plan and password-reset round trip', () => {
   assert.equal(auth.planLoginUrl(planPath), `/login?next=${encodeURIComponent(planPath)}`);

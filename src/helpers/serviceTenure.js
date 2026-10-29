@@ -95,3 +95,28 @@ export const priceRangeText = (range) => {
 // longer than one month (backend servicePlanAdmin.js setReleaseMode has the same rule).
 export const canChooseRelease = (plan, cycleMonths) =>
   Boolean(plan?.servicePlan?.customerCanChooseRelease) && Number(cycleMonths) > 1;
+
+// The builder's starting choice from a page address (?purchase=&months=&files=&updates=&release=,
+// sent by the website's "Get this plan", merasoftware/src/lib/public-plans.ts choiceQuery). Each
+// part is kept only when this plan offers it; anything else falls back to the builder's default.
+// Same rules as the website's initialChoice(). The backend quote still checks the final choice.
+export const initialPlanChoice = (plan, search) => {
+  const query = new URLSearchParams(search || '');
+  const purchases = purchaseOptions(plan);
+  if (!purchases.length) return null;
+  const purchase = purchases.find((option) => option.value === query.get('purchase')) || purchases[0];
+  const number = (key) => (/^\d+$/.test(query.get(key) || '') ? Number(query.get(key)) : null);
+  const months = number('months');
+  const files = fileChoices(plan);
+  const fileCount = number('files');
+  const updates = updateChoices(plan);
+  const release = query.get('release');
+  return {
+    purchase: purchase.value,
+    tenureMonths: buildTenureOptions(plan, purchase.months).some((option) => option.months === months) ? months : purchase.months,
+    files: fileCount !== null && fileCount >= files.min && fileCount <= files.max && (fileCount - files.min) % files.step === 0 ? fileCount : files.min || null,
+    updates: updates.includes(number('updates')) ? number('updates') : updates[0] || null,
+    releaseMode: canChooseRelease(plan, purchase.months) && ['all_at_once', 'monthly'].includes(release)
+      ? release : plan?.servicePlan?.releaseMode || 'all_at_once',
+  };
+};

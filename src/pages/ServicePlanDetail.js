@@ -12,7 +12,7 @@ import Context from '../context';
 import GlassPageState from '../components/GlassPageState';
 import ServiceOfferSelector from '../components/ServiceOfferSelector';
 import PlanBuilder from '../components/PlanBuilder';
-import { isFlexiblePlan } from '../helpers/serviceTenure';
+import { initialPlanChoice, isFlexiblePlan } from '../helpers/serviceTenure';
 import { readCustomerPlanCatalogue } from '../helpers/customerPlanCatalogue';
 import { evaluateServiceSurface, SURFACE } from '../helpers/serviceDependency';
 
@@ -472,7 +472,8 @@ const ServicePlanDetailScreen = () => {
   return page(
     <CustomerPageHeader title={plan.serviceName} subtitle={categoryLabel} onBack={handleBack} />,
     eligibility.allowed
-      ? <PlanBuilder plan={plan} onChange={setBuilder} refreshToken={refreshToken} action={purchaseAction} intro={intro} />
+      // The address may carry the choice made on the website's plan page (?purchase=&months=…).
+      ? <PlanBuilder plan={plan} initial={initialPlanChoice(plan, location.search)} onChange={setBuilder} refreshToken={refreshToken} action={purchaseAction} intro={intro} />
       : notBuyable,
   );
 };

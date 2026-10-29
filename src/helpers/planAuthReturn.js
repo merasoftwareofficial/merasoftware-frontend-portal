@@ -1,8 +1,26 @@
+// The plan choice a plan page may carry (the website's "Get this plan" link,
+// merasoftware/src/lib/public-plans.ts choiceQuery): known keys only, each once, in a fixed shape.
+// Whether the plan really offers the values is checked on the page (serviceTenure.js initialPlanChoice).
+const PLAN_CHOICE_QUERY = {
+  purchase: /^(one_time|monthly|quarterly|half_yearly|yearly)$/,
+  months: /^([1-9]|1[0-2])$/,
+  files: /^[1-9]\d{0,3}$/,
+  updates: /^[1-9]\d?$/,
+  release: /^(all_at_once|monthly)$/,
+};
+const isPlanChoiceQuery = (search) => {
+  if (!/^[a-z_]+=[a-z_\d]+(&[a-z_]+=[a-z_\d]+)*$/.test(search)) return false;
+  const query = new URLSearchParams(search);
+  const keys = [...query.keys()];
+  return new Set(keys).size === keys.length && keys.every((key) => PLAN_CHOICE_QUERY[key]?.test(query.get(key)));
+};
+
 // Narrow login continuation policy. Never accept an arbitrary next URL.
 export function customerReturnTarget(value) {
   if (typeof value !== 'string') return null;
   if (value === '/my-offers') return value;
-  if (/^\/service-plan-detail\/[a-f\d]{24}$/i.test(value)) return value;
+  const [path, search, ...rest] = value.split('?');
+  if (/^\/service-plan-detail\/[a-f\d]{24}$/i.test(path) && !rest.length && (search === undefined || isPlanChoiceQuery(search))) return value;
   if (value === '/start-new-project/services' || value === '/start-new-project/services?tab=services') return value;
   return null;
 }
@@ -10,6 +28,12 @@ export function customerReturnTarget(value) {
 export function planLoginUrl(path) {
   const target = customerReturnTarget(path);
   return target ? `/login?next=${encodeURIComponent(target)}` : '/login';
+}
+
+// A protected page's own login link: its address with the plan choice when that is allowed,
+// else the bare page (so an unexpected query never loses the plan itself).
+export function protectedLoginUrl({ pathname, search }) {
+  return customerReturnTarget(`${pathname}${search}`) ? planLoginUrl(`${pathname}${search}`) : planLoginUrl(pathname);
 }
 
 export function loginContinuation({ role, mustResetPassword, returnTo, home }) {
