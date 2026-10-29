@@ -8,11 +8,15 @@ const PLAN_CHOICE_QUERY = {
   updates: /^[1-9]\d?$/,
   release: /^(all_at_once|monthly)$/,
 };
-const isPlanChoiceQuery = (search) => {
+// The checkout page (pages/PlanCheckout.js) also carries where the client came from, as a word,
+// never an address: the place it goes back to is the portal's own setting (helpers/brand.js).
+const CHECKOUT_FROM = { from: /^(website|portal)$/ };
+const CHECKOUT_QUERY = { ...PLAN_CHOICE_QUERY, ...CHECKOUT_FROM };
+const isKnownQuery = (search, allowed) => {
   if (!/^[a-z_]+=[a-z_\d]+(&[a-z_]+=[a-z_\d]+)*$/.test(search)) return false;
   const query = new URLSearchParams(search);
   const keys = [...query.keys()];
-  return new Set(keys).size === keys.length && keys.every((key) => PLAN_CHOICE_QUERY[key]?.test(query.get(key)));
+  return new Set(keys).size === keys.length && keys.every((key) => allowed[key]?.test(query.get(key)));
 };
 
 // Narrow login continuation policy. Never accept an arbitrary next URL.
@@ -20,7 +24,10 @@ export function customerReturnTarget(value) {
   if (typeof value !== 'string') return null;
   if (value === '/my-offers') return value;
   const [path, search, ...rest] = value.split('?');
-  if (/^\/service-plan-detail\/[a-f\d]{24}$/i.test(path) && !rest.length && (search === undefined || isPlanChoiceQuery(search))) return value;
+  if (rest.length) return null;
+  if (/^\/service-plan-detail\/[a-f\d]{24}$/i.test(path) && (search === undefined || isKnownQuery(search, PLAN_CHOICE_QUERY))) return value;
+  if (/^\/checkout\/[a-f\d]{24}$/i.test(path) && (search === undefined || isKnownQuery(search, CHECKOUT_QUERY))) return value;
+  if (/^\/checkout\/done\/[a-f\d]{24}$/i.test(path) && (search === undefined || isKnownQuery(search, CHECKOUT_FROM))) return value;
   if (value === '/start-new-project/services' || value === '/start-new-project/services?tab=services') return value;
   return null;
 }

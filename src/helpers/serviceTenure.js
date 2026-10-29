@@ -96,6 +96,31 @@ export const priceRangeText = (range) => {
 export const canChooseRelease = (plan, cycleMonths) =>
   Boolean(plan?.servicePlan?.customerCanChooseRelease) && Number(cycleMonths) > 1;
 
+// The exact quote/purchase body for a choice: only the parts this plan and purchase use. The builder
+// and the checkout page (pages/PlanCheckout.js) both send this, so they can never ask different prices.
+export const planChoiceBody = (plan, { purchase, tenureMonths, files, updates, releaseMode }) => {
+  if (!purchase) return null;
+  const flexible = isFlexiblePlan(plan);
+  return {
+    purchase,
+    tenureMonths: purchase === 'one_time' ? undefined : tenureMonths,
+    files: flexible ? files : undefined,
+    updates: flexible ? updates : undefined,
+    releaseMode: canChooseRelease(plan, BILLING_CYCLE_MONTHS[purchase]) ? releaseMode : undefined,
+  };
+};
+
+// A choice body as a page address query, with the same keys the website's "Get this plan" sends
+// (merasoftware/src/lib/public-plans.ts choiceQuery) and initialPlanChoice() reads back.
+export const planChoiceQuery = (body) => {
+  const query = new URLSearchParams({ purchase: body.purchase });
+  if (body.tenureMonths) query.set('months', String(body.tenureMonths));
+  if (body.files) query.set('files', String(body.files));
+  if (body.updates) query.set('updates', String(body.updates));
+  if (body.releaseMode) query.set('release', body.releaseMode);
+  return query.toString();
+};
+
 // The builder's starting choice from a page address (?purchase=&months=&files=&updates=&release=,
 // sent by the website's "Get this plan", merasoftware/src/lib/public-plans.ts choiceQuery). Each
 // part is kept only when this plan offers it; anything else falls back to the builder's default.

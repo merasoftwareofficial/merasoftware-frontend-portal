@@ -1,21 +1,15 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { toast } from 'sonner';
-import { QRCodeSVG } from 'qrcode.react';
 import { goToCustomerReturn } from '../helpers/customerReturnNavigation';
-import { CheckCircle2 } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import CustomerPageHeader from '../components/CustomerPageHeader';
-import SummaryApi from '../common';
-import Context from '../context';
 import GlassPageState from '../components/GlassPageState';
-import ServiceOfferSelector from '../components/ServiceOfferSelector';
 import PlanBuilder from '../components/PlanBuilder';
 import { initialPlanChoice, isFlexiblePlan } from '../helpers/serviceTenure';
 import { readCustomerPlanCatalogue } from '../helpers/customerPlanCatalogue';
 import { evaluateServiceSurface, SURFACE } from '../helpers/serviceDependency';
-import { WEBSITE_URL } from '../helpers/brand';
+import { checkoutPath } from '../helpers/planCheckout';
 
 const LIMIT_SCOPE_LABELS = {
   per_day: 'per day',
@@ -36,9 +30,6 @@ const MANUAL_UNIT_LABELS = {
 
 // How to buy, for how long and the price come from the plan builder (components/PlanBuilder.js):
 // its choices from helpers/serviceTenure.js, its price from the backend quote.
-
-const formatPrice = (value) =>
-  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
 
 const getPortalAccessLine = (servicePlan) => {
   if (!servicePlan) return null;
@@ -67,29 +58,14 @@ const ServicePlanDetailScreen = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { planId } = useParams();
-  const context = useContext(Context);
   const [plan, setPlan] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const [categoryLabel, setCategoryLabel] = useState('More plans');
   const [loadError, setLoadError] = useState('');
 
-  // In-page payment step: the order and its payment are created together
-  // in one backend call, so a payment-less order can never exist.
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showQR, setShowQR] = useState(false);
-  const [paymentChoiceKey, setPaymentChoiceKey] = useState('');
-  const [upiLink, setUpiLink] = useState('');
-  const [payTxnId, setPayTxnId] = useState('');
-  const [upiTransactionId, setUpiTransactionId] = useState('');
-  const [payProcessing, setPayProcessing] = useState(false);
-  // The bought order, from the backend's answer: its id for "View my plan", and whether a UPI part
-  // still waits for approval. Not re-derived from the wallet balance, which drops after paying.
-  const [purchased, setPurchased] = useState(null);
-  // What the builder chose + the backend quote for it; refreshToken re-asks the price.
+  // What the builder chose + the backend quote for it. Paying happens on the checkout page
+  // (pages/PlanCheckout.js), which this page opens with the same choice.
   const [builder, setBuilder] = useState({ ready: false, quote: null, body: null });
-  const [refreshToken, setRefreshToken] = useState(0);
-  const [paymentOffer, setPaymentOffer] = useState(null);
-  const [purchaseKey] = useState(() => crypto.randomUUID());
 
   useEffect(() => {
     const controller = new AbortController();
@@ -107,283 +83,6 @@ const ServicePlanDetailScreen = () => {
 
   const handleBack = () => goToCustomerReturn(navigate, location, '/start-new-project/services?tab=services');
 
-  const generateTransactionId = () =>
-    `SVC${Date.now()}${Math.floor(Math.random() * 10000)}`;
-
-  // Creates the order + its payment atomically. The backend re-derives the price
-  // and the wallet/UPI split itself — nothing here is trusted for money.
-  const createServicePlanOrder = async ({ txnId, upiRef }) => {
-    if (!builder.ready || !builder.body) throw new Error('Please check the current plan price before paying.');
-    const response = await fetch(SummaryApi.createServicePlanOrder.url, {
-      method: SummaryApi.createServicePlanOrder.method,
-      credentials: 'include',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        // This page is the standalone purchase surface. Buying a service FOR a
-        // project happens in AddServiceModal, opened from the project itself.
-        planId: plan._id,
-        offerSlug: paymentOffer?.slug,
-        purchaseKey,
-        offerQuoteKey: paymentOffer?.quoteKey,
-        deferPayment: ['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode),
-        // purchase, tenureMonths, files, updates, releaseMode, quoteKey — exactly what was quoted.
-        ...builder.body,
-        paymentDetails: {
-          transactionId: txnId,
-          upiTransactionId: upiRef || null,
-        },
-      }),
-    });
-    const result = await response.json();
-    if (!result.success) {
-      throw Object.assign(new Error(result.message || 'Could not complete the purchase'), { status: response.status });
-    }
-    return result.data;
-  };
-
-  // 409 = the plan or its price changed after the quote: nothing was bought. Show the new price.
-  const handlePurchaseError = (error, fallback) => {
-    if (error.status === 409) {
-      setShowQR(false);
-      setShowPaymentModal(false);
-      setRefreshToken((value) => value + 1);
-      toast.error('The price of this plan changed. Please check the new price and pay again.');
-      return;
-    }
-    toast.error(error.message || fallback);
-  };
-
-  // Wallet/UPI split for display + flow choice. The wallet is the customer's own
-  // money so it applies first; only the remainder needs UPI. The backend
-  // independently re-derives this same split from the real balance.
-  const planPrice = Number(builder.quote?.firstPayment || 0);
-  const currentWalletBalance = Number(context?.walletBalance || 0);
-  const currentWalletPart = Math.min(currentWalletBalance, planPrice);
-  const currentUpiPart = Math.max(0, planPrice - currentWalletPart);
-  const isDeferredOffer = ['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode);
-  const handleOpenPayment = () => {
-    if (!builder.ready) return toast.error(builder.error || 'Please wait for the price, then continue.');
-    setPaymentChoiceKey(JSON.stringify(builder.body));
-    setShowPaymentModal(true);
-  };
-
-  useEffect(() => {
-    if (showPaymentModal && (!builder.ready || JSON.stringify(builder.body) !== paymentChoiceKey)) {
-      setShowPaymentModal(false); setShowQR(false);
-      setPayTxnId(''); setUpiTransactionId(''); setUpiLink('');
-    }
-  }, [showPaymentModal, builder.ready, builder.body, paymentChoiceKey]);
-
-  // Paid (wallet) or sent for checking (UPI part): close the payment steps and show the result.
-  // A repeated purchase key answers with the earlier order and `paymentPending` instead.
-  const showPurchased = (created) => {
-    context?.fetchWalletBalance?.();
-    setShowQR(false);
-    setShowPaymentModal(false);
-    setPurchased({ orderId: created.orderId, pending: Number(created.upiPending || 0) > 0 || created.paymentPending === true });
-  };
-
-  // Step 1: customer confirmed the summary → start the wallet/UPI flow.
-  const handleConfirmPayment = async () => {
-    if (payProcessing) return;
-    if (!builder.ready) return toast.error('Please wait for the price, then continue.');
-    try {
-      setPayProcessing(true);
-      if (['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode)) {
-        const created = await createServicePlanOrder({});
-        setShowPaymentModal(false);
-        navigate(`/plan-details/${created.orderId}`);
-        return;
-      }
-
-      // Wallet covers the whole amount → instant debit, auto-approved, no UPI.
-      if (currentUpiPart === 0) {
-        showPurchased(await createServicePlanOrder({ txnId: generateTransactionId() }));
-        return;
-      }
-
-      // Wallet doesn't fully cover it → UPI QR for the remainder only.
-      const txnId = generateTransactionId();
-      setPayTxnId(txnId);
-      const upiId = 'vacomputers.com@okhdfcbank';
-      const payeeName = 'VA Computer';
-      setUpiLink(
-        `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${currentUpiPart}&cu=INR&tn=${encodeURIComponent(
-          `Service Plan Payment - ${txnId}`
-        )}&tr=${txnId}`
-      );
-      setShowQR(true);
-    } catch (error) {
-      handlePurchaseError(error, 'Payment failed. Please try again.');
-    } finally {
-      setPayProcessing(false);
-    }
-  };
-
-  // Step 2 (QR path): customer entered their UPI reference → submit for approval.
-  const handleVerifyUpi = async () => {
-    if (payProcessing || !builder.ready) return;
-    const trimmedUpiId = upiTransactionId.trim();
-    // UPI UTR/reference is 12-digit numeric — same rule as the customize flow.
-    if (!/^\d{12,}$/.test(trimmedUpiId)) {
-      toast.error('UPI transaction ID must be at least 12 digits');
-      return;
-    }
-    try {
-      setPayProcessing(true);
-      showPurchased(await createServicePlanOrder({ txnId: payTxnId, upiRef: trimmedUpiId }));
-    } catch (error) {
-      handlePurchaseError(error, 'Verification failed. Please try again.');
-    } finally {
-      setPayProcessing(false);
-    }
-  };
-
-  // Purchase pop-ups (confirm, pay, success); rendered only once the plan has loaded.
-  const renderModals = () => (
-    <>
-      {/* Payment confirmation — wallet first, UPI QR only for any remainder. */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--glass-bg-subtle)] px-4 py-6">
-          <div className="max-h-full w-full max-w-md overflow-y-auto rounded-[1.75rem] border border-[var(--glass-border-strong)] bg-[var(--menu-bg)] p-6 text-[var(--text-primary)] shadow-2xl backdrop-blur-2xl">
-            {!showQR ? (
-              <>
-                <h2 className="text-xl font-bold text-[var(--text-primary)]">Confirm your purchase</h2>
-                <p className="mt-1 text-base text-[var(--text-secondary)]">{plan.serviceName}</p>
-
-                {builder.quote?.purchase && builder.quote.purchase !== 'one_time' && (
-                  <p className="mt-2 text-sm text-[var(--text-muted)]">
-                    {builder.quote.tenureMonths} months, {builder.quote.totalCycles} payment{builder.quote.totalCycles === 1 ? '' : 's'}. The first is paid now; the next bills follow each period until the plan ends.
-                  </p>
-                )}
-
-                <div className="mt-5 space-y-2 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] p-4">
-                  <div className="flex items-center justify-between text-base text-[var(--text-secondary)]">
-                    <span>Amount due</span>
-                    <span className="font-semibold">{formatPrice(planPrice)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-base text-[var(--text-secondary)]">
-                    <span>{isDeferredOffer ? 'To pay now' : 'Paid from wallet'}</span>
-                    <span className="font-semibold">{formatPrice(isDeferredOffer ? 0 : currentWalletPart)}</span>
-                  </div>
-                  {!isDeferredOffer && currentUpiPart > 0 && (
-                    <div className="flex items-center justify-between border-t border-[var(--glass-border)] pt-2 text-base text-[var(--text-secondary)]">
-                      <span>To pay via UPI</span>
-                      <span className="font-semibold">{formatPrice(currentUpiPart)}</span>
-                    </div>
-                  )}
-                </div>
-
-                <p className="mt-3 text-sm text-[var(--text-muted)]">
-                  Wallet balance: {formatPrice(currentWalletBalance)}
-                  {isDeferredOffer ? ` — payment stays pending under ${paymentOffer.title}; no wallet debit now.` : currentUpiPart > 0
-                    ? ' — the remaining amount needs admin approval after you pay by UPI.'
-                    : ' — this purchase is covered by your wallet and activates immediately.'}
-                </p>
-
-                <div className="mt-6 flex flex-col gap-2 sm:flex-row-reverse">
-                  <button
-                    type="button"
-                    onClick={handleConfirmPayment}
-                    disabled={payProcessing || !builder.ready}
-                    className="inline-flex flex-1 items-center justify-center rounded-2xl bg-[rgb(var(--ink-rgb))] px-4 py-3 text-base font-semibold text-[var(--page-bg)] transition hover:bg-[rgb(var(--ink-rgb)/0.85)] disabled:cursor-not-allowed disabled:bg-[var(--glass-bg-strong)] disabled:text-[var(--text-muted)]"
-                  >
-                    {payProcessing ? 'Processing…' : ['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode) ? 'Activate with payment pending' : currentUpiPart === 0 ? 'Pay from Wallet' : 'Continue to UPI'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowPaymentModal(false)}
-                    disabled={payProcessing}
-                    className="inline-flex flex-1 items-center justify-center rounded-2xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg-subtle)] px-4 py-3 text-base font-semibold text-[var(--text-primary)] transition hover:bg-[var(--glass-bg)] disabled:cursor-not-allowed"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <h2 className="text-xl font-bold text-[var(--text-primary)]">Pay {formatPrice(currentUpiPart)}</h2>
-                <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                  Scan the QR, then enter the UPI reference number from your payment app.
-                </p>
-
-                {/* Stays white in every theme on purpose: a QR code is read by a camera,
-                    which expects dark modules on a white quiet zone. */}
-                <div className="mt-4 flex justify-center rounded-2xl border border-[var(--glass-border)] bg-white p-4">
-                  <QRCodeSVG value={upiLink} size={190} />
-                </div>
-
-                <label className="mt-4 block">
-                  <span className="mb-1.5 block text-base font-semibold text-[var(--text-secondary)]">
-                    UPI Reference Number
-                  </span>
-                  <input
-                    className="w-full rounded-xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] px-4 py-3 text-base text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--accent-soft-fg)] focus:ring-4 focus:ring-[var(--accent-soft-bg)]"
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="12-digit reference number"
-                    value={upiTransactionId}
-                    onChange={(event) => setUpiTransactionId(event.target.value)}
-                  />
-                </label>
-
-                <div className="mt-5 flex flex-col gap-2 sm:flex-row-reverse">
-                  <button
-                    type="button"
-                    onClick={handleVerifyUpi}
-                    disabled={payProcessing || !builder.ready || upiTransactionId.trim().length < 12}
-                    className="inline-flex flex-1 items-center justify-center rounded-2xl bg-[rgb(var(--ink-rgb))] px-4 py-3 text-base font-semibold text-[var(--page-bg)] transition hover:bg-[rgb(var(--ink-rgb)/0.85)] disabled:cursor-not-allowed disabled:bg-[var(--glass-bg-strong)] disabled:text-[var(--text-muted)]"
-                  >
-                    {payProcessing ? 'Submitting…' : 'Send payment for checking'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowQR(false)}
-                    disabled={payProcessing}
-                    className="inline-flex flex-1 items-center justify-center rounded-2xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg-subtle)] px-4 py-3 text-base font-semibold text-[var(--text-primary)] transition hover:bg-[var(--glass-bg)] disabled:cursor-not-allowed"
-                  >
-                    Back
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Success */}
-      {/* Two ways on (plan.md 4.1): the plan itself, where its status and uploads are, or back to the website. */}
-      {purchased && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--glass-bg-subtle)] px-4 py-6">
-          <div role="dialog" aria-modal="true" aria-labelledby="plan-bought-title" className="w-full max-w-md rounded-[1.75rem] border border-[var(--glass-border-strong)] bg-[var(--menu-bg)] p-6 text-center text-[var(--text-primary)] shadow-2xl backdrop-blur-2xl">
-            <CheckCircle2 className="mx-auto h-12 w-12 text-[var(--badge-success-fg)]" />
-            <h2 id="plan-bought-title" className="mt-4 text-xl font-bold text-[var(--text-primary)]">
-              {purchased.pending ? 'Payment submitted' : 'Your plan is active'}
-            </h2>
-            <p className="mt-2 text-base text-[var(--text-secondary)]">
-              {purchased.pending
-                ? 'We are checking your payment and will let you know when it is approved. You can send your data after that.'
-                : `${plan.serviceName} is active. You can send your data from your plan page.`}
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate(`/plan-details/${purchased.orderId}`)}
-              className="mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-[rgb(var(--ink-rgb))] px-4 py-3 text-base font-semibold text-[var(--page-bg)] transition hover:bg-[rgb(var(--ink-rgb)/0.85)]"
-            >
-              View my plan →
-            </button>
-            <a
-              href={WEBSITE_URL}
-              className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-[var(--glass-border-strong)] px-4 py-3 text-base font-semibold text-[var(--text-primary)] transition hover:bg-[var(--glass-bg-subtle)]"
-            >
-              Back to website
-            </a>
-          </div>
-        </div>
-      )}
-    </>
-  );
-
   // overflow-clip (not hidden) on the page wrapper: an overflow-hidden ancestor would stop the
   // builder's bill from staying sticky (PlanBuilder.js). Header and Back: components/CustomerPageHeader.js.
   const page = (header, content) => (
@@ -395,7 +94,6 @@ const ServicePlanDetailScreen = () => {
           <div className={header ? 'mt-10' : ''}>{content}</div>
         </div>
       </div>
-      {loaded && plan && renderModals()}
     </DashboardLayout>
   );
 
@@ -453,17 +151,17 @@ const ServicePlanDetailScreen = () => {
     </section>
   ) : null;
 
-  // Purchase action — shown inside the builder's sticky bill (prototype layout).
+  // Purchase action — shown inside the builder's sticky bill (prototype layout). Paying, a payment
+  // offer and the result are on the checkout page, which opens with this exact choice.
   const purchaseAction = (
     <div>
-      <ServiceOfferSelector planId={plan._id} onChange={setPaymentOffer} />
       <button
         type="button"
-        onClick={handleOpenPayment}
+        onClick={() => navigate(checkoutPath(plan._id, builder.body, 'portal'))}
         disabled={!builder.ready}
         className="inline-flex w-full items-center justify-center rounded-2xl bg-[rgb(var(--ink-rgb))] px-4 py-3 text-base font-semibold text-[var(--page-bg)] transition hover:bg-[rgb(var(--ink-rgb)/0.85)] disabled:cursor-not-allowed disabled:bg-[var(--glass-bg-strong)] disabled:text-[var(--text-muted)]"
       >
-        {['limited_uploads', 'pay_later'].includes(paymentOffer?.paymentPolicy?.mode) ? 'Continue with payment offer' : builder.ready ? `Pay ${formatPrice(planPrice)}` : 'Proceed to Payment'}
+        {builder.ready ? 'Continue to checkout →' : 'Working out the price…'}
       </button>
     </div>
   );
@@ -485,7 +183,7 @@ const ServicePlanDetailScreen = () => {
     <CustomerPageHeader title={plan.serviceName} subtitle={categoryLabel} onBack={handleBack} />,
     eligibility.allowed
       // The address may carry the choice made on the website's plan page (?purchase=&months=…).
-      ? <PlanBuilder plan={plan} initial={initialPlanChoice(plan, location.search)} onChange={setBuilder} refreshToken={refreshToken} action={purchaseAction} intro={intro} />
+      ? <PlanBuilder plan={plan} initial={initialPlanChoice(plan, location.search)} onChange={setBuilder} action={purchaseAction} intro={intro} />
       : notBuyable,
   );
 };

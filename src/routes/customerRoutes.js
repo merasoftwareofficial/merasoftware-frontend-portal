@@ -19,6 +19,7 @@ import StartNewProject from "../pages/StartNewProject";
 import StartProject from "../pages/startproject";
 import StartNewProjectDetail from "../pages/StartNewProjectDetail";
 import ServicePlanDetail from "../pages/ServicePlanDetail";
+import PlanCheckout, { PlanCheckoutDone } from "../pages/PlanCheckout";
 import GamesListPage from "../chess/GamesListPage";
 import ChessPage from "../chess/ChessPage";
 import SetNewPassword from "../pages/SetNewPassword";
@@ -150,6 +151,23 @@ export const customerRoutes = [
     element: (
       <CustomerProtectedRoute>
         <ServicePlanDetail/>
+      </CustomerProtectedRoute>
+    )
+  },
+  // Paying for a chosen plan and its result (pages/PlanCheckout.js; merasoftware/src/docs/plan.md §4).
+  {
+    path: "checkout/:planId",
+    element: (
+      <CustomerProtectedRoute>
+        <PlanCheckout/>
+      </CustomerProtectedRoute>
+    )
+  },
+  {
+    path: "checkout/done/:orderId",
+    element: (
+      <CustomerProtectedRoute>
+        <PlanCheckoutDone/>
       </CustomerProtectedRoute>
     )
   },

@@ -1,8 +1,12 @@
-// Client buys a plan in the portal (merasoftware/src/docs/plan.md §4), end to end in a browser:
-// the real ServicePlanDetail and PlanDetails pages (bundled alone with esbuild) against the REAL backend
-// controllers on an in-memory MongoDB, signed in with a real session cookie. Covers wallet-only
-// (active, uploads open), wallet + UPI (Approval Pending, uploads closed), admin rejection (Payment
-// Rejected), a double click (one order, one debit), the success popup's two buttons and phone width.
+// Client buys a plan in the portal checkout (merasoftware/src/docs/plan.md §4), end to end in a browser:
+// the real ServicePlanDetail, PlanCheckout and PlanDetails pages (bundled alone with esbuild) against the
+// REAL backend controllers on an in-memory MongoDB, signed in with a real session cookie. Covers:
+//   from the website: straight to checkout, Change back to the website, wallet with a double click (one
+//     order, one debit), the result page, "Stay here", the automatic return to the website's My purchases;
+//   from the portal: builder → checkout, a price change (409 → new price), the purchase key kept over a
+//     reload, wallet + UPI (QR for the remainder only), the automatic return to the plan page with
+//     Approval Pending and uploads closed, phone width;
+//   an admin rejection: the result page tells it with no automatic return, the plan page says Payment Rejected.
 // Mail provider mocked and every other network call blocked. Needs a portal build for its CSS (npm run build).
 // Usage (from frontend/): node tests/plan-checkout-browser.cjs
 const assert = require('node:assert/strict');
@@ -55,11 +59,14 @@ const shots = path.join(require('node:os').tmpdir(), `plan-checkout-${Date.now()
   const bundle = await build({ bundle: true, write: false, platform: 'browser', jsx: 'automatic', loader: { '.js': 'jsx' },
     define: { 'process.env.NODE_ENV': '"production"', 'process.env.PUBLIC_URL': '""', 'process.env.REACT_APP_BACKEND_URL': '""', 'process.env.REACT_APP_WEBSITE_URL': JSON.stringify(WEBSITE) },
     stdin: { resolveDir: root, loader: 'jsx', contents: `import React,{useState}from'react';import{createRoot}from'react-dom/client';import{Provider}from'react-redux';import{configureStore}from'@reduxjs/toolkit';import{BrowserRouter,Routes,Route}from'react-router-dom';
-      import ServicePlanDetail from './src/pages/ServicePlanDetail';import PlanDetails from './src/pages/PlanDetails';import Context from './src/context';
+      import ServicePlanDetail from './src/pages/ServicePlanDetail';import PlanCheckout,{PlanCheckoutDone}from './src/pages/PlanCheckout';import PlanDetails from './src/pages/PlanDetails';import Context from './src/context';
       const initial={user:{user:{_id:'${client._id}',name:'Plan Client',role:'customer',roles:['customer']},initialized:true}};const store=configureStore({reducer:(s=initial)=>s});
       function App(){const[walletBalance,setWallet]=useState(null);const fetchWalletBalance=()=>fetch('/fixture/wallet').then(r=>r.json()).then(d=>setWallet(d.walletBalance));React.useEffect(()=>{fetchWalletBalance()},[]);
         if(walletBalance===null)return null;
-        return <Context.Provider value={{walletBalance,fetchWalletBalance}}><BrowserRouter><Routes><Route path="/service-plan-detail/:planId" element={<ServicePlanDetail/>}/><Route path="/plan-details/:orderId" element={<PlanDetails/>}/></Routes></BrowserRouter></Context.Provider>}
+        return <Context.Provider value={{walletBalance,fetchWalletBalance}}><BrowserRouter><Routes>
+          <Route path="/service-plan-detail/:planId" element={<ServicePlanDetail/>}/><Route path="/checkout/:planId" element={<PlanCheckout/>}/>
+          <Route path="/checkout/done/:orderId" element={<PlanCheckoutDone/>}/><Route path="/plan-details/:orderId" element={<PlanDetails/>}/>
+        </Routes></BrowserRouter></Context.Provider>}
       createRoot(document.getElementById('root')).render(<Provider store={store}><App/></Provider>);` },
     plugins: [{ name: 'isolated-shell', setup(builder) {
       builder.onResolve({ filter: /DashboardLayout$/ }, () => ({ path: 'shell', namespace: 'fixture' }));
@@ -91,89 +98,131 @@ const shots = path.join(require('node:os').tmpdir(), `plan-checkout-${Date.now()
   fs.mkdirSync(shots, { recursive: true });
   const browser = await chromium.launch({ headless: true });
   const errors = [];
-  const openPlanPage = async (viewport = { width: 1280, height: 900 }) => {
+  const openAt = async (address, viewport = { width: 1280, height: 900 }) => {
     const context = await browser.newContext({ viewport });
     await context.addCookies([{ name: 'token', value: session(client, 'customer'), url: origin }]);
+    // The website is not running here: its pages answer with a marker, so a return to it can be seen.
+    await context.route(`${WEBSITE}/**`, (route) => route.fulfill({ contentType: 'text/html', body: '<h1>Website fixture</h1>' }));
     const page = await context.newPage(); page.setDefaultTimeout(20_000);
     page.on('pageerror', (error) => errors.push(error.message));
-    await page.goto(`${origin}/service-plan-detail/${plan._id}`);
-    const pay = page.getByRole('button', { name: /^Pay ₹/ });
-    await pay.waitFor(); await page.waitForFunction(() => [...document.querySelectorAll('button')].some((b) => /^Pay ₹/.test(b.textContent) && !b.disabled));
-    return { page, context, pay };
+    await page.goto(origin + address);
+    return { page, context };
   };
+  const payButton = (page, name) => page.getByRole('button', { name }).and(page.locator(':enabled'));
   const wallet = async () => (await User.findById(client._id).lean()).walletBalance;
+  const newestOrder = async () => String((await Order.findOne().sort({ createdAt: -1 }).lean())._id);
   try {
-    // 1. Wallet covers it, and a double click: one order, one debit, active at once, uploads open.
+    // 1. From the website: checkout at once, Change goes back there, wallet + double click, result, Stay here.
     {
-      const { page, context, pay } = await openPlanPage();
-      await pay.click();
-      const walletButton = page.getByRole('button', { name: 'Pay from Wallet' });
-      await walletButton.dblclick();
-      const popup = page.getByRole('dialog', { name: 'Your plan is active' });
-      await popup.waitFor();
+      const { page, context } = await openAt(`/checkout/${plan._id}?purchase=one_time&from=website`);
+      await page.getByRole('heading', { name: 'Checkout' }).waitFor();
+      assert.equal(await page.getByRole('link', { name: 'Change' }).getAttribute('href'), `${WEBSITE}/plans/${plan._id}?purchase=one_time`);
+      const pay = payButton(page, 'Pay ₹1,500 from wallet');
+      await pay.waitFor();
+      await page.screenshot({ path: path.join(shots, 'checkout-desktop.png'), fullPage: true });
+      await pay.dblclick();
+      await page.getByRole('heading', { name: 'Your plan is active' }).waitFor();
+      const orderId = await newestOrder();
+      assert.equal(new URL(page.url()).pathname + new URL(page.url()).search, `/checkout/done/${orderId}?from=website`);
       assert.equal(await Order.countDocuments(), 1, 'double click made one order');
       assert.equal(await Transaction.countDocuments({ paymentMethod: 'wallet' }), 1, 'double click debited once');
       assert.equal(await wallet(), 3500);
-      assert.equal(await popup.getByRole('link', { name: 'Back to website' }).getAttribute('href'), WEBSITE);
-      await page.screenshot({ path: path.join(shots, 'wallet-popup.png') });
-      await popup.getByRole('button', { name: 'View my plan →' }).click();
-      const orderId = String((await Order.findOne().lean())._id);
-      await page.waitForURL(`**/plan-details/${orderId}`);
-      await page.getByText('Active', { exact: true }).first().waitFor();
-      assert.equal(await page.getByRole('button', { name: /Request Update/ }).first().isEnabled(), true);
-      console.log('PASS wallet only: one order and one debit on a double click; popup with both buttons; plan active, uploads open');
+      assert.equal(await page.getByRole('link', { name: 'View my plan →' }).getAttribute('href'), `/plan-details/${orderId}`);
+      assert.equal(await page.getByRole('link', { name: 'Back to website' }).getAttribute('href'), `${WEBSITE}/account/purchases?new=${orderId}`);
+      await page.getByText(/Taking you to your purchases on our website in \d+s\./).waitFor();
+      await page.screenshot({ path: path.join(shots, 'result-active.png'), fullPage: true });
+      await page.getByRole('button', { name: 'Stay here' }).click();
+      await page.waitForTimeout(11_000);
+      assert.equal(new URL(page.url()).pathname, `/checkout/done/${orderId}`, 'Stay here keeps the client on the result');
+      assert.equal(await page.getByText(/Taking you to/).count(), 0);
+      console.log('PASS from the website: straight to checkout, Change back to the website, one order and one debit on a double click, result with both ways on, Stay here');
       await context.close();
     }
 
-    // 2. Wallet + UPI: QR for the remainder only, reference sent, Approval Pending and no uploads.
+    // 2. A second website purchase is left alone: after 10 seconds it returns to the website's My purchases.
+    {
+      const { page, context } = await openAt(`/checkout/${plan._id}?purchase=one_time&from=website`);
+      await payButton(page, 'Pay ₹1,500 from wallet').click();
+      await page.getByRole('heading', { name: 'Your plan is active' }).waitFor();
+      const orderId = await newestOrder();
+      await page.waitForURL(`${WEBSITE}/account/purchases?new=${orderId}`, { timeout: 15_000 });
+      console.log('PASS the result returns a website client to My purchases on the website, the new plan marked');
+      await context.close();
+    }
+
+    // 3. From the portal: builder → checkout; a price change; the key survives a reload; wallet + UPI; return to the plan.
     let pendingId;
     {
       await User.updateOne({ _id: client._id }, { $set: { walletBalance: 400 } });
-      const { page, context, pay } = await openPlanPage();
-      await pay.click();
-      await page.getByRole('button', { name: 'Continue to UPI' }).click();
-      await page.getByRole('heading', { name: 'Pay ₹1,100' }).waitFor();
+      const { page, context } = await openAt(`/service-plan-detail/${plan._id}`);
+      await payButton(page, 'Continue to checkout →').click();
+      await page.waitForURL(`**/checkout/${plan._id}?purchase=one_time&from=portal`);
+      assert.equal(await page.getByRole('link', { name: 'Change' }).getAttribute('href'), `/service-plan-detail/${plan._id}?purchase=one_time`);
+      await payButton(page, 'Continue to UPI').waitFor();
+      const keyBefore = await page.evaluate(() => Object.entries(sessionStorage).find(([name]) => name.startsWith('plan-checkout-key:'))?.[1]);
+      await page.reload();
+      await payButton(page, 'Continue to UPI').waitFor();
+      assert.equal(await page.evaluate(() => Object.entries(sessionStorage).find(([name]) => name.startsWith('plan-checkout-key:'))?.[1]), keyBefore, 'a reload keeps the purchase key');
+
+      // The admin changes the price after the summary was shown: nothing is bought, the new price shows.
+      await Product.updateOne({ _id: plan._id }, { $set: { price: 1800, sellingPrice: 1800 } });
+      await payButton(page, 'Continue to UPI').click();
+      await page.getByRole('heading', { name: 'Pay ₹1,100 by UPI' }).waitFor();
       await page.getByPlaceholder('12-digit reference number').fill('412345678901');
-      await page.getByRole('button', { name: 'Send payment for checking' }).click();
-      const popup = page.getByRole('dialog', { name: 'Payment submitted' });
-      await popup.waitFor();
-      assert.match(await popup.innerText(), /will let you know when it is approved/);
+      const ordersBefore = await Order.countDocuments();
+      await payButton(page, 'Send payment for checking').click();
+      await page.getByRole('alert').filter({ hasText: 'The plan or its price changed. Check the new price and try again.' }).waitFor();
+      assert.equal(await Order.countDocuments(), ordersBefore, 'nothing bought at the old price');
+      assert.equal(await wallet(), 400, 'nothing taken at the old price');
+      await page.getByText('₹1,800').first().waitFor();
+      await payButton(page, 'Continue to UPI').click();
+      await page.getByRole('heading', { name: 'Pay ₹1,400 by UPI' }).waitFor();
+      await page.locator('svg path[shape-rendering="crispEdges"]').first().waitFor(); // the UPI QR (qrcode.react)
+      await page.getByPlaceholder('12-digit reference number').fill('412345678902');
+      await page.screenshot({ path: path.join(shots, 'checkout-upi.png'), fullPage: true });
+      await payButton(page, 'Send payment for checking').click();
+      await page.getByRole('heading', { name: 'Payment submitted' }).waitFor();
+      pendingId = await newestOrder();
       assert.equal(await wallet(), 0);
-      pendingId = String((await Order.findOne().sort({ createdAt: -1 }).lean())._id);
-      await popup.getByRole('button', { name: 'View my plan →' }).click();
-      await page.waitForURL(`**/plan-details/${pendingId}`);
+      assert.equal(await page.getByRole('link', { name: 'Back to services' }).getAttribute('href'), '/start-new-project/services?tab=services');
+      await page.getByText(/Taking you to your plan in \d+s\./).waitFor();
+      await page.waitForURL(`**/plan-details/${pendingId}`, { timeout: 15_000 });
       await page.getByText('Approval Pending', { exact: true }).first().waitFor();
       await page.getByText('We are checking your payment. You can send your data once it is approved.').locator('visible=true').first().waitFor();
       assert.equal(await page.getByRole('button', { name: /Request Update/ }).first().isDisabled(), true);
-      await page.screenshot({ path: path.join(shots, 'plan-approval-pending.png'), fullPage: true });
-      await page.setViewportSize({ width: 375, height: 812 });
-      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'no sideways scroll on a phone');
-      // The phone layout has its own Request Update button: it carries the same reason, and no update says "Ready to use".
-      await page.getByText('We are checking your payment. You can send your data once it is approved.').locator('visible=true').first().waitFor();
-      assert.equal(await page.getByText('Ready to use', { exact: true }).count(), 0);
-      assert.ok(await page.getByText('Opens after payment approval', { exact: true }).count() > 0);
-      await page.screenshot({ path: path.join(shots, 'plan-approval-pending-phone.png'), fullPage: true });
-      console.log('PASS wallet + UPI: QR for the remainder, popup, Approval Pending with uploads closed, phone width');
+      console.log('PASS from the portal: builder → checkout, price change refused then the new price, key kept over a reload, wallet + UPI, back to the plan with uploads closed');
       await context.close();
     }
 
-    // 3. The admin rejects the UPI payment: Payment Rejected with the reason; the wallet part comes back.
+    // 4. Phone width: the checkout and its UPI step fit, with no sideways scroll.
+    {
+      await User.updateOne({ _id: client._id }, { $set: { walletBalance: 0 } });
+      const { page, context } = await openAt(`/checkout/${plan._id}?purchase=one_time&from=website`, { width: 375, height: 812 });
+      await payButton(page, 'Continue to UPI').click();
+      await page.getByRole('heading', { name: 'Pay ₹1,800 by UPI' }).waitFor();
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'no sideways scroll on a phone');
+      await page.screenshot({ path: path.join(shots, 'checkout-upi-phone.png'), fullPage: true });
+      console.log('PASS phone width: checkout and UPI step with no sideways scroll');
+      await context.close();
+    }
+
+    // 5. The admin rejects: the result page says so (no automatic return), the plan page shows Payment Rejected.
     {
       const upi = await Transaction.findOne({ orderId: pendingId, paymentMethod: 'upi' }).lean();
       const response = await nativeFetch(`${origin}/api/wallet/reject-transaction`, { method: 'POST',
         headers: { 'Content-Type': 'application/json', Cookie: `token=${session(admin, 'admin')}` },
         body: JSON.stringify({ transactionId: upi.transactionId, rejectionReason: 'Payment not received' }) });
       assert.equal(response.status, 200, await response.text());
-      assert.equal(await wallet(), 400);
-      const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-      await context.addCookies([{ name: 'token', value: session(client, 'customer'), url: origin }]);
-      const page = await context.newPage(); page.setDefaultTimeout(20_000);
+      assert.equal(await wallet(), 400, 'the wallet part came back');
+      const { page, context } = await openAt(`/checkout/done/${pendingId}?from=portal`);
+      await page.getByRole('heading', { name: 'Payment not approved' }).waitFor();
+      await page.getByText('Reason: Payment not received. To get this plan, please buy it again.').waitFor();
+      assert.equal(await page.getByText(/Taking you to/).count(), 0);
+      await page.screenshot({ path: path.join(shots, 'result-rejected.png'), fullPage: true });
       await page.goto(`${origin}/plan-details/${pendingId}`);
       await page.getByText('Payment Rejected', { exact: true }).first().waitFor();
       await page.getByText('Your payment was not approved: Payment not received').locator('visible=true').first().waitFor();
-      assert.equal(await page.getByRole('button', { name: /Request Update/ }).first().isDisabled(), true);
-      await page.screenshot({ path: path.join(shots, 'plan-rejected.png'), fullPage: true });
-      console.log('PASS rejected: Payment Rejected with the reason, uploads closed, wallet part returned');
+      console.log('PASS rejected: the result page says why with no automatic return; the plan page shows Payment Rejected');
       await context.close();
     }
     assert.deepEqual(errors, [], `page errors: ${errors.join('; ')}`);

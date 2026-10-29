@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Info } from 'lucide-react';
-import SummaryApi from '../common';
+import usePlanQuote from '../hooks/usePlanQuote';
 import {
   buildTenureOptions,
   canChooseRelease,
   fileChoices,
   isFlexiblePlan,
+  planChoiceBody,
   purchaseOptions,
   updateChoices,
 } from '../helpers/serviceTenure';
@@ -176,62 +177,18 @@ const PlanBuilder = ({ plan, compact = false, onChange, refreshToken = 0, action
   const [fileCount, setFileCount] = useState(() => initial?.files || files.min || null);
   const [updateCount, setUpdateCount] = useState(() => initial?.updates || updates[0] || null);
   const [releaseMode, setReleaseMode] = useState(() => initial?.releaseMode || plan?.servicePlan?.releaseMode || 'all_at_once');
-  const [state, setState] = useState({ loading: false, error: '', quote: null, quoteKey: '' });
-  const requestRef = useRef(0);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
   const releaseChoice = canChooseRelease(plan, cycleMonths);
-  const choice = useMemo(() => {
-    if (!purchase) return null;
-    return {
-      purchase,
-      tenureMonths: purchase === 'one_time' ? undefined : tenureMonths,
-      files: flexible ? fileCount : undefined,
-      updates: flexible ? updateCount : undefined,
-      releaseMode: releaseChoice ? releaseMode : undefined,
-    };
-  }, [purchase, tenureMonths, flexible, fileCount, updateCount, releaseChoice, releaseMode]);
+  const choice = useMemo(
+    () => planChoiceBody(plan, { purchase, tenureMonths, files: fileCount, updates: updateCount, releaseMode }),
+    [plan, purchase, tenureMonths, fileCount, updateCount, releaseMode],
+  );
 
-  const request = JSON.stringify({ planId: plan?._id, choice, refreshToken });
-
-  // Ask the backend for the price whenever a choice changes; only the newest answer counts.
-  useEffect(() => {
-    if (!choice || !plan?._id) return undefined;
-    const ticket = requestRef.current + 1;
-    requestRef.current = ticket;
-    setState({ request, loading: true, error: '', quote: null, quoteKey: '' });
-    const timer = setTimeout(async () => {
-      try {
-        const response = await fetch(SummaryApi.servicePlanQuote.url, {
-          method: SummaryApi.servicePlanQuote.method,
-          credentials: 'include',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ planId: plan._id, ...choice }),
-        });
-        const result = await response.json().catch(() => ({}));
-        if (requestRef.current !== ticket) return;
-        if (!response.ok || !result.success) throw new Error(result.message || 'Could not work out the price. Please try again.');
-        setState({ request, loading: false, error: '', quote: result.data.quote, quoteKey: result.data.quoteKey });
-      } catch (error) {
-        if (requestRef.current !== ticket) return;
-        setState({ request, loading: false, error: error.message, quote: null, quoteKey: '' });
-      }
-    }, 250);
-    return () => { clearTimeout(timer); requestRef.current += 1; };
-  }, [choice, plan?._id, refreshToken, request]);
-
-  useEffect(() => {
-    const current = state.request === request;
-    const ready = Boolean(current && state.quote && state.quoteKey && !state.loading && !state.error);
-    onChangeRef.current?.({
-      ready,
-      loading: !current || state.loading,
-      error: current ? state.error : '',
-      quote: current ? state.quote : null,
-      body: ready ? { ...choice, quoteKey: state.quoteKey } : null,
-    });
-  }, [state, choice, request]);
+  // The backend price for this choice (hooks/usePlanQuote.js); handed to the parent as it changes.
+  const priced = usePlanQuote(plan, choice, refreshToken);
+  useEffect(() => { onChangeRef.current?.(priced); }, [priced]);
 
   const choosePurchase = (value) => {
     setPurchase(value);
@@ -362,7 +319,7 @@ const PlanBuilder = ({ plan, compact = false, onChange, refreshToken = 0, action
     }
   }
 
-  const bill = <QuoteBill plan={plan} quote={state.request === request ? state.quote : null} loading={state.request !== request || state.loading} error={state.request === request ? state.error : ''} compact={compact} />;
+  const bill = <QuoteBill plan={plan} quote={priced.quote} loading={priced.loading} error={priced.error} compact={compact} />;
 
   if (compact) {
     return (
