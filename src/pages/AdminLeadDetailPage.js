@@ -16,7 +16,8 @@ import KeyboardSelect from "../components/KeyboardSelect";
 import KeyboardHint from "../components/KeyboardHint";
 import { goToAdminReturn } from "../helpers/adminReturnNavigation";
 import isAccountEmail from "../helpers/accountEmail";
-import { DEFAULT_LEAD_STATUS, SELECTABLE_LEAD_STATUSES, leadStatusLabel, leadStatusStyle } from "../helpers/leadStatuses";
+import { DEFAULT_LEAD_STATUS, editFollowUpStatusOptions, followUpStatusOptions, leadStatusLabel, leadStatusStyle } from "../helpers/leadStatuses";
+import LeadProposals from "../components/admin/LeadProposals";
 
 const formatDateTime = (value) => {
   if (!value) return "N/A";
@@ -100,8 +101,8 @@ const AdminLeadDetailPage = () => {
         return;
       }
       setLead(result.data);
-      // Pre-select the follow-up badge to the lead's current stage (sensible default).
-      setFollowUpBadge(result.data?.status || DEFAULT_LEAD_STATUS);
+      // "" = keep the current status, the default for a new follow-up.
+      setFollowUpBadge("");
     } catch (error) {
       console.error("Error fetching lead:", error);
       toast.error("Error loading lead");
@@ -120,10 +121,6 @@ const AdminLeadDetailPage = () => {
   const handleAddFollowUp = async (event) => {
     event.preventDefault();
     if (isConverted) return;
-    if (!followUpBadge) {
-      toast.error("Please select a stage badge");
-      return;
-    }
     if (!followUpNote.trim()) {
       toast.error("Please write a follow-up note");
       return;
@@ -134,7 +131,7 @@ const AdminLeadDetailPage = () => {
       // follow-up also moves the lead's stage to the chosen badge (backend merge).
       const formData = new FormData();
       formData.append("action", "followUp");
-      formData.append("badge", followUpBadge);
+      if (followUpBadge) formData.append("badge", followUpBadge);
       formData.append("note", followUpNote);
       if (followUpFile) {
         formData.append("attachment", followUpFile);
@@ -391,11 +388,13 @@ const AdminLeadDetailPage = () => {
                     {leadStatusLabel(lead?.status)}
                   </span>
                   <p className="text-xs text-slate-500">
-                    Stage updates automatically from the badge on each follow-up below.
+                    Adding a proposal sets Proposal Sent. Choose Positive or Negative on a follow-up.
                   </p>
                 </div>
               )}
             </div>
+
+            <LeadProposals lead={lead} readOnly={isConverted} onChanged={fetchLead} />
 
             {!isConverted ? (
               <div className="rounded-3xl border border-slate-200 bg-white p-5">
@@ -441,9 +440,9 @@ const AdminLeadDetailPage = () => {
                         ref={followUpBadgeRef}
                         value={followUpBadge}
                         onChange={(value) => setFollowUpBadge(value)}
-                        options={SELECTABLE_LEAD_STATUSES.map((stage) => ({ value: stage, label: leadStatusLabel(stage) }))}
+                        options={followUpStatusOptions(lead?.status)}
                         onConfirm={() => followUpFileRef.current?.focus()}
-                        className={["font-semibold", leadStatusStyle(followUpBadge)].join(" ")}
+                        className={["font-semibold", leadStatusStyle(followUpBadge || lead?.status)].join(" ")}
                       />
                       <KeyboardHint id="hint-followup-stage" hint="Press ↓ or Enter to open · ↑↓ to move · Enter to select" />
                     </div>
@@ -512,7 +511,7 @@ const AdminLeadDetailPage = () => {
                                 ref={editBadgeRef}
                                 value={editBadge}
                                 onChange={(value) => setEditBadge(value)}
-                                options={SELECTABLE_LEAD_STATUSES.map((stage) => ({ value: stage, label: leadStatusLabel(stage) }))}
+                                options={editFollowUpStatusOptions(editBadge)}
                                 onConfirm={() => editNoteRef.current?.focus()}
                                 className={["font-semibold", leadStatusStyle(editBadge)].join(" ")}
                               />

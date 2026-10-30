@@ -9,10 +9,24 @@ const LEAD_STATUS_DISPLAY = {
 };
 
 export const LEAD_STATUSES = Object.keys(LEAD_STATUS_DISPLAY);
-// "Won" is set only by converting a lead, never chosen on a follow-up.
-export const SELECTABLE_LEAD_STATUSES = LEAD_STATUSES.filter((status) => status !== "Won");
+// Proposal Sent comes from adding a proposal and Won from converting; neither is chosen on a follow-up.
+export const SELECTABLE_LEAD_STATUSES = ["Contacted", "Positive", "Negative"];
 export const DEFAULT_LEAD_STATUS = "Contacted";
 
 export const leadStatusLabel = (status) => LEAD_STATUS_DISPLAY[status]?.label || status || DEFAULT_LEAD_STATUS;
 export const leadStatusStyle = (status) => (LEAD_STATUS_DISPLAY[status] || LEAD_STATUS_DISPLAY[DEFAULT_LEAD_STATUS]).style;
 export const leadStatusTone = (status) => LEAD_STATUS_DISPLAY[status]?.tone || "neutral";
+
+const toOption = (status) => ({ value: status, label: leadStatusLabel(status) });
+
+/** A new follow-up: keep the current status (value ""), or choose one. */
+export const followUpStatusOptions = (current) => [
+  { value: "", label: `Keep current status (${leadStatusLabel(current)})` },
+  ...SELECTABLE_LEAD_STATUSES.filter((status) => status !== current).map(toOption),
+];
+
+/** Editing a follow-up: an old badge that can't be chosen any more stays available for that entry. */
+export const editFollowUpStatusOptions = (current) => [
+  ...(current && !SELECTABLE_LEAD_STATUSES.includes(current) ? [toOption(current)] : []),
+  ...SELECTABLE_LEAD_STATUSES.map(toOption),
+];

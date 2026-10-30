@@ -52,9 +52,10 @@ export default function EmailReviewDialog() {
     dialogRef.current?.close(); setDraft(null);
   };
   if (!draft) return null;
+  const isWhatsapp = draft.channel === 'whatsapp';
   return createPortal(
     <dialog ref={dialogRef} onCancel={event => { event.preventDefault(); finish('skip'); }} aria-labelledby="email-review-title" className="w-[min(680px,95vw)] max-h-[90vh] overflow-auto rounded-2xl p-6 shadow-xl backdrop:bg-black/50">
-      <h2 id="email-review-title" className="text-xl font-bold">Review email</h2>
+      <h2 id="email-review-title" className="text-xl font-bold">{isWhatsapp ? 'Review WhatsApp message' : 'Review email'}</h2>
       <p className="my-2 text-sm text-slate-600">{draft.description}</p>
       <p className="my-3 text-sm"><strong>To:</strong> {(draft.to || []).join(', ')}</p>
       {!!draft.attachments?.length && <p className="text-sm">Attachments: {draft.attachments.map(a => a.filename).join(', ')}</p>}
@@ -71,10 +72,10 @@ export default function EmailReviewDialog() {
       {draft._id && <button type="button" disabled={busy || !subject.trim() || !docHasContent(reviewDoc)} className="mt-2 rounded border px-3 py-1 text-sm disabled:opacity-40" onClick={() => void updatePreview()}>Update preview</button>}
       {html && <EmailPreview html={html} />}
       {previewError && <p role="alert" className="mt-2 text-sm text-red-700">{previewError}</p>}
-      <p className="my-3 text-xs text-slate-500">Edits apply to this email only. Change reusable templates in Email Control.</p>
+      <p className="my-3 text-xs text-slate-500">Edits apply to this {isWhatsapp ? 'message' : 'email'} only. Change reusable templates in Email Control.</p>
       <div className="flex justify-end gap-3">
-        <button type="button" disabled={busy} className="rounded border px-4 py-2 disabled:opacity-40" onClick={() => finish('skip')}>Don’t Send Mail</button>
-        <button type="button" disabled={busy || !subject.trim() || !docHasContent(reviewDoc)} className="rounded bg-emerald-700 px-4 py-2 text-white disabled:opacity-40" onClick={() => finish('send')}>Send Mail</button>
+        <button type="button" disabled={busy} className="rounded border px-4 py-2 disabled:opacity-40" onClick={() => finish('skip')}>{isWhatsapp ? 'Don’t Send' : 'Don’t Send Mail'}</button>
+        <button type="button" disabled={busy || !subject.trim() || !docHasContent(reviewDoc)} className="rounded bg-emerald-700 px-4 py-2 text-white disabled:opacity-40" onClick={() => finish('send')}>{isWhatsapp ? 'Send WhatsApp' : 'Send Mail'}</button>
       </div>
     </dialog>, document.body,
   );
