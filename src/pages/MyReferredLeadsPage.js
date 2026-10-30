@@ -6,22 +6,7 @@ import Surface from '../components/Surface';
 import Badge from '../components/Badge';
 import SummaryApi from '../common';
 import displayINRCurrency from '../helpers/displayCurrency';
-
-// Same 5-stage pipeline as leadModel/AdminLeadsPage, mapped down to Badge's 4
-// tones (success/pending/error/neutral) since this is a simpler read-only view.
-const STATUS_TONE = {
-  New: 'neutral',
-  Contacted: 'pending',
-  'Proposal Sent': 'pending',
-  Negative: 'error',
-  Won: 'success',
-};
-
-// "Won" is the stored/backend status value; "Matured" is the display-only
-// rename used across the admin panel — kept consistent here.
-const STATUS_LABEL = {
-  Won: 'Matured',
-};
+import { leadStatusLabel, leadStatusTone } from '../helpers/leadStatuses';
 
 const formatDate = (value) => {
   if (!value) return 'N/A';
@@ -97,8 +82,8 @@ const MyReferredLeadsPage = () => {
                       <p className="mt-1 text-sm text-[var(--text-secondary)]">{formatDate(lead.createdAt)}</p>
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
-                      <Badge tone={STATUS_TONE[lead.status] || 'neutral'} size="sm">
-                        {STATUS_LABEL[lead.status] || lead.status}
+                      <Badge tone={leadStatusTone(lead.status)} size="sm">
+                        {leadStatusLabel(lead.status)}
                       </Badge>
                       <p className="text-base font-bold text-[var(--text-primary)]">{displayINRCurrency(lead.rewardAmount || 0)}</p>
                     </div>

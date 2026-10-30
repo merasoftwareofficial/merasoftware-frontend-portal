@@ -12,6 +12,7 @@ import AdminLayout from "../components/AdminLayout";
 import AdminWorkspaceShell, { AdminWorkspaceHeader } from "../components/admin/AdminWorkspaceShell";
 import AdminWorkspaceList from "../components/admin/AdminWorkspaceList";
 import AdminFilterDropdown from "../components/admin/AdminFilterDropdown";
+import { leadStatusLabel } from "../helpers/leadStatuses";
 
 const TYPE_STYLES = {
   client: "bg-emerald-100 text-emerald-800",
@@ -253,7 +254,7 @@ const AdminTrashPage = () => {
                   <div className="col-span-12 lg:col-span-3">
                     <p className="truncate text-base font-bold text-slate-950">{index + 1}. {item.name || "N/A"}</p>
                     <p className="mt-1 text-xs text-slate-500">
-                      {item.type === "lead" ? `Lead · ${item.status || "New"}` : "Client"}
+                      {item.type === "lead" ? `Lead · ${leadStatusLabel(item.status)}` : "Client"}
                     </p>
                   </div>
                   <div className="col-span-6 lg:col-span-3 lg:flex lg:items-center">

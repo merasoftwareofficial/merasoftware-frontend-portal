@@ -16,25 +16,7 @@ import KeyboardSelect from "../components/KeyboardSelect";
 import KeyboardHint from "../components/KeyboardHint";
 import { goToAdminReturn } from "../helpers/adminReturnNavigation";
 import isAccountEmail from "../helpers/accountEmail";
-
-// "Won" (Matured) is deliberately excluded — it is system-set only on convert,
-// never a manually selectable follow-up badge.
-const PIPELINE_STAGES = ["New", "Contacted", "Proposal Sent", "Negative"];
-
-const STATUS_STYLES = {
-  New: "bg-slate-100 text-slate-700 border-slate-200",
-  Contacted: "bg-blue-100 text-blue-800 border-blue-200",
-  "Proposal Sent": "bg-amber-100 text-amber-800 border-amber-200",
-  Negative: "bg-red-100 text-red-800 border-red-200",
-  Won: "bg-emerald-100 text-emerald-800 border-emerald-200",
-};
-
-// "Won" is the stored/backend status value (leadModel enum); "Matured" is the
-// display-only rename. Never change the stored value, only what is rendered.
-const STATUS_LABELS = {
-  Won: "Matured",
-};
-const statusLabel = (status) => STATUS_LABELS[status] || status;
+import { DEFAULT_LEAD_STATUS, SELECTABLE_LEAD_STATUSES, leadStatusLabel, leadStatusStyle } from "../helpers/leadStatuses";
 
 const formatDateTime = (value) => {
   if (!value) return "N/A";
@@ -119,7 +101,7 @@ const AdminLeadDetailPage = () => {
       }
       setLead(result.data);
       // Pre-select the follow-up badge to the lead's current stage (sensible default).
-      setFollowUpBadge(result.data?.status || "New");
+      setFollowUpBadge(result.data?.status || DEFAULT_LEAD_STATUS);
     } catch (error) {
       console.error("Error fetching lead:", error);
       toast.error("Error loading lead");
@@ -183,7 +165,7 @@ const AdminLeadDetailPage = () => {
   const startEditFollowUp = (item) => {
     setEditingFollowUpId(item._id);
     setEditNote(item.note || "");
-    setEditBadge(item.badge || "New");
+    setEditBadge(item.badge || DEFAULT_LEAD_STATUS);
   };
 
   useEffect(() => {
@@ -339,7 +321,7 @@ const AdminLeadDetailPage = () => {
           }
           meta={
             <>
-              <AdminInfoPill label="Status" value={statusLabel(lead?.status || "New")} variant="dark" />
+              <AdminInfoPill label="Status" value={leadStatusLabel(lead?.status)} variant="dark" />
               <AdminInfoPill label="Source" value={lead?.source || "N/A"} variant="dark" />
               <AdminInfoPill label="Added" value={lead?.createdAt ? new Date(lead.createdAt).toLocaleDateString("en-IN") : "N/A"} variant="dark" />
             </>
@@ -403,10 +385,10 @@ const AdminLeadDetailPage = () => {
                   <span
                     className={[
                       "inline-flex rounded-full border px-4 py-1.5 text-sm font-semibold",
-                      STATUS_STYLES[lead?.status] || STATUS_STYLES.New,
+                      leadStatusStyle(lead?.status),
                     ].join(" ")}
                   >
-                    {statusLabel(lead?.status || "New")}
+                    {leadStatusLabel(lead?.status)}
                   </span>
                   <p className="text-xs text-slate-500">
                     Stage updates automatically from the badge on each follow-up below.
@@ -459,9 +441,9 @@ const AdminLeadDetailPage = () => {
                         ref={followUpBadgeRef}
                         value={followUpBadge}
                         onChange={(value) => setFollowUpBadge(value)}
-                        options={PIPELINE_STAGES.map((stage) => ({ value: stage, label: statusLabel(stage) }))}
+                        options={SELECTABLE_LEAD_STATUSES.map((stage) => ({ value: stage, label: leadStatusLabel(stage) }))}
                         onConfirm={() => followUpFileRef.current?.focus()}
-                        className={["font-semibold", STATUS_STYLES[followUpBadge] || STATUS_STYLES.New].join(" ")}
+                        className={["font-semibold", leadStatusStyle(followUpBadge)].join(" ")}
                       />
                       <KeyboardHint id="hint-followup-stage" hint="Press ↓ or Enter to open · ↑↓ to move · Enter to select" />
                     </div>
@@ -530,9 +512,9 @@ const AdminLeadDetailPage = () => {
                                 ref={editBadgeRef}
                                 value={editBadge}
                                 onChange={(value) => setEditBadge(value)}
-                                options={PIPELINE_STAGES.map((stage) => ({ value: stage, label: statusLabel(stage) }))}
+                                options={SELECTABLE_LEAD_STATUSES.map((stage) => ({ value: stage, label: leadStatusLabel(stage) }))}
                                 onConfirm={() => editNoteRef.current?.focus()}
-                                className={["font-semibold", STATUS_STYLES[editBadge] || STATUS_STYLES.New].join(" ")}
+                                className={["font-semibold", leadStatusStyle(editBadge)].join(" ")}
                               />
                             </div>
                             <KeyboardHint id="hint-editfollowup-stage" hint="Press ↓ or Enter to open · ↑↓ to move · Enter to select" />
@@ -576,10 +558,10 @@ const AdminLeadDetailPage = () => {
                                 <span
                                   className={[
                                     "inline-flex rounded-full border px-3 py-1 text-xs font-semibold",
-                                    STATUS_STYLES[item.badge] || STATUS_STYLES.New,
+                                    leadStatusStyle(item.badge),
                                   ].join(" ")}
                                 >
-                                  {statusLabel(item.badge)}
+                                  {leadStatusLabel(item.badge)}
                                 </span>
                               ) : null}
                             </div>

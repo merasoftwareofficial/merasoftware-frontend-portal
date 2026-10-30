@@ -17,21 +17,7 @@ import KeyboardSelect from "../components/KeyboardSelect";
 import KeyboardHint from "../components/KeyboardHint";
 import { adminReturnState } from "../helpers/adminReturnNavigation";
 import leadSourceOptions from "../helpers/leadSourceOptions";
-
-const STATUS_STYLES = {
-  New: "bg-slate-100 text-slate-700",
-  Contacted: "bg-blue-100 text-blue-800",
-  "Proposal Sent": "bg-amber-100 text-amber-800",
-  Negative: "bg-red-100 text-red-800",
-  Won: "bg-emerald-100 text-emerald-800",
-};
-
-// "Won" is the stored/backend status value (leadModel enum); "Matured" is the
-// display-only rename. Never change the stored value, only what is rendered.
-const STATUS_LABELS = {
-  Won: "Matured",
-};
-const statusLabel = (status) => STATUS_LABELS[status] || status;
+import { LEAD_STATUSES, leadStatusLabel, leadStatusStyle } from "../helpers/leadStatuses";
 
 const formatDate = (value) => {
   if (!value) return "N/A";
@@ -382,14 +368,7 @@ const AdminLeadsPage = () => {
     }
 
     if (statusFilter !== "all") {
-      const statusMap = {
-        new: "New",
-        contacted: "Contacted",
-        "proposal-sent": "Proposal Sent",
-        negative: "Negative",
-        matured: "Won",
-      };
-      result = result.filter((lead) => lead.status === statusMap[statusFilter]);
+      result = result.filter((lead) => lead.status === statusFilter);
     }
 
     if (query) {
@@ -432,11 +411,7 @@ const AdminLeadsPage = () => {
 
   const statusFilterOptions = [
     { value: "all", label: "All" },
-    { value: "new", label: "New" },
-    { value: "contacted", label: "Contacted" },
-    { value: "proposal-sent", label: "Proposal Sent" },
-    { value: "negative", label: "Negative" },
-    { value: "matured", label: "Matured" },
+    ...LEAD_STATUSES.map((status) => ({ value: status, label: leadStatusLabel(status) })),
   ];
 
   return (
@@ -585,8 +560,8 @@ const AdminLeadsPage = () => {
                   </div>
                 </div>
                 <div className="col-span-6 lg:col-span-2 lg:flex lg:items-center">
-                  <span className={["inline-flex rounded-full px-3 py-1 text-xs font-semibold", STATUS_STYLES[lead.status] || STATUS_STYLES.New].join(" ")}>
-                    {statusLabel(lead.status || "New")}
+                  <span className={["inline-flex rounded-full px-3 py-1 text-xs font-semibold", leadStatusStyle(lead.status)].join(" ")}>
+                    {leadStatusLabel(lead.status)}
                   </span>
                 </div>
                 <div className="col-span-6 lg:col-span-1 lg:flex lg:items-center">
