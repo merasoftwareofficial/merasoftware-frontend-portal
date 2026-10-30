@@ -17,7 +17,8 @@ import KeyboardSelect from "../components/KeyboardSelect";
 import KeyboardHint from "../components/KeyboardHint";
 import { adminReturnState } from "../helpers/adminReturnNavigation";
 import leadSourceOptions from "../helpers/leadSourceOptions";
-import { LEAD_STATUSES, leadStatusLabel, leadStatusStyle } from "../helpers/leadStatuses";
+import { LEAD_STATUSES, PROPOSAL_SENT, leadStatusLabel, leadStatusStyle } from "../helpers/leadStatuses";
+import ProposalSentBadge from "../components/admin/ProposalSentBadge";
 
 const formatDate = (value) => {
   if (!value) return "N/A";
@@ -47,6 +48,7 @@ const AdminLeadsPage = () => {
   const [sortBy, setSortBy] = useState("lastUpdatedDesc");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [proposalSentOnly, setProposalSentOnly] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -371,6 +373,10 @@ const AdminLeadsPage = () => {
       result = result.filter((lead) => lead.status === statusFilter);
     }
 
+    if (proposalSentOnly) {
+      result = result.filter((lead) => lead.proposalSentAt);
+    }
+
     if (query) {
       result = result.filter((lead) => {
         return (
@@ -401,7 +407,7 @@ const AdminLeadsPage = () => {
     });
 
     return result;
-  }, [leads, searchTerm, sortBy, sourceFilter, statusFilter]);
+  }, [leads, proposalSentOnly, searchTerm, sortBy, sourceFilter, statusFilter]);
 
   const sourceFilterOptions = [
     { value: "all", label: "All" },
@@ -509,6 +515,22 @@ const AdminLeadsPage = () => {
                 </button>
               );
             })}
+
+            <span className="mx-1 w-px self-stretch bg-slate-200" aria-hidden="true" />
+
+            <button
+              type="button"
+              aria-pressed={proposalSentOnly}
+              onClick={() => setProposalSentOnly((current) => !current)}
+              className={[
+                "rounded-full px-4 py-1.5 text-xs font-semibold transition",
+                proposalSentOnly
+                  ? "bg-emerald-600 text-white"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+              ].join(" ")}
+            >
+              {PROPOSAL_SENT}
+            </button>
           </div>
         </div>
 
@@ -559,10 +581,11 @@ const AdminLeadsPage = () => {
                     <p className="mt-1 truncate text-xs text-slate-500">{lead.phone || "N/A"}</p>
                   </div>
                 </div>
-                <div className="col-span-6 lg:col-span-2 lg:flex lg:items-center">
+                <div className="col-span-6 flex flex-wrap items-center gap-1.5 lg:col-span-2">
                   <span className={["inline-flex rounded-full px-3 py-1 text-xs font-semibold", leadStatusStyle(lead.status)].join(" ")}>
                     {leadStatusLabel(lead.status)}
                   </span>
+                  {lead.proposalSentAt ? <ProposalSentBadge /> : null}
                 </div>
                 <div className="col-span-6 lg:col-span-1 lg:flex lg:items-center">
                   {lead.source === "guest" ? (

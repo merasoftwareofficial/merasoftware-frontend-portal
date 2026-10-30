@@ -48,6 +48,7 @@ const shots = process.env.LEAD_TEST_SHOTS;
   app.use('/api', requestMiddleware);
   app.use('/api/email-control', load('routes/emailControl'));
   const admin_ = (req, res, next) => { req.userId = String(admin._id); req.userRole = 'admin'; next(); };
+  app.get('/api/admin/leads', admin_, load('controller/lead/getLeads'));
   app.get('/api/admin/leads/:leadId', admin_, load('controller/lead/getLeadDetail'));
   app.post('/api/admin/leads/:leadId', admin_, leadFileUpload, load('controller/lead/updateLead'));
   app.post('/api/admin/leads/:leadId/proposal', admin_, leadFileUpload, load('controller/lead/uploadProposal'));
@@ -78,11 +79,15 @@ const shots = process.env.LEAD_TEST_SHOTS;
       import userReducer from './src/store/userSlice';
       import EmailReviewDialog from './src/components/EmailReviewDialog';
       import AdminLeadDetailPage from './src/pages/AdminLeadDetailPage';
+      import AdminLeadsPage from './src/pages/AdminLeadsPage';
       const store = configureStore({ reducer: { user: userReducer } });
       const leadId = new URLSearchParams(location.search).get('lead');
       createRoot(document.getElementById('root')).render(
-        <Provider store={store}><MemoryRouter initialEntries={['/admin-panel/leads/' + leadId]}>
-          <Routes><Route path="/admin-panel/leads/:leadId" element={<AdminLeadDetailPage />} /></Routes>
+        <Provider store={store}><MemoryRouter initialEntries={[leadId ? '/admin-panel/leads/' + leadId : '/admin-panel/leads']}>
+          <Routes>
+            <Route path="/admin-panel/leads" element={<AdminLeadsPage />} />
+            <Route path="/admin-panel/leads/:leadId" element={<AdminLeadDetailPage />} />
+          </Routes>
           <EmailReviewDialog /><Toaster />
         </MemoryRouter></Provider>);
     ` },
@@ -133,16 +138,18 @@ const shots = process.env.LEAD_TEST_SHOTS;
 
   const phoneLead = await leadModel.create({ name: 'Ravi Phone', phone: '9876543210', status: 'Contacted' });
 
-  await step('the dropdown offers only Keep current, Positive and Negative', async () => {
+  const dropdown = () => stageBox().locator('button[type="button"]').first();
+  await step('the dropdown offers only the three stages, with the current one chosen', async () => {
     await open(phoneLead);
-    await stageBox().locator('button[type="button"]').first().click();
+    assert.match(await dropdown().innerText(), /Contacted/);
+    await dropdown().click();
     const options = await page.getByRole('option').allInnerTexts();
-    assert.deepEqual(options.map(text => text.trim()), ['Keep current status (Contacted)', 'Positive', 'Negative']);
+    assert.deepEqual(options.map(text => text.trim()), ['Contacted', 'Positive', 'Negative']);
     await page.keyboard.press('Escape');
     await shot('1-contacted');
   });
 
-  await step('a follow-up left on Keep current does not change the status', async () => {
+  await step('a follow-up left on the current stage does not change it', async () => {
     await open(phoneLead);
     await addFollowUp('Called, will think');
     const row = await fresh(phoneLead._id);
@@ -150,12 +157,13 @@ const shots = process.env.LEAD_TEST_SHOTS;
     assert.equal(row.followUps[0].badge, 'Contacted');
   });
 
-  await step('Add Proposal sets the status, lists the version and adds the timeline entry', async () => {
+  await step('Add Proposal sets the badge, keeps the stage, lists the version and adds the timeline entry', async () => {
     await open(phoneLead);
     await addProposal({ amount: '25000', note: 'First offer' });
     await page.getByRole('dialog', { name: 'Review WhatsApp message' }).waitFor();
     const row = await fresh(phoneLead._id);
-    assert.equal(row.status, 'Proposal Sent');
+    assert.equal(row.status, 'Contacted');
+    assert.ok(row.proposalSentAt);
     assert.equal(row.proposals[0].amount, 25000);
     assert.ok(row.followUps.some(item => item.note === 'Proposal v1 added, ₹25,000. First offer'));
   });
@@ -174,24 +182,26 @@ const shots = process.env.LEAD_TEST_SHOTS;
     assert.match(rows[0].text, /drive-offer\.pdf/);
   });
 
-  await step('the page shows the version and status after the proposal', async () => {
+  await step('the page shows the version, the stage and the badge after the proposal', async () => {
     await open(phoneLead);
     await page.getByText('v1 · ₹25,000').waitFor();
     await page.getByText('First offer', { exact: true }).waitFor();
-    assert.ok(await page.getByText('Proposal Sent').count() > 0);
+    await page.getByText('Proposal Sent', { exact: true }).first().waitFor();
+    assert.match(await dropdown().innerText(), /Contacted/);
     await shot('3-proposal-sent');
   });
 
-  await step('a note on a Proposal Sent lead keeps it; Positive moves it on', async () => {
+  await step('choosing Positive or Negative changes the stage and the badge stays on screen', async () => {
     await open(phoneLead);
-    await stageBox().locator('button[type="button"]').first().click();
-    const options = await page.getByRole('option').allInnerTexts();
-    assert.deepEqual(options.map(text => text.trim()), ['Keep current status (Proposal Sent)', 'Contacted', 'Positive', 'Negative']);
-    await page.keyboard.press('Escape');
-    await addFollowUp('Client read it');
-    assert.equal((await fresh(phoneLead._id)).status, 'Proposal Sent');
-    await addFollowUp('Client said yes', 'Positive');
-    assert.equal((await fresh(phoneLead._id)).status, 'Positive');
+    const { proposalSentAt } = await fresh(phoneLead._id);
+    for (const stage of ['Negative', 'Positive']) {
+      await addFollowUp(`Moved to ${stage}`, stage);
+      const row = await fresh(phoneLead._id);
+      assert.equal(row.status, stage);
+      assert.deepEqual(row.proposalSentAt, proposalSentAt);
+      await page.getByText('Proposal Sent', { exact: true }).first().waitFor();
+    }
+    await shot('4-positive-with-badge');
   });
 
   await step('v2 on a Positive lead keeps Positive', async () => {
@@ -238,7 +248,47 @@ const shots = process.env.LEAD_TEST_SHOTS;
     await dialog.getByRole('button', { name: 'Don’t Send Mail' }).click();
     await page.waitForTimeout(200);
     assert.equal(await Queue.countDocuments(), before);
-    assert.equal((await fresh(mail._id)).status, 'Proposal Sent');
+    const row = await fresh(mail._id);
+    assert.equal(row.status, 'Contacted');
+    assert.ok(row.proposalSentAt);
+  });
+
+  await step('a Negative lead stays Negative when a proposal is added', async () => {
+    const negative = await leadModel.create({ name: 'Negative Lead', phone: '9000000015', status: 'Negative' });
+    await open(negative);
+    await addProposal({});
+    const dialog = page.getByRole('dialog', { name: 'Review WhatsApp message' });
+    await dialog.waitFor();
+    await dialog.getByRole('button', { name: 'Don’t Send' }).click();
+    const row = await fresh(negative._id);
+    assert.equal(row.status, 'Negative');
+    assert.ok(row.proposalSentAt);
+  });
+
+  await step('an unconverted Won lead shows Won in its dropdown and can add a follow-up', async () => {
+    const won = await leadModel.create({ name: 'Unlinked Won', phone: '9000000016', status: 'Won' });
+    await open(won);
+    assert.match(await dropdown().innerText(), /Matured/);
+    await addFollowUp('Still a note');
+    assert.equal((await fresh(won._id)).status, 'Won');
+  });
+
+  await step('the list shows the badge, and the stage and Proposal Sent filters work together', async () => {
+    await page.goto(origin + '/');
+    await page.getByText('Ravi Phone').first().waitFor();
+    const has = name => page.getByText(new RegExp(`^\\d+\\. ${name}$`)).count();
+    assert.ok(await page.getByText('Proposal Sent', { exact: true }).count() > 1, 'badge in rows and filter');
+    await shot('5-list');
+    await page.getByRole('button', { name: 'Proposal Sent', exact: true }).click();
+    assert.equal(await has('Big'), 0, 'no proposal: hidden');
+    assert.ok(await has('Ravi Phone') > 0);
+    assert.ok(await has('Negative Lead') > 0);
+    await page.getByRole('button', { name: 'Positive', exact: true }).click();
+    assert.ok(await has('Ravi Phone') > 0);
+    assert.equal(await has('Negative Lead'), 0, 'Negative stage: hidden');
+    await page.getByRole('button', { name: 'Proposal Sent', exact: true }).click();
+    await page.getByRole('button', { name: 'All', exact: true }).last().click();
+    assert.ok(await has('Big') > 0);
   });
 
   await step('a converted lead shows its proposals but no Add Proposal or follow-up form', async () => {
