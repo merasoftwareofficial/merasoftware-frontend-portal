@@ -2,6 +2,7 @@
 // "Won" is the stored value; "Matured" is only what is displayed.
 export const PROPOSAL_SENT = "Proposal Sent"; // a permanent badge (lead.proposalSentAt), and the badge on old follow-ups
 const LEAD_STATUS_DISPLAY = {
+  Inquiry: { label: "Inquiry", style: "bg-violet-100 text-violet-800 border-violet-200", tone: "pending" },
   Contacted: { label: "Contacted", style: "bg-blue-100 text-blue-800 border-blue-200", tone: "pending" },
   Positive: { label: "Positive", style: "bg-cyan-100 text-cyan-800 border-cyan-200", tone: "pending" },
   Negative: { label: "Negative", style: "bg-red-100 text-red-800 border-red-200", tone: "error" },
@@ -9,8 +10,8 @@ const LEAD_STATUS_DISPLAY = {
   [PROPOSAL_SENT]: { label: PROPOSAL_SENT, style: "bg-amber-100 text-amber-800 border-amber-200", tone: "pending" },
 };
 
-export const LEAD_STATUSES = ["Contacted", "Positive", "Negative", "Won"];
-// Won is set only by a lead becoming a client, never chosen.
+export const LEAD_STATUSES = ["Inquiry", "Contacted", "Positive", "Negative", "Won"];
+// Won is set only by a lead becoming a client, and Inquiry only by WhatsApp Auto Reply: neither is chosen.
 export const SELECTABLE_LEAD_STATUSES = ["Contacted", "Positive", "Negative"];
 export const DEFAULT_LEAD_STATUS = "Contacted";
 

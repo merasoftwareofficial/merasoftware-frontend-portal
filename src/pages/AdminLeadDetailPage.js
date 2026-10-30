@@ -231,7 +231,7 @@ const AdminLeadDetailPage = () => {
 
   // A client account needs a phone and a valid email; when either is missing,
   // Convert opens Edit Lead first and continues to the confirm step on save.
-  const isReadyToConvert = (target) => Boolean(target?.phone?.trim()) && isAccountEmail(target?.email || "");
+  const isReadyToConvert = (target) => Boolean(target?.name?.trim()) && Boolean(target?.phone?.trim()) && isAccountEmail(target?.email || "");
 
   const requestConvert = () => {
     if (!lead || converting || isConverted) return;
@@ -305,7 +305,7 @@ const AdminLeadDetailPage = () => {
         <AdminWorkspaceHeader
           icon={UserPlus}
           eyebrow={<>Lead</>}
-          title={lead?.name || (loading ? "Loading..." : "Lead")}
+          title={lead?.name || lead?.phone || (loading ? "Loading..." : "Lead")}
           subtitle={lead?.email || lead?.phone || ""}
           leadingAction={
             <button
@@ -354,6 +354,17 @@ const AdminLeadDetailPage = () => {
                   <span className="truncate">{lead?.phone || "N/A"}</span>
                 </div>
               </div>
+              {lead?.inquiry ? (
+                <div className="mt-4 border-t border-slate-100 pt-4 text-sm text-slate-700">
+                  <h4 className="text-xs font-bold uppercase tracking-wide text-slate-500">WhatsApp ad message</h4>
+                  <p className="mt-2 break-words text-slate-800">{lead.inquiry.message}</p>
+                  <p className="mt-2 text-xs text-slate-500">
+                    {lead.inquiry.firstAt ? new Date(lead.inquiry.firstAt).toLocaleString("en-IN") : ""}
+                    {lead.inquiry.lastAt && lead.inquiry.lastAt !== lead.inquiry.firstAt ? ` · last message ${new Date(lead.inquiry.lastAt).toLocaleString("en-IN")}` : ""}
+                  </p>
+                  {lead.inquiry.profileName ? <p className="mt-1 text-xs text-slate-500">WhatsApp name: {lead.inquiry.profileName} (may not be their real name)</p> : null}
+                </div>
+              ) : null}
               {lead?.notes ? (
                 <div className="mt-4 border-t border-slate-100 pt-4">
                   <h4 className="text-xs font-bold uppercase tracking-wide text-slate-500">Notes</h4>

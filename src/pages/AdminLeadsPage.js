@@ -580,7 +580,7 @@ const AdminLeadsPage = () => {
                 ].join(" ")}
               >
                 <div className="col-span-12 lg:col-span-3">
-                  <p className="truncate text-base font-bold text-slate-950">{index + 1}. {lead.name || "N/A"}</p>
+                  <p className="truncate text-base font-bold text-slate-950">{index + 1}. {lead.name || lead.phone || "N/A"}</p>
                 </div>
                 <div className="col-span-6 lg:col-span-3 lg:flex lg:items-center">
                   <div className="min-w-0">
