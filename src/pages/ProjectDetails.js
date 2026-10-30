@@ -830,7 +830,7 @@ const ProjectDetails = ({ isAdminView = false }) => {
   }
   
   // Calculate progress percentage
-  const progressPercentage = Math.round(order.projectProgress);
+  const progressPercentage = Number(order.projectProgress) || 0;
   const currentStageLabel = inProgressNode?.title || selectedNode?.title || 'All stages completed';
   const totalUpdates = order?.messages?.length || 0;
 
@@ -905,7 +905,7 @@ const ProjectDetails = ({ isAdminView = false }) => {
               installmentNumber={currentInstallment.installmentNumber}
               amount={currentInstallment.amount}
               projectId={orderId}
-              progress={Math.round(order.projectProgress)}
+              progress={Number(order.projectProgress) || 0}
               paymentStatus={currentInstallment.paymentStatus || 'none'}
               onClick={handleMakePayment}
             />

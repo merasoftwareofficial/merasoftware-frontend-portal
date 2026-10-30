@@ -5009,7 +5009,6 @@ const WorkspaceDetailSubpage = ({
   const activeRun = (item?.projectRuns || []).find((run) => run.status === "active") || null;
   const runNodes = activeRun ? allNodes.filter((node) => node.runId === activeRun.runId) : allNodes;
   const [updateMode, setUpdateMode] = useState(true);
-  const [updateMessage, setUpdateMessage] = useState("");
   const [selectedNodeKeys, setSelectedNodeKeys] = useState([]);
   const [selectionAnchorKey, setSelectionAnchorKey] = useState(null);
   const [focusedNodeKey, setFocusedNodeKey] = useState(null);
@@ -5081,7 +5080,6 @@ const WorkspaceDetailSubpage = ({
 
   useEffect(() => {
     setUpdateMode(true);
-    setUpdateMessage("");
     setSelectedNodeKeys([]);
     setSelectionAnchorKey(null);
     setFocusedNodeKey(null);
@@ -5131,7 +5129,6 @@ const WorkspaceDetailSubpage = ({
       setSelectionAnchorKey(selectionKey);
     }
     setUpdateMode(false);
-    setUpdateMessage("");
     setEditingNodeKey(null);
     onSelectCheckpoint?.(selectionKey);
   };
@@ -5148,30 +5145,50 @@ const WorkspaceDetailSubpage = ({
     return result;
   };
 
+  const nodeRequestRef = useRef(null);
+  const [messageRetryNodeId, setMessageRetryNodeId] = useState(null);
   const handleAddNode = async (title, percentage, message) => {
+    if (nodeRequestRef.current?.busy) return false;
+    const signature = JSON.stringify([item._id, title, percentage, message]);
+    if (nodeRequestRef.current?.signature !== signature) nodeRequestRef.current = { signature, requestId: crypto.randomUUID() };
+    nodeRequestRef.current.busy = true;
     setIsNodeActionSubmitting(true);
     setNodeActionNotice("");
     try {
-      await callNodeApi(SummaryApi.createProjectNode, "", {
-        title,
-        cumulativeProgress: Number(percentage),
-        message: message || undefined,
+      const result = await callNodeApi(SummaryApi.createProjectNode, "", {
+        title, cumulativeProgress: Number(percentage), message: message || undefined,
+        requestId: nodeRequestRef.current.requestId,
       });
-      toast.success("Node added successfully.");
-      setUpdateMessage("");
+      setMessageRetryNodeId(result.emailStatus === "unavailable" ? result.savedNodeId : null);
+      if (["disabled-or-unavailable", "no-recipient", "unavailable"].includes(result.emailStatus))
+        setNodeActionNotice(`Node saved. Message ${result.emailStatus === "unavailable" ? "preparation failed; retry below" : "is unavailable; check communication policy and customer contacts"}.`);
+      if (result.serviceActivationPending) setNodeActionNotice("Node saved. Follow-up service activation needs attention.");
+      toast.success("Node saved successfully.");
+      nodeRequestRef.current = null;
       onSoftRefresh?.();
+      return true;
     } catch (nodeError) {
-      console.error("Error adding project node:", nodeError);
-      toast.error(nodeError.message || "Failed to add node");
+      toast.error(nodeError.message || "Could not confirm node save. Retry the same details safely.");
+      return false;
     } finally {
+      if (nodeRequestRef.current) nodeRequestRef.current.busy = false;
       setIsNodeActionSubmitting(false);
     }
+  };
+  const retryNodeMessage = async (nodeId = messageRetryNodeId) => {
+    setIsNodeActionSubmitting(true);
+    try {
+      const result = await callNodeApi(SummaryApi.createProjectNode, "/message", { nodeId });
+      if (result.emailStatus === "unavailable") throw new Error("Message preparation is still unavailable");
+      setMessageRetryNodeId(null);
+      setNodeActionNotice(result.emailStatus ? `Message status: ${result.emailStatus}` : "Message prepared.");
+    } catch (error) { toast.error(error.message); }
+    finally { setIsNodeActionSubmitting(false); }
   };
 
   const handleStartEditNode = (selectionKey) => {
     setEditingNodeKey(selectionKey);
     setUpdateMode(true);
-    setUpdateMessage("");
   };
 
   const handleCancelEditNode = () => {
@@ -5190,7 +5207,6 @@ const WorkspaceDetailSubpage = ({
       });
       toast.success("Node updated successfully.");
       setEditingNodeKey(null);
-      setUpdateMessage("");
       onSoftRefresh?.();
     } catch (nodeError) {
       console.error("Error updating project node:", nodeError);
@@ -5678,6 +5694,7 @@ const WorkspaceDetailSubpage = ({
                     </label>
                   </div>
 
+                  {messageRetryNodeId && <button type="button" disabled={isNodeActionSubmitting} onClick={() => retryNodeMessage()} className="rounded-lg border border-blue-300 px-3 py-2 text-sm text-blue-700">Retry customer message</button>}
                   {nodeActionNotice ? (
                     <p className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
                       {nodeActionNotice}
@@ -5733,7 +5750,7 @@ const WorkspaceDetailSubpage = ({
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="truncate font-semibold text-slate-900">
-                                {allNodesCompleted ? "Send Update" : "Add Node"}
+                                {allNodesCompleted ? "Review update message" : "Add Node"}
                               </p>
                               <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
                                 Action
@@ -5833,12 +5850,12 @@ const WorkspaceDetailSubpage = ({
                   node={selectedNode}
                   messages={item?.messages}
                   updateMode={updateMode}
-                  updateModeLabel={allNodesCompleted ? "Send Update" : "Add Node"}
-                  updateMessage={updateMessage}
-                  onUpdateMessageChange={setUpdateMessage}
+                  updateModeLabel="Add Node"
                   currentProjectProgress={currentProjectProgress}
                   formatDateTime={formatDateTime}
                   onAddNode={handleAddNode}
+                  onPrepareMessage={retryNodeMessage}
+                  latestNodeId={activeNodes.find(node => Number(node.cumulativeProgress) === Number(currentProjectProgress))?.nodeId}
                   isSubmitting={isNodeActionSubmitting}
                   editingNode={editingNodeForDetail}
                   editBounds={editBounds}

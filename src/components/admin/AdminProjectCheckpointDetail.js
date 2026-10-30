@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import AdminInfoPill from "./AdminInfoPill";
-import SummaryApi from "../../common";
 
 const getStatusLabel = (node) => {
   if (node?.status === "deleted") return "Deleted";
@@ -21,56 +20,22 @@ const AdminProjectCheckpointDetail = ({
   messages = [],
   updateMode = false,
   updateModeLabel = "Add Node",
-  updateMessage = "",
-  onUpdateMessageChange,
   formatDateTime,
   onAddNode,
+  onPrepareMessage,
+  latestNodeId,
   isSubmitting = false,
   editingNode = null,
   editBounds = null,
   onSaveCorrection,
   onCancelEdit,
 }) => {
-  const [templates, setTemplates] = useState([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState("");
-  const [isTemplateDirty, setIsTemplateDirty] = useState(false);
-  const [isSaveAsOpen, setIsSaveAsOpen] = useState(false);
-  const [saveAsName, setSaveAsName] = useState("");
-  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [newNodeTitle, setNewNodeTitle] = useState("");
   const [newNodePercentage, setNewNodePercentage] = useState("");
-
   useEffect(() => {
-    if (editingNode) {
-      setNewNodeTitle(editingNode.title || "");
-      setNewNodePercentage(String(editingNode.cumulativeProgress ?? ""));
-    } else {
-      setNewNodeTitle("");
-      setNewNodePercentage("");
-    }
+    setNewNodeTitle(editingNode?.title || "");
+    setNewNodePercentage(editingNode ? String(editingNode.cumulativeProgress ?? "") : "");
   }, [editingNode]);
-
-  useEffect(() => {
-    const fetchTemplates = async () => {
-      try {
-        const response = await fetch(SummaryApi.getMessageTemplates.url, {
-          method: SummaryApi.getMessageTemplates.method.toUpperCase(),
-          credentials: "include",
-        });
-        const result = await response.json();
-        if (result.success) {
-          setTemplates(Array.isArray(result.data) ? result.data.map((template) => ({
-            id: template._id,
-            name: template.name,
-            message: template.message,
-          })) : []);
-        }
-      } catch (error) {
-        console.error("Error fetching message templates:", error);
-      }
-    };
-    fetchTemplates();
-  }, []);
 
   const enteredPercentage = Number(newNodePercentage);
   const isStartingNodeEdit = Boolean(editingNode && editBounds?.isStartingNode);
@@ -100,299 +65,37 @@ const AdminProjectCheckpointDetail = ({
   const canSubmitNode = Boolean(newNodeTitle.trim() && isNewPercentageValid) && !isSubmitting;
 
   if (updateMode) {
-    const selectedTemplate = templates.find((template) => template.id === selectedTemplateId);
-    const handleTemplateChange = (event) => {
-      const templateId = event.target.value;
-      setSelectedTemplateId(templateId);
-      setIsTemplateDirty(false);
-      setIsSaveAsOpen(false);
-      setSaveAsName("");
-      setIsDeleteConfirmOpen(false);
-      const template = templates.find((item) => item.id === templateId);
-      onUpdateMessageChange?.(template?.message || "");
-    };
-    const handleSaveTemplate = async () => {
-      if (!selectedTemplate || !isTemplateDirty) return;
-      try {
-        const response = await fetch(`${SummaryApi.updateMessageTemplate.url}/${selectedTemplate.id}`, {
-          method: SummaryApi.updateMessageTemplate.method.toUpperCase(),
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: updateMessage }),
-        });
-        const result = await response.json();
-        if (!result.success) throw new Error(result.message || "Failed to save template");
-        setTemplates((current) => current.map((template) => (
-          template.id === selectedTemplate.id
-            ? { ...template, message: updateMessage }
-            : template
-        )));
-        setIsTemplateDirty(false);
-      } catch (error) {
-        console.error("Error saving message template:", error);
-      }
-    };
-    const handleSaveAsTemplate = async () => {
-      if (!saveAsName.trim() || !updateMessage.trim()) return;
-      try {
-        const response = await fetch(SummaryApi.createMessageTemplate.url, {
-          method: SummaryApi.createMessageTemplate.method.toUpperCase(),
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: saveAsName.trim(), message: updateMessage }),
-        });
-        const result = await response.json();
-        if (!result.success) throw new Error(result.message || "Failed to save template");
-        const template = {
-          id: result.data._id,
-          name: result.data.name,
-          message: result.data.message,
-        };
-        setTemplates((current) => [...current, template]);
-        setSelectedTemplateId(template.id);
-        setIsTemplateDirty(false);
-        setIsSaveAsOpen(false);
-        setSaveAsName("");
-      } catch (error) {
-        console.error("Error saving new message template:", error);
-      }
-    };
-    const handleDeleteTemplate = async () => {
-      if (!selectedTemplate) return;
-      try {
-        const response = await fetch(`${SummaryApi.deleteMessageTemplate.url}/${selectedTemplate.id}`, {
-          method: SummaryApi.deleteMessageTemplate.method.toUpperCase(),
-          credentials: "include",
-        });
-        const result = await response.json();
-        if (!result.success) throw new Error(result.message || "Failed to delete template");
-        setTemplates((current) => current.filter((template) => template.id !== selectedTemplate.id));
-        setSelectedTemplateId("");
-        setIsTemplateDirty(false);
-        setIsDeleteConfirmOpen(false);
-      } catch (error) {
-        console.error("Error deleting message template:", error);
-      }
-    };
-    return (
-      <div className="rounded-[1.25rem] border border-slate-300 bg-slate-100 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium text-slate-500">Project Update</p>
-            <h3 className="mt-1 text-lg font-semibold text-slate-900">
-              {editingNode ? "Edit Node" : updateModeLabel}
-            </h3>
-          </div>
-          <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700">
-            {editingNode ? "Correction" : (updateModeLabel.includes("Send") ? "Project update" : (node?.title || "New node"))}
-          </span>
-        </div>
-
-        {editingNode ? (
-          <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-            Editing "{editingNode.title}" — saving will replace this node with the values below.
-          </p>
-        ) : null}
-
-        <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50/60 p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-sm font-semibold text-slate-900">
-                {editingNode ? "Corrected node details" : "New node update"}
-              </p>
-            </div>
-            <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-blue-700">
-              Current {Number(currentProjectProgress || 0).toFixed(1)}%
-            </span>
-          </div>
-          <div className="mt-2.5 grid gap-2 sm:grid-cols-[9rem_minmax(0,1fr)]">
-            <label className="text-xs font-semibold text-slate-700">
-              New progress %
-              <input
-                type="number"
-                min={minimumNextPercentage}
-                max={maximumNextPercentage}
-                step="0.1"
-                value={isStartingNodeEdit ? "0" : newNodePercentage}
-                onChange={(event) => setNewNodePercentage(event.target.value)}
-                placeholder={minimumNextPercentage.toFixed(1)}
-                disabled={isStartingNodeEdit}
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm font-normal text-slate-800 outline-none focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-              />
-            </label>
-            <label className="text-xs font-semibold text-slate-700">
-              Node title
-              <input
-                value={newNodeTitle}
-                onChange={(event) => setNewNodeTitle(event.target.value)}
-                placeholder="Example: Homepage approved"
-                className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm font-normal text-slate-800 outline-none focus:border-blue-500"
-              />
-            </label>
-          </div>
-          <p className={`mt-1.5 text-xs ${newNodePercentage && !isNewPercentageValid ? "text-rose-700" : "text-slate-500"}`}>
-            {isStartingNodeEdit
-              ? "Starting node stays at 0% — only its title can be changed."
-              : `Valid range: ${minimumNextPercentage.toFixed(1)}%–${maximumNextPercentage.toFixed(1)}%.`}
-          </p>
-        </div>
-
-        <div className="mt-3 rounded-xl border border-slate-300 bg-white p-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <label className="text-sm font-semibold text-slate-900" htmlFor="admin-update-template">
-                Message template
-              </label>
-              <p className="mt-0.5 text-xs text-slate-500">Choose or edit a template.</p>
-            </div>
-          </div>
-          <select
-            id="admin-update-template"
-            value={selectedTemplateId}
-            onChange={handleTemplateChange}
-          className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-800 outline-none focus:border-slate-500"
-          >
-            <option value="">Choose a template</option>
-            {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
-          </select>
-
-          {selectedTemplate ? (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={handleSaveTemplate}
-                disabled={!isTemplateDirty}
-                className={[
-                  "rounded-lg px-2.5 py-1.5 text-xs font-semibold transition",
-                  isTemplateDirty
-                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                    : "border border-slate-300 bg-white text-slate-400",
-                ].join(" ")}
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsSaveAsOpen((current) => !current)}
-                className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-              >
-                Save As
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsDeleteConfirmOpen((current) => !current)}
-                className="rounded-lg border border-rose-200 px-2.5 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50"
-              >
-                Delete
-              </button>
-            </div>
-          ) : null}
-
-          {isDeleteConfirmOpen && selectedTemplate ? (
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2">
-              <p className="text-xs font-medium text-rose-800">Delete “{selectedTemplate.name}” permanently?</p>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsDeleteConfirmOpen(false)}
-                  className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteTemplate}
-                  className="rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-semibold text-white"
-                >
-                  Delete template
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          {isSaveAsOpen && selectedTemplate ? (
-            <div className="mt-3 flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <input
-                value={saveAsName}
-                onChange={(event) => setSaveAsName(event.target.value)}
-                placeholder="New template name"
-                className="min-w-[12rem] flex-1 rounded-lg border border-slate-300 bg-white p-2 text-sm outline-none focus:border-slate-500"
-              />
-              <button
-                type="button"
-                onClick={handleSaveAsTemplate}
-                disabled={!saveAsName.trim() || !updateMessage.trim()}
-                className="rounded-lg bg-slate-800 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Save as new
-              </button>
-            </div>
-          ) : null}
-        </div>
-
-        <textarea
-          value={updateMessage}
-          onChange={(event) => {
-            const value = event.target.value;
-            onUpdateMessageChange?.(value);
-            setIsTemplateDirty(Boolean(selectedTemplate && value !== selectedTemplate.message));
-          }}
-          placeholder="Write an update message..."
-          className="mt-3 min-h-20 w-full resize-none rounded-xl border border-slate-300 bg-white p-3 text-sm text-slate-700 outline-none focus:border-slate-500"
-        />
-        <div className="mt-3 flex flex-wrap justify-end gap-2">
-          {editingNode ? (
-            <>
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={() => onCancelEdit?.()}
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Cancel Edit
-              </button>
-              <button
-                type="button"
-                disabled={!canSubmitNode}
-                onClick={async () => {
-                  await onSaveCorrection?.(editingNode, newNodeTitle.trim(), enteredPercentage, updateMessage.trim());
-                }}
-                className="rounded-xl bg-amber-600 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isSubmitting ? "Saving..." : "Save Correction"}
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                disabled={!canSubmitNode}
-                onClick={async () => {
-                  await onAddNode?.(newNodeTitle.trim(), enteredPercentage, "");
-                  setNewNodeTitle("");
-                  setNewNodePercentage("");
-                }}
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isSubmitting ? "Adding..." : "Add Node"}
-              </button>
-              <button
-                type="button"
-                disabled={!canSubmitNode || !updateMessage.trim()}
-                onClick={async () => {
-                  await onAddNode?.(newNodeTitle.trim(), enteredPercentage, updateMessage.trim());
-                  setNewNodeTitle("");
-                  setNewNodePercentage("");
-                }}
-                className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isSubmitting ? "Adding..." : "Add Node & Send"}
-              </button>
-            </>
-          )}
-        </div>
+    if (!editingNode && Number(currentProjectProgress) >= 100) return <div className="rounded-2xl border border-slate-300 bg-white p-4">
+      <h3 className="text-lg font-semibold">Project complete — 100%</h3>
+      <p className="mt-2 text-sm text-slate-600">Review the saved completion update in Communication.</p>
+      <button type="button" disabled={isSubmitting || !latestNodeId} onClick={() => onPrepareMessage?.(latestNodeId)} className="mt-4 rounded-lg bg-blue-700 px-4 py-2 text-white disabled:opacity-50">Review customer message</button>
+    </div>;
+    return <div className="rounded-2xl border border-slate-300 bg-white p-4">
+      <h3 className="text-lg font-semibold">{editingNode ? "Edit Node" : updateModeLabel}</h3>
+      <p className="mt-2 text-sm text-slate-600">Current progress: {Number(currentProjectProgress || 0)}%</p>
+      <div className="mt-4 grid gap-4 sm:grid-cols-[9rem_1fr]">
+        <label className="text-sm font-medium">New progress %
+          <input type="number" min={minimumNextPercentage} max={maximumNextPercentage} step="0.1"
+            disabled={isStartingNodeEdit || isSubmitting} value={isStartingNodeEdit ? "0" : newNodePercentage}
+            onChange={event => setNewNodePercentage(event.target.value)}
+            className="mt-1 w-full rounded-lg border border-slate-300 p-2" />
+        </label>
+        <label className="text-sm font-medium">Node title
+          <input value={newNodeTitle} disabled={isSubmitting} onChange={event => setNewNodeTitle(event.target.value)}
+            className="mt-1 w-full rounded-lg border border-slate-300 p-2" />
+        </label>
       </div>
-    );
+      <p className="mt-2 text-xs text-slate-500">{isStartingNodeEdit ? "Starting node stays at 0%." : `Valid range: ${minimumNextPercentage.toFixed(1)}%–${maximumNextPercentage.toFixed(1)}%.`}</p>
+      {!editingNode && <p className="mt-3 text-sm text-slate-600">Save this node, then review the customer message in the communication popup.</p>}
+      <div className="mt-4 flex gap-3">
+        {editingNode && <button type="button" disabled={isSubmitting} onClick={onCancelEdit} className="rounded-lg border px-4 py-2">Cancel Edit</button>}
+        <button type="button" disabled={!canSubmitNode} className="rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white disabled:opacity-50"
+          onClick={async () => {
+            if (editingNode) await onSaveCorrection?.(editingNode, newNodeTitle.trim(), enteredPercentage, "");
+            else if (await onAddNode?.(newNodeTitle.trim(), enteredPercentage, "")) { setNewNodeTitle(""); setNewNodePercentage(""); }
+          }}>{isSubmitting ? "Saving..." : editingNode ? "Save Correction" : "Add Node"}</button>
+      </div>
+    </div>;
   }
 
   if (!node) {
@@ -419,6 +122,8 @@ const AdminProjectCheckpointDetail = ({
         </span>
       </div>
 
+      {node.status === "active" && node.visibleToClient !== false && Number(node.cumulativeProgress) > 0 && !node.editedAt &&
+        <button type="button" disabled={isSubmitting} onClick={() => onPrepareMessage?.(node.nodeId)} className="mt-4 rounded-lg border border-blue-300 px-3 py-2 text-sm font-medium text-blue-700">Review customer message</button>}
       <div className="mt-4 grid grid-cols-2 gap-3">
         <AdminInfoPill label="Cumulative Progress" value={`${node.cumulativeProgress || 0}%`} />
         <AdminInfoPill label="Visible To Client" value={node.visibleToClient === false ? "No" : "Yes"} />
