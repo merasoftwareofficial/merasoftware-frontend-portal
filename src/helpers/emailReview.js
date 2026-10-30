@@ -7,7 +7,7 @@ export function registerEmailReview(handler) {
   showReview = handler;
   return () => { if (showReview === handler) showReview = null; };
 }
-export function reviewEmail(draft, description = 'The action is saved. Choose whether to send this email.') {
+export function reviewEmail(draft, description = 'The action is saved. Choose whether to send this message.') {
   const task = reviewTail.then(() => showReview ? showReview({ ...draft, description }) : { choice: 'skip' });
   reviewTail = task.catch(() => {});
   return task;
@@ -23,6 +23,7 @@ export async function emailApi(path = '', options = {}) {
 }
 export async function decideDraft(draft) {
   const decision = await reviewEmail(draft);
+  if (decision.processedResult) return decision.processedResult;
   return emailApi(`/drafts/${draft._id}/decision`, { method: 'POST', body: JSON.stringify(decision) });
 }
 window.fetch = async (input, options) => {
@@ -38,7 +39,7 @@ window.fetch = async (input, options) => {
       for (const id of result.emailDraftIds) {
         try {
           const decision = await decideDraft(await emailApi(`/drafts/${id}`));
-          window.dispatchEvent(new CustomEvent('email-review-result', { detail: decision.status }));
+          window.dispatchEvent(new CustomEvent('email-review-result', { detail: decision.delivery ? decision : decision.status }));
         }
         catch (error) { window.dispatchEvent(new CustomEvent('email-review-error', { detail: error.message })); }
       }

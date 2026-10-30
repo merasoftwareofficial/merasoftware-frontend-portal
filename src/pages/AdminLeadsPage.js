@@ -285,9 +285,9 @@ const AdminLeadsPage = () => {
     try {
       setSaving(true);
       let emailReview = { choice: 'skip' };
-      if (form.email.trim()) {
-        const preview = await emailApi('/lead-preview', { method: 'POST', body: JSON.stringify({ name: form.name.trim(), email: form.email.trim() }) });
-        if (preview) emailReview = await reviewEmail(preview, 'Choose whether to email this new lead. The lead will be added with either choice; mail sends only if saving succeeds.');
+      if (form.email.trim() || form.phone.trim()) {
+        const preview = await emailApi('/lead-preview', { method: 'POST', body: JSON.stringify({ name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim() }) });
+        if (preview) emailReview = await reviewEmail(preview, 'Choose whether to send this welcome message. The lead is added with either choice; sending starts only after saving succeeds.');
       }
       const response = await fetch(SummaryApi.createLead.url, {
         method: SummaryApi.createLead.method,
@@ -303,8 +303,15 @@ const AdminLeadsPage = () => {
       }
 
       toast.success("Lead created successfully");
-      if (result.emailStatus === 'sent') toast.success('Welcome email sent');
-      if (['failed', 'unavailable'].includes(result.emailStatus)) toast.error('Lead saved. Email was not confirmed as sent; check Email Control.');
+      if (result.messageDelivery) {
+        const delivery = result.messageDelivery;
+        const completed = [delivery.email === 'sent' ? 'Email sent' : '', delivery.whatsapp === 'queued' ? 'WhatsApp queued' : ''].filter(Boolean).join(' · ');
+        if (completed) toast.success(completed);
+        if (delivery.failure) toast.error(`Lead saved. ${delivery.failure} Review unfinished delivery in Communication.`);
+      } else {
+        if (result.emailStatus === 'sent') toast.success('Welcome email sent');
+        if (['failed', 'unavailable'].includes(result.emailStatus)) toast.error('Lead saved. Message delivery needs review in Communication.');
+      }
       setShowAddModal(false);
       setReferenceQuery("");
       setReferenceResults([]);

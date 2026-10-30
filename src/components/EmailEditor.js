@@ -46,7 +46,7 @@ export const plainDoc = (text = '') => ({ type: 'doc', content: text.split(/\n{2
 /** True when a document holds any text or chip. */
 export const docHasContent = node => !!node && (node.type === 'emailVariable' || node.type === 'emailSection' || (node.type === 'text' ? !!node.text?.trim() : (node.content || []).some(docHasContent)));
 
-export default function EmailEditor({ id, label, value, onChange, disabled, variables = [], blocks = [] }) {
+export default function EmailEditor({ id, label, value, onChange, disabled, variables = [], blocks = [], singleLine = false, compact = false }) {
   // Keyed by content: callers pass fresh arrays each render, and a new key rebuilds the editor.
   const labelsKey = JSON.stringify([...variables, ...blocks].map(row => [row.key, { label: row.label, hint: row.hint }]));
   const labels = useMemo(() => Object.fromEntries(JSON.parse(labelsKey)), [labelsKey]);
@@ -55,22 +55,22 @@ export default function EmailEditor({ id, label, value, onChange, disabled, vari
   const editor = useEditor({
     editable: !disabled,
     extensions: [
-      StarterKit.configure({ blockquote: false, code: false, codeBlock: false, horizontalRule: false, italic: false, orderedList: false, strike: false, heading: { levels: [2] } }),
+      StarterKit.configure({ blockquote: false, code: false, codeBlock: false, horizontalRule: false, italic: false, orderedList: false, strike: false, heading: singleLine ? false : { levels: [2] }, bulletList: singleLine ? false : {}, hardBreak: singleLine ? false : {} }),
       Link.configure({ autolink: true, openOnClick: false, linkOnPaste: true }),
       EmailVariable.configure({ labels }),
-      EmailSection.configure({ labels }),
+      ...(!singleLine ? [EmailSection.configure({ labels })] : []),
     ],
     content: value,
-    editorProps: { attributes: { id, role: 'textbox', 'aria-label': label, 'aria-multiline': 'true', class: 'min-h-[200px] px-3 py-2 outline-none [&_p]:my-1 [&_h2]:my-2 [&_h2]:text-lg [&_h2]:font-bold [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-6 [&_a]:text-cyan-700 [&_a]:underline' } },
+    editorProps: { handleKeyDown: (_, event) => singleLine && event.key === 'Enter', attributes: { id, role: 'textbox', 'aria-label': label, 'aria-multiline': String(!singleLine), class: `${singleLine ? 'min-h-[40px]' : 'min-h-[160px]'} px-3 py-2 outline-none [&_p]:my-1 [&_h2]:my-2 [&_h2]:text-lg [&_h2]:font-bold [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-6 [&_a]:text-cyan-700 [&_a]:underline` } },
     onUpdate: ({ editor: instance }) => { const doc = instance.getJSON(); emitted.current = JSON.stringify(doc); onChange(doc); },
-  }, [labelsKey]);
+  }, [labelsKey, singleLine]);
 
   useEffect(() => {
     if (!editor || !value || JSON.stringify(value) === emitted.current) return;
     emitted.current = JSON.stringify(value);
     editor.commands.setContent(value, false);
   }, [editor, value]);
-  useEffect(() => { editor?.setEditable(!disabled); }, [editor, disabled]);
+  useEffect(() => { editor?.setEditable(!disabled, false); }, [editor, disabled]);
 
   const button = on => `rounded border px-3 py-1 text-sm disabled:opacity-40 ${on ? 'bg-cyan-700 text-white border-cyan-700' : ''}`;
   const choices = [...variables.map(row => ({ ...row, kind: 'emailVariable' })), ...blocks.map(row => ({ ...row, kind: 'emailSection' }))];
@@ -79,9 +79,9 @@ export default function EmailEditor({ id, label, value, onChange, disabled, vari
       <span id={`${id}-label`} className="mt-4 block">{label}</span>
       <div className="mt-1 rounded border">
         <div role="toolbar" aria-label={`${label} formatting`} className="flex flex-wrap items-center gap-2 border-b p-2">
-          <button type="button" className={button(editor?.isActive('bold'))} disabled={disabled || !editor} onClick={() => editor.chain().focus().toggleBold().run()}><strong>B</strong> Bold</button>
+          {!singleLine && <><button type="button" className={button(editor?.isActive('bold'))} disabled={disabled || !editor} onClick={() => editor.chain().focus().toggleBold().run()}><strong>B</strong> Bold</button>
           <button type="button" className={button(editor?.isActive('heading'))} disabled={disabled || !editor} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>Heading</button>
-          <button type="button" className={button(editor?.isActive('bulletList'))} disabled={disabled || !editor} onClick={() => editor.chain().focus().toggleBulletList().run()}>• List</button>
+          <button type="button" className={button(editor?.isActive('bulletList'))} disabled={disabled || !editor} onClick={() => editor.chain().focus().toggleBulletList().run()}>• List</button></>}
           {!!choices.length && (
             <select aria-label={`Insert detail into ${label}`} disabled={disabled || !editor} value="" className="rounded border px-2 py-1 text-sm"
               onChange={event => { const choice = choices.find(row => `${row.kind}:${row.key}` === event.target.value); if (choice) editor.chain().focus().insertContent({ type: choice.kind, attrs: { key: choice.key } }).run(); }}>
@@ -93,7 +93,9 @@ export default function EmailEditor({ id, label, value, onChange, disabled, vari
         </div>
         <EditorContent editor={editor} />
       </div>
-      {!!choices.length && <DetailsGuide label={label} choices={choices} disabled={disabled || !editor} onInsert={choice => editor.chain().focus().insertContent({ type: choice.kind, attrs: { key: choice.key } }).run()} />}
+      {!singleLine && !!choices.length && (compact
+        ? <details className="mt-2 text-sm"><summary className="cursor-pointer">Available details</summary><DetailsGuide label={label} choices={choices} disabled={disabled || !editor} onInsert={choice => editor.chain().focus().insertContent({ type: choice.kind, attrs: { key: choice.key } }).run()} /></details>
+        : <DetailsGuide label={label} choices={choices} disabled={disabled || !editor} onInsert={choice => editor.chain().focus().insertContent({ type: choice.kind, attrs: { key: choice.key } }).run()} />)}
     </>
   );
 }
