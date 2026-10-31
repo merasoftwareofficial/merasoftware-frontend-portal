@@ -25,7 +25,7 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
       window.fetch = async (url, options = {}) => {
         window.calls.push({ url: String(url), body: options.body ? JSON.parse(options.body) : null });
         const json = data => new Response(JSON.stringify({ success: true, ...data }), { headers: { 'content-type': 'application/json' } });
-        if (/\/api\/admin\/leads\/lead1\/(message|final-message)$/.test(String(url))) {
+        if (String(url).endsWith('/api/admin/leads/lead1/message') || String(url).endsWith('/api/admin/leads/lead1/final-message')) {
           await new Promise(resolve => setTimeout(resolve, 700));
           if (window.failAction) throw new Error('Simulated offline');
           return json({ emailStatus: 'awaiting-review', emailDraftIds: ['draft1'], ...(window.inline ? { emailReviewDraft: review('lead.message', 'A message for you', 'General text') } : {}) });

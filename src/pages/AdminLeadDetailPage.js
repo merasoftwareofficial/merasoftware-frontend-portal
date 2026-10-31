@@ -1,3 +1,5 @@
+import { useLeadResource } from '../hooks/useLeadResource';
+import { useLeadUpdates } from '../hooks/useLeadUpdates';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -36,7 +38,7 @@ const AdminLeadDetailPage = () => {
   const [lead, setLead] = useState(null);
   const [finalMessageBusy, setFinalMessageBusy] = useState(false);
   const [messageBusy, setMessageBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
+
   const [followUpNote, setFollowUpNote] = useState("");
   const [followUpBadge, setFollowUpBadge] = useState("");
   const [followUpFile, setFollowUpFile] = useState(null);
@@ -90,34 +92,13 @@ const AdminLeadDetailPage = () => {
     }
   };
 
-  const fetchLead = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${SummaryApi.leadDetail.url}/${leadId}`, {
-        method: SummaryApi.leadDetail.method,
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-      });
-      const result = await response.json();
-      if (!result.success) {
-        toast.error(result.message || "Failed to load lead");
-        return;
-      }
-      setLead(result.data);
-      // A new follow-up starts on the lead's current status.
-      setFollowUpBadge(result.data?.status || DEFAULT_LEAD_STATUS);
-    } catch (error) {
-      console.error("Error fetching lead:", error);
-      toast.error("Error loading lead");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchLead();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leadId]);
+  const { refresh: fetchLead, loading, error: refreshError } = useLeadResource(
+    `${SummaryApi.leadDetail.url}/${leadId}`, (data, initial) => {
+      setLead(data);
+      // Live reads must not overwrite an in-progress follow-up selection.
+      if (initial) setFollowUpBadge(data?.status || DEFAULT_LEAD_STATUS);
+    });
+  const liveStatus = useLeadUpdates(() => { void fetchLead(); }, leadId);
 
   const isConverted = Boolean(lead?.convertedToUserId);
   const isMatured = isConverted || lead?.status === "Won";
@@ -355,6 +336,7 @@ const AdminLeadDetailPage = () => {
   return (
     <AdminLayout user={user} onLogout={handleLogout}>
       <AdminWorkspaceShell>
+        {(refreshError || liveStatus === 'unavailable') && <p role="status" className="px-5 py-2 text-sm">{refreshError || 'Live updates temporarily unavailable.'} <button type="button" onClick={() => void fetchLead()}>Refresh</button></p>}
         <AdminWorkspaceHeader
           icon={UserPlus}
           eyebrow={<>Lead</>}

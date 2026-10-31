@@ -319,14 +319,17 @@ const shots = process.env.LEAD_TEST_SHOTS;
     assert.ok(await page.getByText('Proposal Sent', { exact: true }).count() > 1, 'badge in rows and filter');
     await shot('5-list');
     await page.getByRole('button', { name: 'Proposal Sent', exact: true }).click();
+    await page.getByText(/^\d+\. Big$/).waitFor({ state: 'hidden' });
     assert.equal(await has('Big'), 0, 'no proposal: hidden');
     assert.ok(await has('Ravi Phone') > 0);
     assert.ok(await has('Negative Lead') > 0);
     await page.getByRole('button', { name: 'Positive', exact: true }).click();
     assert.ok(await has('Ravi Phone') > 0);
+    await page.getByText(/^\d+\. Negative Lead$/).waitFor({ state: 'hidden' });
     assert.equal(await has('Negative Lead'), 0, 'Negative stage: hidden');
     await page.getByRole('button', { name: 'Proposal Sent', exact: true }).click();
     await page.getByRole('button', { name: 'All', exact: true }).last().click();
+    await page.getByText(/^\d+\. Big$/).waitFor();
     assert.ok(await has('Big') > 0);
   });
 

@@ -1,3 +1,5 @@
+import { useLeadResource } from '../hooks/useLeadResource';
+import { useLeadUpdates } from '../hooks/useLeadUpdates';
 import { emailApi, reviewEmail } from '../helpers/emailReview';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -39,7 +41,7 @@ const AdminLeadsPage = () => {
   const { isOnline } = useOnlineStatus();
   const [searchParams, setSearchParams] = useSearchParams();
   const [leads, setLeads] = useState([]);
-  const [loading, setLoading] = useState(true);
+
   const [refreshing, setRefreshing] = useState(false);
   // URL is the single source for list selection and the explicit return target.
   const setFilter = (key, value, fallback = '') => setSearchParams(current => {
@@ -104,45 +106,9 @@ const AdminLeadsPage = () => {
     }
   };
 
-  const fetchLeads = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(SummaryApi.adminLeads.url, {
-        method: SummaryApi.adminLeads.method,
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const result = await response.json();
-      if (!result.success) {
-        toast.error(result.message || "Failed to load leads");
-        return;
-      }
-
-      setLeads(result.data || []);
-    } catch (error) {
-      console.error("Error fetching leads:", error);
-      toast.error("Error loading leads");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  const fetchFinalMessageCount = async () => {
-    try {
-      const response = await fetch(SummaryApi.finalMessageCount.url, { method: SummaryApi.finalMessageCount.method, credentials: "include" });
-      const result = await response.json();
-      if (result.success) setFinalMessageCount(result.data.count);
-    } catch (error) {
-      console.error("Error counting final messages:", error);
-    }
-  };
-
-  useEffect(() => {
-    fetchLeads();
-    fetchFinalMessageCount();
-  }, []);
+  const { refresh: fetchLeads, loading, error: refreshError } = useLeadResource(SummaryApi.adminLeads.url, data => setLeads(data || []));
+  const { refresh: fetchFinalMessageCount, error: countError } = useLeadResource(SummaryApi.finalMessageCount.url, data => setFinalMessageCount(data.count));
+  const liveStatus = useLeadUpdates(() => { void fetchLeads(); void fetchFinalMessageCount(); });
 
   // The popup opens once per lead, one after another: this request resolves when the last is decided.
   const prepareFinalMessages = async () => {
@@ -173,7 +139,7 @@ const AdminLeadsPage = () => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchLeads();
+    try { await Promise.all([fetchLeads(), fetchFinalMessageCount()]); } finally { setRefreshing(false); }
   };
 
   const openAddModal = () => {
@@ -473,6 +439,7 @@ const AdminLeadsPage = () => {
       onLogout={handleLogout}
     >
       <AdminWorkspaceShell>
+        {(refreshError || countError || liveStatus === 'unavailable') && <p role="status" className="px-5 py-2 text-sm">{refreshError || countError || 'Live updates temporarily unavailable.'} <button type="button" onClick={() => { void fetchLeads(); void fetchFinalMessageCount(); }}>Refresh</button></p>}
         <AdminWorkspaceHeader
           icon={UserPlus}
           title="Leads"
