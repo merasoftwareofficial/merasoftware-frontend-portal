@@ -91,12 +91,13 @@ export default function EmailReviewDialog() {
     dialogRef.current?.close(); setDraft(null);
   };
   if (!draft) return null;
-  const isWhatsapp = draft.channel === 'whatsapp';
+  const isWhatsapp = draft.channel === 'whatsapp' || (!draft.to?.length && channel === 'whatsapp');
+  const recipients = [...(draft.to || []), ...(draft.whatsappTo && !draft.to?.includes(draft.whatsappTo) ? [`+${draft.whatsappTo}`] : [])];
   return createPortal(
     <dialog ref={dialogRef} onCancel={event => { event.preventDefault(); finish('skip'); }} aria-labelledby="email-review-title" className="w-[min(680px,95vw)] max-h-[90vh] overflow-auto rounded-2xl p-6 shadow-xl backdrop:bg-black/50">
       <h2 id="email-review-title" className="text-xl font-bold">{draft.channelOptions ? 'Review message' : isWhatsapp ? 'Review WhatsApp message' : 'Review email'}</h2>
       <p className="my-2 text-sm text-slate-600">{draft.description}</p>
-      <p className="my-3 text-sm"><strong>To:</strong> {(draft.to || []).join(', ')}</p>
+      <p className="my-3 text-sm"><strong>To:</strong> {recipients.join(', ')}</p>
       {!!draft.attachments?.length && <p className="text-sm">Attachments: {draft.attachments.map(a => a.filename).join(', ')}</p>}
       {!!draft.attachments?.length && ['whatsapp', 'both'].includes(channel) && <p className="text-xs text-slate-500">Files are attached to email. WhatsApp sends the message and its links.</p>}
       {!!draft.channelOptions?.length && <><label htmlFor="review-channel" className="mt-3 block">Send via</label>

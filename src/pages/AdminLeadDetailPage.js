@@ -34,6 +34,7 @@ const AdminLeadDetailPage = () => {
   const { isOnline } = useOnlineStatus();
 
   const [lead, setLead] = useState(null);
+  const [finalMessageBusy, setFinalMessageBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [followUpNote, setFollowUpNote] = useState("");
   const [followUpBadge, setFollowUpBadge] = useState("");
@@ -120,6 +121,39 @@ const AdminLeadDetailPage = () => {
   const isConverted = Boolean(lead?.convertedToUserId);
   const isMatured = isConverted || lead?.status === "Won";
 
+  const noticeFinalMessage = (outcome) => {
+    if (outcome === "unreachable" || outcome === "unavailable") toast.info("No final message was prepared: check this lead's WhatsApp number and email, and the Final message action.");
+  };
+
+  const finalMessage = lead?.finalMessage;
+  // Only a Negative lead whose message hasn't gone: none yet, Don't Send, expired or failed, or a decision still open.
+  const canSendFinalMessage = !isConverted && lead?.status === "Negative" && !lead?.requestedByUserId && (!finalMessage || ["not-sent", "review"].includes(finalMessage.status));
+  const finalMessageLine = !finalMessage ? "" : {
+    review: "Final message: waiting for your decision.",
+    queued: "Final message: waiting in the WhatsApp queue.",
+    waiting: `Final message sent. No reply yet; the lead goes Dead after ${finalMessage.deadlineAt ? new Date(finalMessage.deadlineAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) : "the wait"}.`,
+    replied: `Final message replied: ${finalMessage.lastReplyText || "Message"}`,
+    dead: "Final message: no reply in time.",
+    "not-sent": "Final message: not sent.",
+    "email-only": "Final message: sent by email only, so it is not followed.",
+    stopped: "Final message: stage changed by hand before the wait ended.",
+  }[finalMessage.status] || "";
+
+  const sendFinalMessage = async () => {
+    try {
+      setFinalMessageBusy(true);
+      const response = await fetch(`${SummaryApi.updateLead.url}/${leadId}/final-message`, { method: "post", credentials: "include" });
+      const result = await response.json();
+      if (!result.success) toast.error(result.message || "The final message could not be prepared");
+      await fetchLead();
+    } catch (error) {
+      console.error("Error preparing the final message:", error);
+      toast.error("The final message could not be prepared");
+    } finally {
+      setFinalMessageBusy(false);
+    }
+  };
+
   const handleAddFollowUp = async (event) => {
     event.preventDefault();
     if (!followUpNote.trim()) {
@@ -149,6 +183,7 @@ const AdminLeadDetailPage = () => {
         return;
       }
       toast.success("Follow-up added");
+      noticeFinalMessage(result.finalMessage);
       setFollowUpNote("");
       setFollowUpFile(null);
       await fetchLead();
@@ -217,6 +252,7 @@ const AdminLeadDetailPage = () => {
         return;
       }
       toast.success("Follow-up updated");
+      noticeFinalMessage(result.finalMessage);
       setEditingFollowUpId(null);
       setEditNote("");
       setEditBadge("");
@@ -402,6 +438,17 @@ const AdminLeadDetailPage = () => {
                   <p className="text-xs text-slate-500">
                     Change the stage on a follow-up. Adding a proposal never changes it.
                   </p>
+                  {finalMessageLine ? <p className="text-xs font-medium text-slate-700">{finalMessageLine}</p> : null}
+                  {canSendFinalMessage ? (
+                    <button
+                      type="button"
+                      onClick={sendFinalMessage}
+                      disabled={finalMessageBusy}
+                      className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
+                    >
+                      Send final message
+                    </button>
+                  ) : null}
                 </div>
               )}
               {lead?.proposalSentAt ? (

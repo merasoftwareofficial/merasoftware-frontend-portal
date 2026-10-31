@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowUpDown, Loader2, Plus, RefreshCw, Search, Trash2, UserPlus, X } from "lucide-react";
+import { ArrowUpDown, Loader2, Plus, RefreshCw, Search, Send, Trash2, UserPlus, X } from "lucide-react";
 import SummaryApi from "../common";
 import { logout } from "../store/userSlice";
 import CookieManager from "../utils/cookieManager";
@@ -50,6 +50,9 @@ const AdminLeadsPage = () => {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [leadToDelete, setLeadToDelete] = useState(null);
+  const [finalMessageCount, setFinalMessageCount] = useState(0);
+  const [finalMessageConfirm, setFinalMessageConfirm] = useState(false);
+  const [finalMessageBusy, setFinalMessageBusy] = useState(false);
   const [referenceQuery, setReferenceQuery] = useState("");
   const [referenceResults, setReferenceResults] = useState([]);
   const [referenceSearching, setReferenceSearching] = useState(false);
@@ -114,9 +117,38 @@ const AdminLeadsPage = () => {
     }
   };
 
+  const fetchFinalMessageCount = async () => {
+    try {
+      const response = await fetch(SummaryApi.finalMessageCount.url, { method: SummaryApi.finalMessageCount.method, credentials: "include" });
+      const result = await response.json();
+      if (result.success) setFinalMessageCount(result.data.count);
+    } catch (error) {
+      console.error("Error counting final messages:", error);
+    }
+  };
+
   useEffect(() => {
     fetchLeads();
+    fetchFinalMessageCount();
   }, []);
+
+  // The popup opens once per lead, one after another: this request resolves when the last is decided.
+  const prepareFinalMessages = async () => {
+    try {
+      setFinalMessageBusy(true);
+      const response = await fetch(SummaryApi.prepareFinalMessages.url, { method: SummaryApi.prepareFinalMessages.method, credentials: "include" });
+      const result = await response.json();
+      setFinalMessageConfirm(false);
+      if (!result.success) toast.error(result.message || "The final messages could not be prepared");
+      else if (!result.data.prepared) toast.info("No final message was prepared: check the Final message action in Email Templates.");
+      await Promise.all([fetchLeads(), fetchFinalMessageCount()]);
+    } catch (error) {
+      console.error("Error preparing final messages:", error);
+      toast.error("The final messages could not be prepared");
+    } finally {
+      setFinalMessageBusy(false);
+    }
+  };
 
   // Lead detail is told where Back should return to instead of relying on history,
   // matching how the clients list opens the client workspace.
@@ -453,6 +485,17 @@ const AdminLeadsPage = () => {
                 <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
                 Refresh
               </button>
+
+              {finalMessageCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setFinalMessageConfirm(true)}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
+                >
+                  <Send size={16} />
+                  Final message ({finalMessageCount})
+                </button>
+              ) : null}
 
               <button
                 type="button"
@@ -798,6 +841,36 @@ const AdminLeadsPage = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {finalMessageConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <div role="dialog" aria-labelledby="final-message-title" className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+            <h2 id="final-message-title" className="text-center text-lg font-bold text-slate-900">Send the final message?</h2>
+            <p className="mt-2 text-center text-sm text-slate-600">
+              {finalMessageCount} Negative {finalMessageCount === 1 ? "lead is" : "leads are"} waiting for it. The message opens for each lead, one after another, and you choose Send or Don't Send every time.
+            </p>
+            <div className="mt-6 flex justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setFinalMessageConfirm(false)}
+                disabled={finalMessageBusy}
+                className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={prepareFinalMessages}
+                disabled={finalMessageBusy}
+                className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {finalMessageBusy ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                Start
+              </button>
+            </div>
           </div>
         </div>
       )}

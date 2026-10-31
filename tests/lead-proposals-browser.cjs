@@ -55,6 +55,10 @@ const shots = process.env.LEAD_TEST_SHOTS;
   app.post('/api/admin/leads/:leadId', admin_, leadFileUpload, load('controller/lead/updateLead'));
   app.post('/api/admin/leads/:leadId/proposal', admin_, leadFileUpload, load('controller/lead/uploadProposal'));
   app.post('/api/admin/leads/:leadId/proposal/:version/whatsapp', admin_, load('controller/lead/sendProposalWhatsapp'));
+  const finalMessage = load('controller/lead/finalMessage');
+  app.get('/api/admin/final-message/count', admin_, finalMessage.countController);
+  app.post('/api/admin/final-message/prepare', admin_, finalMessage.prepareAllController);
+  app.post('/api/admin/leads/:leadId/final-message', admin_, finalMessage.prepareOneController);
   let script = '';
   app.get('/app.js', (req, res) => res.type('application/javascript').send(script));
   app.get('*', (req, res) => res.type('html').send(`<style>${css}</style><div id="root"></div><script src="/app.js"></script>`));
@@ -124,6 +128,10 @@ const shots = process.env.LEAD_TEST_SHOTS;
     }
     await form.locator('textarea').fill(note);
     await form.locator('button[type="submit"]').click();
+    // A lead just marked Negative is asked about its final message first; these steps aren't about it.
+    const review = page.getByRole('dialog', { name: 'Review message' });
+    if (choose === 'Negative') await review.waitFor({ timeout: 5000 }).catch(() => {});
+    if (await review.isVisible()) await review.getByRole('button', { name: /Don.t Send/ }).click();
     await page.getByText(note).first().waitFor();
   };
   const addProposal = async ({ amount, note, name = 'offer.pdf', size = 2000 }) => {
@@ -169,12 +177,12 @@ const shots = process.env.LEAD_TEST_SHOTS;
     }
   });
 
-  await step('the dropdown offers only the three stages, with the current one chosen', async () => {
+  await step('the dropdown offers only the selectable stages, with the current one chosen', async () => {
     await open(phoneLead);
     assert.match(await dropdown().innerText(), /Contacted/);
     await dropdown().click();
     const options = await page.getByRole('option').allInnerTexts();
-    assert.deepEqual(options.map(text => text.trim()), ['Contacted', 'Positive', 'Negative']);
+    assert.deepEqual(options.map(text => text.trim()), ['Contacted', 'Positive', 'Negative', 'Dead']);
     await page.keyboard.press('Escape');
     await shot('1-contacted');
   });
@@ -190,7 +198,7 @@ const shots = process.env.LEAD_TEST_SHOTS;
   await step('Add Proposal sets the badge, keeps the stage, lists the version and adds the timeline entry', async () => {
     await open(phoneLead);
     await addProposal({ amount: '25000', note: 'First offer' });
-    await page.getByRole('dialog', { name: 'Review WhatsApp message' }).waitFor();
+    await page.getByRole('dialog', { name: 'Review message' }).waitFor();
     const row = await fresh(phoneLead._id);
     assert.equal(row.status, 'Contacted');
     assert.ok(row.proposalSentAt);
@@ -199,7 +207,7 @@ const shots = process.env.LEAD_TEST_SHOTS;
   });
 
   await step('the phone-only popup is for WhatsApp, and nothing is queued before Send', async () => {
-    const dialog = page.getByRole('dialog', { name: 'Review WhatsApp message' });
+    const dialog = page.getByRole('dialog', { name: 'Review message' });
     assert.match(await dialog.innerText(), /919876543210/);
     assert.equal(await Queue.countDocuments(), 0);
     await shot('2-whatsapp-review');
@@ -237,7 +245,7 @@ const shots = process.env.LEAD_TEST_SHOTS;
   await step('v2 on a Positive lead keeps Positive', async () => {
     await open(phoneLead);
     await addProposal({});
-    const dialog = page.getByRole('dialog', { name: 'Review WhatsApp message' });
+    const dialog = page.getByRole('dialog', { name: 'Review message' });
     await dialog.waitFor();
     await dialog.getByRole('button', { name: 'Don’t Send' }).click();
     const row = await fresh(phoneLead._id);
@@ -272,7 +280,7 @@ const shots = process.env.LEAD_TEST_SHOTS;
     const mail = await leadModel.create({ name: 'Mail Lead', phone: '9000000013', email: 'mail@example.test', status: 'Contacted' });
     await open(mail);
     await addProposal({ amount: '5000' });
-    const dialog = page.getByRole('dialog', { name: 'Review email' });
+    const dialog = page.getByRole('dialog', { name: 'Review message' });
     await dialog.waitFor();
     assert.match(await dialog.innerText(), /mail@example\.test/);
     await dialog.getByRole('button', { name: 'Don’t Send Mail' }).click();
@@ -287,7 +295,7 @@ const shots = process.env.LEAD_TEST_SHOTS;
     const negative = await leadModel.create({ name: 'Negative Lead', phone: '9000000015', status: 'Negative' });
     await open(negative);
     await addProposal({});
-    const dialog = page.getByRole('dialog', { name: 'Review WhatsApp message' });
+    const dialog = page.getByRole('dialog', { name: 'Review message' });
     await dialog.waitFor();
     await dialog.getByRole('button', { name: 'Don’t Send' }).click();
     const row = await fresh(negative._id);
@@ -361,6 +369,52 @@ const shots = process.env.LEAD_TEST_SHOTS;
   });
 
   assert.deepEqual(errors, [], 'no page errors');
+  await step('marking Negative opens the final message; Don\'t Send can be sent later from the lead page', async () => {
+    const lead = await leadModel.create({ name: 'Final Lead', phone: '9876500001', status: 'Contacted' });
+    await open(lead);
+    const form = stageBox();
+    await form.locator('button[type="button"]').first().click();
+    await page.getByRole('option', { name: 'Negative', exact: true }).click();
+    await form.locator('textarea').fill('Not interested now');
+    await form.locator('button[type="submit"]').click();
+    const review = page.getByRole('dialog', { name: 'Review message' });
+    await review.waitFor();
+    assert.match(await review.innerText(), /\+919876500001/);
+    assert.equal(await review.locator('#review-channel').inputValue(), 'whatsapp');
+    assert.ok(await review.locator('#review-channel option[value="email"]').isDisabled());
+    await review.locator('[data-email-variable="timeLimit"]').first().waitFor();
+    assert.ok((await review.getByRole('combobox', { name: 'Insert detail into Message' }).locator('option').allInnerTexts()).includes('Time limit'), 'the chip can be put back');
+    await review.getByRole('button', { name: /Don.t Send/ }).click();
+    await page.getByText('Not interested now').first().waitFor();
+    assert.equal((await fresh(lead._id)).status, 'Negative');
+    assert.equal(await Queue.countDocuments({ to: '919876500001' }), 0);
+    await load('helpers/finalMessageJobs').followFinalMessages();
+    await page.reload();
+    await page.getByRole('button', { name: 'Send final message' }).click();
+    await review.waitFor();
+    await review.getByRole('button', { name: 'Send WhatsApp' }).click();
+    await page.getByText('Final message: waiting').first().waitFor();
+    assert.equal(await Queue.countDocuments({ to: '919876500001' }), 1);
+    await shot('final-message-sent');
+  });
+
+  await step('the Leads button goes through each waiting Negative lead, one popup at a time', async () => {
+    await leadModel.deleteMany({ status: 'Negative' });
+    await leadModel.create([{ name: 'Old One', phone: '9876500002', status: 'Negative' }, { phone: '9876500003', status: 'Negative' }]);
+    await page.goto(origin);
+    await page.getByRole('button', { name: 'Final message (2)' }).click();
+    await page.getByRole('dialog', { name: 'Send the final message?' }).getByRole('button', { name: 'Start' }).click();
+    const review = page.getByRole('dialog', { name: 'Review message' });
+    await review.waitFor();
+    await review.getByRole('button', { name: 'Send WhatsApp' }).click();
+    await page.waitForFunction(() => document.querySelector('dialog[open]') && /\+919876500003/.test(document.querySelector('dialog[open]').innerText));
+    await review.getByRole('button', { name: /Don.t Send/ }).click();
+    await page.getByRole('dialog', { name: 'Send the final message?' }).waitFor({ state: 'detached' });
+    assert.equal(await Queue.countDocuments({ to: '919876500002' }), 1);
+    assert.equal(await Queue.countDocuments({ to: '919876500003' }), 0);
+    await shot('final-message-leads');
+  });
+
   await browser.close();
   server.close();
   await mongoose.disconnect();

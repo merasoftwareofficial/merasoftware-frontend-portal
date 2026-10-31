@@ -812,6 +812,14 @@ const SummaryApi = {
         url: `${backendDomain}/api/admin/leads`,
         method: "post"
     },
+    finalMessageCount: {
+        url: `${backendDomain}/api/admin/final-message/count`,
+        method: "get"
+    },
+    prepareFinalMessages: {
+        url: `${backendDomain}/api/admin/final-message/prepare`,
+        method: "post"
+    },
     deleteLead: {
         url: `${backendDomain}/api/admin/leads`,
         method: "delete"

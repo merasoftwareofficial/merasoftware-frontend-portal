@@ -150,6 +150,9 @@ const shots = process.env.LEAD_TEST_SHOTS;
     await check('Negative with no name is allowed', async () => {
       await openLead(other);
       await followUp('Negative', 'Wrong number');
+      const review = page.getByRole('dialog', { name: 'Review message' }); // the final message is offered, and a nameless lead can get it
+      await review.waitFor();
+      await review.getByRole('button', { name: /Don.t Send/ }).click();
       await toast('Follow-up added');
       const saved = await leadModel.findById(other._id).lean();
       assert.equal(saved.status, 'Negative');
