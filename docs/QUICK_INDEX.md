@@ -1,3 +1,9 @@
+## Template review saves — 31 October 2026
+
+Popup Save template creates a new custom template; explicit management Edit still updates. Shared backend POST /templates validates sourceTemplateId/action/application and reuses canonical editor conversion; templateOptions remains action scoped. Website `src/app/admin/email-control/email-control-panel.tsx` and portal `src/components/EmailReviewDialog.js` add/select the new ID and retain all options. Originals/defaults remain unchanged; chips remain reusable. Includes pre-save Add Lead and phone-only proposal previews through the common portal dialog. Lead-page manual messaging is deferred.
+
+Local checks: backend email 51/51; website email 23/23; portal email browser pass. Details: `E:/Allprojects/merasoftware/src/docs/email-control.md`. No deployment or live sends.
+
 # Portal reservation work index — 25 October 2026
 
 Portal UI consistency (26 October): Documents (`src/pages/CustomerDocuments.js`), Games (`src/chess/GamesListPage.js`), and Settings (`src/pages/SettingsPage.js`, `src/components/settings/`) now use the existing `src/components/WorkspacePanel.js` frame and `max-w-7xl` workspace width. Start with `tests/portal-settings-documents.browser.cjs` for responsive geometry and control checks; `tests/portal-workspace-ui.browser.cjs` checks existing reference pages against a baseline build. See CODE_AUDIT.md for verified scope.

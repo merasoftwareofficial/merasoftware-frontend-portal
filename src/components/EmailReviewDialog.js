@@ -12,6 +12,7 @@ export default function EmailReviewDialog() {
   const [subjectDoc, setSubjectDoc] = useState(undefined);
   const [channel, setChannel] = useState('');
   const [templateMeta, setTemplateMeta] = useState(null);
+  const [templateName, setTemplateName] = useState('');
   const [reviewDoc, setReviewDoc] = useState(undefined);
   const [templateId, setTemplateId] = useState('current');
   const [html, setHtml] = useState('');
@@ -25,6 +26,7 @@ export default function EmailReviewDialog() {
       resolver.current = resolve;
       setSubject(value.templatePreviewSubject || value.subject); setSubjectDoc(value.templateSubjectDoc); setReviewDoc(value.templateDoc ?? value.doc ?? plainDoc(value.text));
       setTemplateId(value.selectedTemplateId || 'current'); setTemplateMeta(value.selectedTemplateId ? { id: value.selectedTemplateId, name: value.templateLabel, revision: value.templateRevision } : null);
+      setTemplateName(`${value.templateLabel || 'Message'} copy`);
       setChannel(value.delivery?.channels?.length ? (value.delivery.channels.length === 2 ? 'both' : value.delivery.channels[0]) : value.defaultChannel || '');
       setHtml(value.templatePreviewHtml || value.html || ''); setPreviewError(''); setTemplateNotice(''); setDraft(value);
     }));
@@ -53,6 +55,7 @@ export default function EmailReviewDialog() {
     if (id === 'current') { setSubject(draft.subject); setSubjectDoc(undefined); setTemplateMeta(null); setReviewDoc(draft.doc ?? plainDoc(draft.text)); setTemplateId(id); setHtml(draft.html || ''); return; }
     const value = await preview({ templateId: id });
     if (value) { setSubject(value.subject); setSubjectDoc(value.templateSubjectDoc); setReviewDoc(value.templateDoc ?? value.doc ?? plainDoc(value.text)); setTemplateId(id); setHtml(value.html);
+      setTemplateName(`${value.templateLabel || 'Message'} copy`);
       setTemplateMeta(value.selectedTemplateId ? { id: value.selectedTemplateId, name: value.templateLabel, revision: value.templateRevision } : null); }
   };
   const updatePreview = async () => {
@@ -63,10 +66,12 @@ export default function EmailReviewDialog() {
     if (!templateMeta || busy || locked) return;
     setBusy(true); setPreviewError('');
     try {
-      const updated = await emailApi(`/templates/${templateMeta.id}`, { method: 'PUT', body: JSON.stringify({ name: templateMeta.name, subject, subjectDoc, doc: reviewDoc, expectedUpdatedAt: templateMeta.revision }) });
+      const updated = await emailApi('/templates', { method: 'POST', body: JSON.stringify({ event: draft.event, sourceTemplateId: templateMeta.id, name: templateName.trim(), subject, subjectDoc, doc: reviewDoc }) });
       setTemplateMeta({ id: updated._id, name: updated.name, revision: updated.updatedAt });
-      setTemplateNotice('Selected template updated.');
-      const refreshed = await emailApi(draft._id ? `/drafts/${draft._id}/preview` : '/review-preview', { method: 'POST', body: JSON.stringify({ event: draft.event, values: draft.values, templateId: templateMeta.id, subject, subjectDoc, doc: reviewDoc }) });
+      setTemplateId(updated._id);
+      setDraft(current => ({ ...current, templateOptions: [...(current.templateOptions || []), { id: updated._id, name: updated.name, system: false }] }));
+      setTemplateNotice('New template saved. Original unchanged.');
+      const refreshed = await emailApi(draft._id ? `/drafts/${draft._id}/preview` : '/review-preview', { method: 'POST', body: JSON.stringify({ event: draft.event, values: draft.values, templateId: updated._id, subject, subjectDoc, doc: reviewDoc }) });
       setHtml(refreshed.html);
     } catch (error) { setPreviewError(error.message); }
     finally { setBusy(false); }
@@ -121,9 +126,10 @@ export default function EmailReviewDialog() {
       {previewError && <p role="alert" className="mt-2 text-sm text-red-700">{previewError}</p>}
       {previewError && templateMeta && !locked && <button type="button" disabled={busy} className="text-sm underline" onClick={() => void chooseTemplate(templateMeta.id)}>Reload saved message</button>}
       {templateNotice && <p role="status" className="mt-2 text-sm text-emerald-700">{templateNotice}</p>}
-      <p className="my-3 text-xs text-slate-500">{locked ? 'This attempt keeps its original content and channels. Retry completes unfinished delivery only.' : templateMeta ? 'Send uses these edits once. Save template updates this saved message for future use.' : 'Edits apply to this message only; no reusable template is linked.'}</p>
+      <p className="my-3 text-xs text-slate-500">{locked ? 'This attempt keeps its original content and channels. Retry completes unfinished delivery only.' : templateMeta ? 'Send uses these edits once. Save template creates a new reusable template for this action.' : 'Edits apply to this message only; no reusable template is linked.'}</p>
+      {templateMeta && !locked && <><label htmlFor="review-template-name" className="mt-3 block">New template name</label><input id="review-template-name" maxLength={100} disabled={busy} className="mt-1 w-full rounded border p-2" value={templateName} onChange={event => setTemplateName(event.target.value)} /></>}
       <div className="flex justify-end gap-3">
-        {templateMeta && !locked && <button type="button" disabled={busy || !docHasContent(reviewDoc)} className="rounded border px-4 py-2 disabled:opacity-40" onClick={() => void saveTemplate()}>Save template</button>}
+        {templateMeta && !locked && <button type="button" disabled={busy || !templateName.trim() || !docHasContent(reviewDoc)} className="rounded border px-4 py-2 disabled:opacity-40" onClick={() => void saveTemplate()}>Save template</button>}
         <button type="button" disabled={busy} className="rounded border px-4 py-2 disabled:opacity-40" onClick={() => finish('skip')}>{isWhatsapp ? 'Don’t Send' : 'Don’t Send Mail'}</button>
         <button type="button" disabled={busy || draft.status === 'sending' || !subject.trim() || !docHasContent(reviewDoc) || (!!draft.channelOptions && !locked && !draft.channelOptions.find(option => option.id === channel)?.enabled)} className="rounded bg-emerald-700 px-4 py-2 text-white disabled:opacity-40" onClick={() => finish('send')}>{locked ? 'Retry unfinished' : channel === 'both' ? 'Send' : channel === 'whatsapp' || isWhatsapp ? 'Send WhatsApp' : 'Send Mail'}</button>
       </div>
