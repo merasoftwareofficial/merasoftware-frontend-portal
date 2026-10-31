@@ -180,10 +180,10 @@ const shots = process.env.LEAD_TEST_SHOTS;
 
   await step('the dropdown offers only the selectable stages, with the current one chosen', async () => {
     await open(phoneLead);
-    assert.match(await dropdown().innerText(), /Contacted/);
+    assert.match(await dropdown().innerText(), /Neutral/);
     await dropdown().click();
     const options = await page.getByRole('option').allInnerTexts();
-    assert.deepEqual(options.map(text => text.trim()), ['Contacted', 'Positive', 'Negative', 'Dead']);
+    assert.deepEqual(options.map(text => text.trim()), ['Neutral', 'Positive', 'Active', 'Lazy', 'Tough', 'Negative', 'Unhappy', 'Dead', 'Wrong']);
     await page.keyboard.press('Escape');
     await shot('1-contacted');
   });
@@ -226,7 +226,7 @@ const shots = process.env.LEAD_TEST_SHOTS;
     await page.getByText('v1 · ₹25,000').waitFor();
     await page.getByText('First offer', { exact: true }).waitFor();
     await page.getByText('Proposal Sent', { exact: true }).first().waitFor();
-    assert.match(await dropdown().innerText(), /Contacted/);
+    assert.match(await dropdown().innerText(), /Neutral/);
     await shot('3-proposal-sent');
   });
 

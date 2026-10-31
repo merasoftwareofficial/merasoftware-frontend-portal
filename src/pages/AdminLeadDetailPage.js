@@ -18,7 +18,7 @@ import KeyboardSelect from "../components/KeyboardSelect";
 import KeyboardHint from "../components/KeyboardHint";
 import { goToAdminReturn } from "../helpers/adminReturnNavigation";
 import isAccountEmail from "../helpers/accountEmail";
-import { DEFAULT_LEAD_STATUS, leadStatusLabel, leadStatusOptions, leadStatusStyle } from "../helpers/leadStatuses";
+import { CLIENT_BEHAVIOUR_OPTIONS, DEFAULT_CLIENT_BEHAVIOUR, DEFAULT_LEAD_STATUS, leadStatusLabel, leadStatusOptions, leadStatusStyle, offerStageOptions } from "../helpers/leadStatuses";
 import LeadProposals from "../components/admin/LeadProposals";
 import ProposalSentBadge from "../components/admin/ProposalSentBadge";
 
@@ -42,6 +42,9 @@ const AdminLeadDetailPage = () => {
   const [followUpNote, setFollowUpNote] = useState("");
   const [followUpBadge, setFollowUpBadge] = useState("");
   const [followUpFile, setFollowUpFile] = useState(null);
+  const [followUpOffer, setFollowUpOffer] = useState("");
+  const [timelineTab, setTimelineTab] = useState("all");
+  const [behaviourSaving, setBehaviourSaving] = useState(false);
   const [followUpSaving, setFollowUpSaving] = useState(false);
   const [converting, setConverting] = useState(false);
   const [showConvertConfirm, setShowConvertConfirm] = useState(false);
@@ -102,6 +105,36 @@ const AdminLeadDetailPage = () => {
 
   const isConverted = Boolean(lead?.convertedToUserId);
   const isMatured = isConverted || lead?.status === "Won";
+
+  const offerTargets = useMemo(() => lead?.offerTargets || [], [lead]);
+  const targetFor = (slug) => offerTargets.find((row) => row.offerSlug === slug);
+  const chosenTarget = targetFor(followUpOffer);
+
+  // Choosing an offer means the stage below is that offer's. General goes back to the lead's own.
+  const chooseFollowUpOffer = (slug) => {
+    setFollowUpOffer(slug);
+    setFollowUpBadge(targetFor(slug)?.stage || lead?.status || DEFAULT_LEAD_STATUS);
+  };
+
+  const saveBehaviour = async (behaviour) => {
+    try {
+      setBehaviourSaving(true);
+      const response = await fetch(`${SummaryApi.updateLead.url}/${leadId}`, {
+        method: SummaryApi.updateLead.method,
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "setBehaviour", behaviour }),
+      });
+      const result = await response.json();
+      if (!result.success) toast.error(result.message || "Behaviour could not be saved");
+      await fetchLead();
+    } catch (error) {
+      console.error("Error saving client behaviour:", error);
+      toast.error("Behaviour could not be saved");
+    } finally {
+      setBehaviourSaving(false);
+    }
+  };
 
   const noticeFinalMessage = (outcome) => {
     if (outcome === "unreachable" || outcome === "unavailable") toast.info("No final message was prepared: check this lead's WhatsApp number and email, and the Final message action.");
@@ -164,8 +197,9 @@ const AdminLeadDetailPage = () => {
       // follow-up also moves the lead's stage to the chosen badge (backend merge).
       const formData = new FormData();
       formData.append("action", "followUp");
-      formData.append("badge", isMatured ? "Won" : followUpBadge);
+      formData.append("badge", chosenTarget ? followUpBadge : isMatured ? "Won" : followUpBadge);
       formData.append("note", followUpNote);
+      if (chosenTarget) formData.append("offerSlug", chosenTarget.offerSlug);
       if (followUpFile) {
         formData.append("attachment", followUpFile);
       }
@@ -329,9 +363,9 @@ const AdminLeadDetailPage = () => {
   };
 
   const followUps = useMemo(() => {
-    const list = lead?.followUps || [];
+    const list = (lead?.followUps || []).filter((item) => timelineTab === "all" || (timelineTab === "general" ? !item.offerSlug : item.offerSlug === timelineTab));
     return [...list].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-  }, [lead]);
+  }, [lead, timelineTab]);
 
   return (
     <AdminLayout user={user} onLogout={handleLogout}>
@@ -415,6 +449,15 @@ const AdminLeadDetailPage = () => {
                   <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
                     Matured — follow-ups remain available.
                   </p>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Client behaviour</label>
+                    <KeyboardSelect
+                      value={lead.clientBehaviour || DEFAULT_CLIENT_BEHAVIOUR}
+                      onChange={(value) => { if (!behaviourSaving) saveBehaviour(value); }}
+                      options={CLIENT_BEHAVIOUR_OPTIONS}
+                      className={["font-semibold", leadStatusStyle(lead.clientBehaviour || DEFAULT_CLIENT_BEHAVIOUR)].join(" ")}
+                    />
+                  </div>
                   {lead.clientAvailable !== false ? <button
                     type="button"
                     onClick={() => navigate(`/admin-panel/clients/${lead.convertedToUserId}`)}
@@ -455,15 +498,35 @@ const AdminLeadDetailPage = () => {
                   <ProposalSentBadge className="px-4 py-1.5 text-sm" />
                 </div>
               ) : null}
+              {lead?.contactBlock ? (
+                <div className="mt-3">
+                  <span className="inline-flex rounded-full border border-slate-300 bg-slate-200 px-4 py-1.5 text-sm font-semibold text-slate-700">{lead.contactBlock.label}</span>
+                  <p className="mt-2 text-xs text-slate-500">{lead.contactBlock.message}</p>
+                </div>
+              ) : null}
               <button
                 type="button"
                 onClick={sendMessage}
-                disabled={messageBusy || !lead}
-                className="mt-3 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
+                disabled={messageBusy || !lead || Boolean(lead?.contactBlock)}
+                className="mt-3 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Send message
               </button>
             </div>
+
+            {offerTargets.length ? (
+              <div className="rounded-3xl border border-slate-200 bg-white p-5">
+                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Offers</h3>
+                <ul className="mt-3 space-y-2">
+                  {offerTargets.map((row) => (
+                    <li key={row.offerSlug} className="flex items-center justify-between gap-2 text-sm text-slate-800">
+                      <span className="min-w-0 break-words">{row.offerTitle || row.offerSlug}</span>
+                      <span className={["inline-flex shrink-0 rounded-full border px-3 py-1 text-xs font-semibold", leadStatusStyle(row.stage)].join(" ")}>{leadStatusLabel(row.stage)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
             <LeadProposals lead={lead} readOnly={isConverted} onChanged={fetchLead} />
 
@@ -500,6 +563,17 @@ const AdminLeadDetailPage = () => {
 
               {lead ? (
                 <form onSubmit={handleAddFollowUp} className="mt-3 space-y-3">
+                  {offerTargets.length ? (
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">For</label>
+                      <KeyboardSelect
+                        value={followUpOffer}
+                        onChange={chooseFollowUpOffer}
+                        options={[{ value: "", label: "General" }, ...offerTargets.map((row) => ({ value: row.offerSlug, label: row.offerTitle || row.offerSlug }))]}
+                        onConfirm={() => followUpBadgeRef.current?.focus()}
+                      />
+                    </div>
+                  ) : null}
                   {/* Stage + file side by side; remark below (full width). */}
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {/* Stage badge (dropdown) — colored so the timeline flow is readable. */}
@@ -509,9 +583,9 @@ const AdminLeadDetailPage = () => {
                       </label>
                       <KeyboardSelect
                         ref={followUpBadgeRef}
-                        value={isMatured ? "Won" : followUpBadge}
+                        value={chosenTarget ? followUpBadge : isMatured ? "Won" : followUpBadge}
                         onChange={(value) => setFollowUpBadge(value)}
-                        options={isMatured ? [{ value: "Won", label: "Matured" }] : leadStatusOptions(lead?.status)}
+                        options={chosenTarget ? offerStageOptions(chosenTarget.stage) : isMatured ? [{ value: "Won", label: "Matured" }] : leadStatusOptions(lead?.status)}
                         onConfirm={() => followUpFileRef.current?.focus()}
                         className={["font-semibold", leadStatusStyle(followUpBadge)].join(" ")}
                       />
@@ -566,6 +640,25 @@ const AdminLeadDetailPage = () => {
                 </form>
               ) : null}
 
+              {offerTargets.length ? (
+                <div className="mt-5 flex flex-wrap gap-2" role="group" aria-label="Show follow-ups for">
+                  {[{ id: "all", label: "All" }, { id: "general", label: "General" }, ...offerTargets.map((row) => ({ id: row.offerSlug, label: row.offerTitle || row.offerSlug }))].map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      aria-pressed={timelineTab === tab.id}
+                      onClick={() => setTimelineTab(tab.id)}
+                      className={[
+                        "rounded-full px-4 py-1.5 text-xs font-semibold transition",
+                        timelineTab === tab.id ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                      ].join(" ")}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
               <div className="mt-5 space-y-3">
                 {followUps.length === 0 ? (
                   <p className="rounded-2xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
@@ -582,7 +675,7 @@ const AdminLeadDetailPage = () => {
                                 ref={editBadgeRef}
                                 value={editBadge}
                                 onChange={(value) => setEditBadge(value)}
-                                options={isMatured ? [{ value: item.badge, label: leadStatusLabel(item.badge) }] : leadStatusOptions(item.badge)}
+                                options={item.offerSlug ? offerStageOptions(targetFor(item.offerSlug)?.stage, item.badge) : isMatured ? [{ value: item.badge, label: leadStatusLabel(item.badge) }] : leadStatusOptions(item.badge)}
                                 onConfirm={() => editNoteRef.current?.focus()}
                                 className={["font-semibold", leadStatusStyle(editBadge)].join(" ")}
                               />
@@ -632,6 +725,11 @@ const AdminLeadDetailPage = () => {
                                   ].join(" ")}
                                 >
                                   {leadStatusLabel(item.badge)}
+                                </span>
+                              ) : null}
+                              {item.offerSlug ? (
+                                <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+                                  {targetFor(item.offerSlug)?.offerTitle || item.offerSlug}
                                 </span>
                               ) : null}
                             </div>

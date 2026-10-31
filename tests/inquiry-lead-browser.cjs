@@ -142,7 +142,7 @@ const shots = process.env.LEAD_TEST_SHOTS;
     });
 
     await check('Follow-up to Contacted with no name is refused with a clear message', async () => {
-      await followUp('Contacted', 'Spoke to them');
+      await followUp('Neutral', 'Spoke to them');
       await toast("Add this lead's name first: use Edit Lead.");
       assert.equal((await leadModel.findById(lead._id).lean()).status, 'Inquiry');
     });

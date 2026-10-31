@@ -20,7 +20,7 @@ import KeyboardSelect from "../components/KeyboardSelect";
 import KeyboardHint from "../components/KeyboardHint";
 import { adminReturnState } from "../helpers/adminReturnNavigation";
 import leadSourceOptions from "../helpers/leadSourceOptions";
-import { LEAD_STATUSES, PROPOSAL_SENT, leadStatusLabel, leadStatusStyle } from "../helpers/leadStatuses";
+import { CLIENT_BEHAVIOUR_OPTIONS, DEFAULT_CLIENT_BEHAVIOUR, LEAD_STATUSES, PROPOSAL_SENT, leadStatusLabel, leadStatusStyle } from "../helpers/leadStatuses";
 import ProposalSentBadge from "../components/admin/ProposalSentBadge";
 
 const sortOptions = [
@@ -56,6 +56,7 @@ const AdminLeadsPage = () => {
   const sourceFilter = searchParams.get("source") || "all";
   const setSourceFilter = value => setFilter("source", value, "all");
   const statusFilter = searchParams.get("status") || "all";
+  const [behaviourFilter, setBehaviourFilter] = useState("all");
   const setStatusFilter = value => setFilter("status", value, "all");
   const proposalSentOnly = searchParams.get("proposal") === "1";
   const setProposalSentOnly = value => setFilter("proposal", (typeof value === 'function' ? value(proposalSentOnly) : value) ? "1" : "");
@@ -386,6 +387,10 @@ const AdminLeadsPage = () => {
       result = result.filter((lead) => lead.status === statusFilter);
     }
 
+    if (statusFilter === "Won" && behaviourFilter !== "all") {
+      result = result.filter((lead) => (lead.clientBehaviour || DEFAULT_CLIENT_BEHAVIOUR) === behaviourFilter);
+    }
+
     if (proposalSentOnly) {
       result = result.filter((lead) => lead.proposalSentAt);
     }
@@ -420,7 +425,7 @@ const AdminLeadsPage = () => {
     });
 
     return result;
-  }, [leads, proposalSentOnly, searchTerm, sortBy, sourceFilter, statusFilter]);
+  }, [behaviourFilter, leads, proposalSentOnly, searchTerm, sortBy, sourceFilter, statusFilter]);
 
   const sourceFilterOptions = [
     { value: "all", label: "All" },
@@ -557,6 +562,25 @@ const AdminLeadsPage = () => {
               {PROPOSAL_SENT}
             </button>
           </div>
+          {statusFilter === "Won" ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-slate-500">Client behaviour</span>
+              {[{ value: "all", label: "All" }, ...CLIENT_BEHAVIOUR_OPTIONS].map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={behaviourFilter === option.value}
+                  onClick={() => setBehaviourFilter(option.value)}
+                  className={[
+                    "rounded-full px-4 py-1.5 text-xs font-semibold transition",
+                    behaviourFilter === option.value ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                  ].join(" ")}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="p-5 sm:p-6">
@@ -611,7 +635,15 @@ const AdminLeadsPage = () => {
                   <span className={["inline-flex rounded-full px-3 py-1 text-xs font-semibold", leadStatusStyle(lead.status)].join(" ")}>
                     {leadStatusLabel(lead.status)}
                   </span>
+                  {lead.convertedToUserId ? (
+                    <span className={["inline-flex rounded-full px-3 py-1 text-xs font-semibold", leadStatusStyle(lead.clientBehaviour || DEFAULT_CLIENT_BEHAVIOUR)].join(" ")}>
+                      {leadStatusLabel(lead.clientBehaviour || DEFAULT_CLIENT_BEHAVIOUR)}
+                    </span>
+                  ) : null}
                   {lead.proposalSentAt ? <ProposalSentBadge /> : null}
+                  {lead.contactBlock && !["dead", "wrong"].includes(lead.contactBlock.reason) ? (
+                    <span className="inline-flex rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-700">{lead.contactBlock.label}</span>
+                  ) : null}
                 </div>
                 <div className="col-span-6 lg:col-span-1 lg:flex lg:items-center">
                   {lead.source === "guest" ? (

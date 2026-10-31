@@ -60,7 +60,8 @@ const LeadProposals = ({ lead, readOnly, onChanged }) => {
       toast.success(`Proposal v${result.data.version} added`);
       setOpen(false); setFile(null); setAmount(""); setNote("");
       await onChanged();
-      if (result.data.whatsappPreview) await sendWhatsapp(result.data.version, result.data.whatsappPreview);
+      if (result.data.messageBlocked) toast.info(`Proposal saved. No message goes: ${result.data.messageBlocked}`);
+      else if (result.data.whatsappPreview) await sendWhatsapp(result.data.version, result.data.whatsappPreview);
       else if (result.data.messageUnavailable) toast.error("Proposal saved, but its message could not be prepared.");
       else if (!result.emailDraftIds?.length) toast.info("Proposal saved. No message was prepared: check this lead's email and WhatsApp number, and the Proposal sent action.");
     } catch (error) {

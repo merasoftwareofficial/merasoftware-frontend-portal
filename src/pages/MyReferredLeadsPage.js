@@ -6,12 +6,14 @@ import Surface from '../components/Surface';
 import Badge from '../components/Badge';
 import SummaryApi from '../common';
 import displayINRCurrency from '../helpers/displayCurrency';
-import { leadStatusLabel, leadStatusTone } from '../helpers/leadStatuses';
 
 const formatDate = (value) => {
   if (!value) return 'N/A';
   return new Date(value).toLocaleDateString('en-IN');
 };
+
+// The backend sends only these three: a lead's real category stays with the team.
+const REFERRED_TONES = { Matured: 'success', Closed: 'neutral', 'In progress': 'pending' };
 
 const MyReferredLeadsPage = () => {
   const user = useSelector((state) => state?.user?.user);
@@ -82,8 +84,8 @@ const MyReferredLeadsPage = () => {
                       <p className="mt-1 text-sm text-[var(--text-secondary)]">{formatDate(lead.createdAt)}</p>
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
-                      <Badge tone={leadStatusTone(lead.status)} size="sm">
-                        {leadStatusLabel(lead.status)}
+                      <Badge tone={REFERRED_TONES[lead.status] || 'pending'} size="sm">
+                        {lead.status}
                       </Badge>
                       <p className="text-base font-bold text-[var(--text-primary)]">{displayINRCurrency(lead.rewardAmount || 0)}</p>
                     </div>
