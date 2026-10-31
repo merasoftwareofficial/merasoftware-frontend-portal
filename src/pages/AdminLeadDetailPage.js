@@ -35,6 +35,7 @@ const AdminLeadDetailPage = () => {
 
   const [lead, setLead] = useState(null);
   const [finalMessageBusy, setFinalMessageBusy] = useState(false);
+  const [messageBusy, setMessageBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [followUpNote, setFollowUpNote] = useState("");
   const [followUpBadge, setFollowUpBadge] = useState("");
@@ -138,6 +139,22 @@ const AdminLeadDetailPage = () => {
     "email-only": "Final message: sent by email only, so it is not followed.",
     stopped: "Final message: stage changed by hand before the wait ended.",
   }[finalMessage.status] || "";
+
+  // The popup opens from this response (helpers/emailReview.js), and the timeline shows the line once it closes.
+  const sendMessage = async () => {
+    try {
+      setMessageBusy(true);
+      const response = await fetch(`${SummaryApi.updateLead.url}/${leadId}/message`, { method: "post", credentials: "include" });
+      const result = await response.json();
+      if (!result.success) toast.error(result.message || "The message could not be prepared");
+      await fetchLead();
+    } catch (error) {
+      console.error("Error preparing the message:", error);
+      toast.error("The message could not be prepared");
+    } finally {
+      setMessageBusy(false);
+    }
+  };
 
   const sendFinalMessage = async () => {
     try {
@@ -456,6 +473,14 @@ const AdminLeadDetailPage = () => {
                   <ProposalSentBadge className="px-4 py-1.5 text-sm" />
                 </div>
               ) : null}
+              <button
+                type="button"
+                onClick={sendMessage}
+                disabled={messageBusy || !lead}
+                className="mt-3 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
+              >
+                Send message
+              </button>
             </div>
 
             <LeadProposals lead={lead} readOnly={isConverted} onChanged={fetchLead} />
@@ -628,7 +653,7 @@ const AdminLeadDetailPage = () => {
                                 </span>
                               ) : null}
                             </div>
-                            {lead ? (
+                            {lead && !item.messageDraftId ? (
                               <button
                                 type="button"
                                 onClick={() => startEditFollowUp(item)}

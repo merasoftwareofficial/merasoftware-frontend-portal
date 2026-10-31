@@ -59,6 +59,7 @@ const shots = process.env.LEAD_TEST_SHOTS;
   app.get('/api/admin/final-message/count', admin_, finalMessage.countController);
   app.post('/api/admin/final-message/prepare', admin_, finalMessage.prepareAllController);
   app.post('/api/admin/leads/:leadId/final-message', admin_, finalMessage.prepareOneController);
+  app.post('/api/admin/leads/:leadId/message', admin_, load('controller/lead/leadMessage'));
   let script = '';
   app.get('/app.js', (req, res) => res.type('application/javascript').send(script));
   app.get('*', (req, res) => res.type('html').send(`<style>${css}</style><div id="root"></div><script src="/app.js"></script>`));
@@ -344,6 +345,23 @@ const shots = process.env.LEAD_TEST_SHOTS;
     await editing.getByRole('button', { name: 'Save', exact: true }).click();
     await page.getByText('Post-conversion call corrected', { exact: true }).waitFor();
     assert.equal((await fresh(won._id)).status, 'Won');
+  });
+
+  await step('Send message works on a Matured lead: type change, WhatsApp queue, one timeline line, no Edit, stage stays', async () => {
+    const won = await leadModel.create({ name: 'Send Lead', phone: '9876500015', status: 'Won', convertedToUserId: new mongoose.Types.ObjectId() });
+    await page.goto(`${origin}/?lead=${won._id}`);
+    await page.getByRole('button', { name: 'Send message', exact: true }).click();
+    const popup = page.getByRole('dialog', { name: 'Send message' });
+    await popup.waitFor();
+    assert.equal(await popup.getByLabel('Message type').inputValue(), 'lead.message');
+    await popup.getByLabel('Message type').selectOption('lead.finalMessage');
+    await popup.getByText('The lead does not go Dead').waitFor();
+    await popup.getByRole('button', { name: 'Send WhatsApp', exact: true }).click();
+    await page.getByText('Message: Final message. WhatsApp queued.', { exact: true }).waitFor();
+    assert.equal((await fresh(won._id)).status, 'Won');
+    assert.equal(await Queue.countDocuments({ to: '919876500015' }), 1);
+    assert.equal(await page.getByRole('button', { name: 'Edit', exact: true }).count(), 0, 'a message line cannot be edited');
+    await shot('send-message-matured');
   });
 
   await step('client and lead links resolve the same record and ignore trashed records', async () => {

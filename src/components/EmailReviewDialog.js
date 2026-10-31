@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 import { emailApi, registerEmailReview } from '../helpers/emailReview';
@@ -21,14 +21,17 @@ export default function EmailReviewDialog() {
   const [templateNotice, setTemplateNotice] = useState('');
   const resolver = useRef(null);
   const dialogRef = useRef(null);
+  const load = useCallback(value => {
+    setSubject(value.templatePreviewSubject || value.subject); setSubjectDoc(value.templateSubjectDoc); setReviewDoc(value.templateDoc ?? value.doc ?? plainDoc(value.text));
+    setTemplateId(value.selectedTemplateId || 'current'); setTemplateMeta(value.selectedTemplateId ? { id: value.selectedTemplateId, name: value.templateLabel, revision: value.templateRevision } : null);
+    setTemplateName(`${value.templateLabel || 'Message'} copy`);
+    setChannel(value.delivery?.channels?.length ? (value.delivery.channels.length === 2 ? 'both' : value.delivery.channels[0]) : value.defaultChannel || '');
+    setHtml(value.templatePreviewHtml || value.html || ''); setPreviewError(''); setTemplateNotice(''); setDraft(value);
+  }, []);
   useEffect(() => {
     const unregister = registerEmailReview(value => new Promise(resolve => {
       resolver.current = resolve;
-      setSubject(value.templatePreviewSubject || value.subject); setSubjectDoc(value.templateSubjectDoc); setReviewDoc(value.templateDoc ?? value.doc ?? plainDoc(value.text));
-      setTemplateId(value.selectedTemplateId || 'current'); setTemplateMeta(value.selectedTemplateId ? { id: value.selectedTemplateId, name: value.templateLabel, revision: value.templateRevision } : null);
-      setTemplateName(`${value.templateLabel || 'Message'} copy`);
-      setChannel(value.delivery?.channels?.length ? (value.delivery.channels.length === 2 ? 'both' : value.delivery.channels[0]) : value.defaultChannel || '');
-      setHtml(value.templatePreviewHtml || value.html || ''); setPreviewError(''); setTemplateNotice(''); setDraft(value);
+      load(value);
     }));
     const error = event => toast.error(`Action saved. Email was not confirmed as sent: ${event.detail}. Open Email Control to review.`);
     const result = event => {
@@ -38,9 +41,9 @@ export default function EmailReviewDialog() {
     window.addEventListener('email-review-error', error);
     window.addEventListener('email-review-result', result);
     return () => { unregister(); window.removeEventListener('email-review-error', error); window.removeEventListener('email-review-result', result); resolver.current?.({ choice: 'skip' }); };
-  }, []);
+  }, [load]);
   useEffect(() => {
-    if (draft) dialogRef.current?.showModal();
+    if (draft && !dialogRef.current?.open) dialogRef.current?.showModal();
   }, [draft]);
   // Original-template previews also support unsaved Add Lead / phone-only proposal reviews.
   const options = draft?.templateOptions || [];
@@ -49,6 +52,16 @@ export default function EmailReviewDialog() {
     setBusy(true); setPreviewError(''); setTemplateNotice('');
     try { return await emailApi(draft._id ? `/drafts/${draft._id}/preview` : '/review-preview', { method: 'POST', body: JSON.stringify({ ...(!draft._id ? { event: draft.event, values: draft.values, templateId: templateId === 'current' ? undefined : templateId } : {}), ...body }) }); }
     catch (err) { setPreviewError(err.message); return null; }
+    finally { setBusy(false); }
+  };
+  // Send message on a lead's page: the same draft moves to another action, and the chosen channel stays.
+  const chooseType = async event => {
+    setBusy(true); setPreviewError('');
+    try {
+      const value = await emailApi(`/drafts/${draft._id}/message-type`, { method: 'POST', body: JSON.stringify({ event }) });
+      load(value);
+      if (channel) setChannel(channel);
+    } catch (error) { setPreviewError(error.message); }
     finally { setBusy(false); }
   };
   const chooseTemplate = async id => {
@@ -97,11 +110,13 @@ export default function EmailReviewDialog() {
   };
   if (!draft) return null;
   const isWhatsapp = draft.channel === 'whatsapp' || (!draft.to?.length && channel === 'whatsapp');
+  const types = draft.messageTypes;
+  const typeNote = types?.find(type => type.id === draft.event)?.note;
   const recipients = [...(draft.to || []), ...(draft.whatsappTo && !draft.to?.includes(draft.whatsappTo) ? [`+${draft.whatsappTo}`] : [])];
   return createPortal(
     <dialog ref={dialogRef} onCancel={event => { event.preventDefault(); finish('skip'); }} aria-labelledby="email-review-title" className="w-[min(680px,95vw)] max-h-[90vh] overflow-auto rounded-2xl p-6 shadow-xl backdrop:bg-black/50">
-      <h2 id="email-review-title" className="text-xl font-bold">{draft.channelOptions ? 'Review message' : isWhatsapp ? 'Review WhatsApp message' : 'Review email'}</h2>
-      <p className="my-2 text-sm text-slate-600">{draft.description}</p>
+      <h2 id="email-review-title" className="text-xl font-bold">{types ? 'Send message' : draft.channelOptions ? 'Review message' : isWhatsapp ? 'Review WhatsApp message' : 'Review email'}</h2>
+      <p className="my-2 text-sm text-slate-600">{types ? 'Nothing goes until you choose Send. The lead’s stage does not change.' : draft.description}</p>
       <p className="my-3 text-sm"><strong>To:</strong> {recipients.join(', ')}</p>
       {!!draft.attachments?.length && <p className="text-sm">Attachments: {draft.attachments.map(a => a.filename).join(', ')}</p>}
       {!!draft.attachments?.length && ['whatsapp', 'both'].includes(channel) && <p className="text-xs text-slate-500">Files are attached to email. WhatsApp sends the message and its links.</p>}
@@ -109,10 +124,17 @@ export default function EmailReviewDialog() {
         <select id="review-channel" className="mt-1 w-full rounded border p-2" value={channel} disabled={busy || locked} onChange={event => setChannel(event.target.value)}>
           {draft.channelOptions.map(option => <option key={option.id} value={option.id} disabled={!option.enabled}>{option.label}{!option.enabled ? ` — ${option.reason}` : ''}</option>)}
         </select></>}
+      {!!types && <>
+        <label htmlFor="email-review-type" className="mt-4 block">Message type</label>
+        <select id="email-review-type" disabled={busy || locked} className="mt-1 w-full rounded border p-2" value={draft.event} onChange={event => void chooseType(event.target.value)}>
+          {types.map(type => <option key={type.id} value={type.id} disabled={!type.enabled}>{type.label}{type.reason ? ` — ${type.reason}` : ''}</option>)}
+        </select>
+        <p className="mt-1 text-xs text-slate-500">{typeNote || 'Changing the type replaces the message below.'}</p>
+      </>}
       {!!options.length && <>
         <label htmlFor="email-review-template" className="mt-4 block">Template</label>
         <select id="email-review-template" disabled={busy || locked} className="mt-1 w-full rounded border p-2" value={templateId} onChange={e => void chooseTemplate(e.target.value)}>
-          <option value="current">Current draft</option>
+          {!types && <option value="current">Current draft</option>}
           {options.map(option => <option key={option.id || 'built-in'} value={option.id}>{optionLabel(option)}</option>)}
         </select>
       </>}
