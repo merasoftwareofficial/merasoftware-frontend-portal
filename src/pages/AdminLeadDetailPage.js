@@ -132,7 +132,7 @@ const AdminLeadDetailPage = () => {
     review: "Final message: waiting for your decision.",
     queued: "Final message: waiting in the WhatsApp queue.",
     waiting: `Final message sent. No reply yet; the lead goes Dead after ${finalMessage.deadlineAt ? new Date(finalMessage.deadlineAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) : "the wait"}.`,
-    replied: `Final message replied: ${finalMessage.lastReplyText || "Message"}`,
+    replied: `Final message replied: ${finalMessage.lastReplyText || "Message"}.${finalMessage.decision ? "" : " This reply needs your decision in Communication → Final Message."}`,
     dead: "Final message: no reply in time.",
     "not-sent": "Final message: not sent.",
     "email-only": "Final message: sent by email only, so it is not followed.",
