@@ -1710,6 +1710,9 @@ const AdminClientWorkspace = () => {
           meta={
             <>
               <AdminInfoPill label="Status" value={clientStatus} variant="dark" />
+              {customer?.leadId ? (
+                <button type="button" onClick={() => navigate(`/admin-panel/leads/${customer.leadId}`)} className="rounded-xl border border-white/20 px-3 py-2 text-sm font-semibold text-white hover:bg-white/10">View Lead</button>
+              ) : null}
               <AdminInfoPill label="Joined" value={createdAt} variant="dark" />
             </>
           }

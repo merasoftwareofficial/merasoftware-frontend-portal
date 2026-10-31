@@ -118,10 +118,10 @@ const AdminLeadDetailPage = () => {
   }, [leadId]);
 
   const isConverted = Boolean(lead?.convertedToUserId);
+  const isMatured = isConverted || lead?.status === "Won";
 
   const handleAddFollowUp = async (event) => {
     event.preventDefault();
-    if (isConverted) return;
     if (!followUpNote.trim()) {
       toast.error("Please write a follow-up note");
       return;
@@ -132,7 +132,7 @@ const AdminLeadDetailPage = () => {
       // follow-up also moves the lead's stage to the chosen badge (backend merge).
       const formData = new FormData();
       formData.append("action", "followUp");
-      formData.append("badge", followUpBadge);
+      formData.append("badge", isMatured ? "Won" : followUpBadge);
       formData.append("note", followUpNote);
       if (followUpFile) {
         formData.append("attachment", followUpFile);
@@ -378,16 +378,16 @@ const AdminLeadDetailPage = () => {
               {isConverted ? (
                 <div className="mt-3 space-y-3">
                   <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                    This lead is converted to a client and is now read-only.
+                    Matured — follow-ups remain available.
                   </p>
-                  <button
+                  {lead.clientAvailable !== false ? <button
                     type="button"
                     onClick={() => navigate(`/admin-panel/clients/${lead.convertedToUserId}`)}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
                   >
                     <UserCheck size={16} />
-                    View as Client
-                  </button>
+                    View Client
+                  </button> : <p className="text-xs text-slate-500">Linked client is unavailable.</p>}
                 </div>
               ) : (
                 <div className="mt-3 space-y-2">
@@ -444,7 +444,7 @@ const AdminLeadDetailPage = () => {
             <div className="rounded-3xl border border-slate-200 bg-white p-5">
               <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Follow-ups</h3>
 
-              {!isConverted ? (
+              {lead ? (
                 <form onSubmit={handleAddFollowUp} className="mt-3 space-y-3">
                   {/* Stage + file side by side; remark below (full width). */}
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -455,9 +455,9 @@ const AdminLeadDetailPage = () => {
                       </label>
                       <KeyboardSelect
                         ref={followUpBadgeRef}
-                        value={followUpBadge}
+                        value={isMatured ? "Won" : followUpBadge}
                         onChange={(value) => setFollowUpBadge(value)}
-                        options={leadStatusOptions(lead?.status)}
+                        options={isMatured ? [{ value: "Won", label: "Matured" }] : leadStatusOptions(lead?.status)}
                         onConfirm={() => followUpFileRef.current?.focus()}
                         className={["font-semibold", leadStatusStyle(followUpBadge)].join(" ")}
                       />
@@ -528,7 +528,7 @@ const AdminLeadDetailPage = () => {
                                 ref={editBadgeRef}
                                 value={editBadge}
                                 onChange={(value) => setEditBadge(value)}
-                                options={leadStatusOptions(item.badge)}
+                                options={isMatured ? [{ value: item.badge, label: leadStatusLabel(item.badge) }] : leadStatusOptions(item.badge)}
                                 onConfirm={() => editNoteRef.current?.focus()}
                                 className={["font-semibold", leadStatusStyle(editBadge)].join(" ")}
                               />
@@ -581,7 +581,7 @@ const AdminLeadDetailPage = () => {
                                 </span>
                               ) : null}
                             </div>
-                            {!isConverted ? (
+                            {lead ? (
                               <button
                                 type="button"
                                 onClick={() => startEditFollowUp(item)}

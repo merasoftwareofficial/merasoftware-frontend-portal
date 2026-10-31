@@ -12,18 +12,8 @@ import AdminLayout from "../components/AdminLayout";
 import AdminWorkspaceShell, { AdminWorkspaceHeader } from "../components/admin/AdminWorkspaceShell";
 import { adminReturnState } from "../helpers/adminReturnNavigation";
 import AdminWorkspaceList from "../components/admin/AdminWorkspaceList";
+import AdminDateTime from "../components/admin/AdminDateTime";
 import AdminFilterDropdown from "../components/admin/AdminFilterDropdown";
-
-const formatDate = (value) => {
-  if (!value) return "N/A";
-  return new Date(value).toLocaleDateString("en-IN");
-};
-
-const formatActivity = (client) => {
-  const date = formatDate(client?.latestActivityAt);
-  if (date === "N/A") return date;
-  return `${date} · ${(client.latestActivitySource || "client_created").replaceAll("_", " ")}`;
-};
 
 const sortOptions = [
   { value: "lastUpdatedDesc", label: "Last Updated: Newest" },
@@ -204,10 +194,11 @@ const AdminClientsPage = () => {
         <div className="p-5 sm:p-6">
           <AdminWorkspaceList
             columns={[
-              { label: "Client", className: "col-span-12 lg:col-span-4" },
-              { label: "Contact", className: "col-span-6 lg:col-span-3" },
+              { label: "Client", className: "col-span-12 lg:col-span-3" },
+              { label: "Contact", className: "col-span-6 lg:col-span-2" },
               { label: "Status", className: "col-span-6 lg:col-span-2" },
               { label: "Joined", className: "col-span-6 lg:col-span-2" },
+              { label: "Updated", className: "col-span-6 lg:col-span-2" },
               { label: "Open", className: "col-span-6 text-right lg:col-span-1" },
             ]}
             loading={loading}
@@ -224,11 +215,10 @@ const AdminClientsPage = () => {
                   index % 2 === 0 ? "bg-white" : "bg-slate-50",
                 ].join(" ")}
               >
-                <div className="col-span-12 lg:col-span-4">
+                <div className="col-span-12 lg:col-span-3">
                   <p className="truncate text-base font-bold text-slate-950">{index + 1}. {client.name || "N/A"}</p>
-                  <p className="mt-1 truncate text-xs text-emerald-700">Latest: {formatActivity(client)}</p>
                 </div>
-                <div className="col-span-6 lg:col-span-3 lg:flex lg:items-center">
+                <div className="col-span-6 lg:col-span-2 lg:flex lg:items-center">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-slate-900">{client.email || "N/A"}</p>
                     <p className="mt-1 truncate text-xs text-slate-500">{client.phone || "N/A"}</p>
@@ -240,7 +230,10 @@ const AdminClientsPage = () => {
                   </span>
                 </div>
                 <div className="col-span-6 lg:col-span-2 lg:flex lg:items-center">
-                  <p className="text-sm font-semibold text-slate-900">{formatDate(client.createdAt)}</p>
+                  <AdminDateTime value={client.createdAt} />
+                </div>
+                <div className="col-span-6 lg:col-span-2 lg:flex lg:items-center">
+                  <AdminDateTime value={getClientLastUpdated(client)} title={`IST · ${(client.latestActivitySource || "client_created").replaceAll("_", " ")}`} />
                 </div>
                 <div className="col-span-6 flex items-center justify-end lg:col-span-1">
                   <span className="text-xs font-semibold text-slate-500">Open</span>

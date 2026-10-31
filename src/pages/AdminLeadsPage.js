@@ -12,6 +12,7 @@ import { useOnlineStatus } from "../App";
 import AdminLayout from "../components/AdminLayout";
 import AdminWorkspaceShell, { AdminWorkspaceHeader } from "../components/admin/AdminWorkspaceShell";
 import AdminWorkspaceList from "../components/admin/AdminWorkspaceList";
+import AdminDateTime from "../components/admin/AdminDateTime";
 import AdminFilterDropdown from "../components/admin/AdminFilterDropdown";
 import KeyboardSelect from "../components/KeyboardSelect";
 import KeyboardHint from "../components/KeyboardHint";
@@ -19,11 +20,6 @@ import { adminReturnState } from "../helpers/adminReturnNavigation";
 import leadSourceOptions from "../helpers/leadSourceOptions";
 import { LEAD_STATUSES, PROPOSAL_SENT, leadStatusLabel, leadStatusStyle } from "../helpers/leadStatuses";
 import ProposalSentBadge from "../components/admin/ProposalSentBadge";
-
-const formatDate = (value) => {
-  if (!value) return "N/A";
-  return new Date(value).toLocaleDateString("en-IN");
-};
 
 const sortOptions = [
   { value: "lastUpdatedDesc", label: "Last Updated: Newest" },
@@ -544,12 +540,13 @@ const AdminLeadsPage = () => {
         <div className="p-5 sm:p-6">
           <AdminWorkspaceList
             columns={[
-              { label: "Lead", className: "col-span-12 lg:col-span-3" },
-              { label: "Contact", className: "col-span-6 lg:col-span-3" },
+              { label: "Lead", className: "col-span-12 lg:col-span-2" },
+              { label: "Contact", className: "col-span-6 lg:col-span-2" },
               { label: "Status", className: "col-span-6 lg:col-span-2" },
               { label: "Source", className: "col-span-6 lg:col-span-1" },
-              { label: "Added", className: "col-span-6 lg:col-span-1" },
-              { label: "Action", className: "col-span-6 text-right lg:col-span-2" },
+              { label: "Added", className: "col-span-6 lg:col-span-2" },
+              { label: "Modified", className: "col-span-6 lg:col-span-2" },
+              { label: "Action", className: "col-span-6 text-right lg:col-span-1" },
             ]}
             loading={loading}
             emptyText="No leads yet. Use Add Lead to create one."
@@ -579,10 +576,10 @@ const AdminLeadsPage = () => {
                   index % 2 === 0 ? "bg-white" : "bg-slate-50",
                 ].join(" ")}
               >
-                <div className="col-span-12 lg:col-span-3">
+                <div className="col-span-12 lg:col-span-2">
                   <p className="truncate text-base font-bold text-slate-950">{index + 1}. {lead.name || lead.phone || "N/A"}</p>
                 </div>
-                <div className="col-span-6 lg:col-span-3 lg:flex lg:items-center">
+                <div className="col-span-6 lg:col-span-2 lg:flex lg:items-center">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-slate-900">{lead.email || "N/A"}</p>
                     <p className="mt-1 truncate text-xs text-slate-500">{lead.phone || "N/A"}</p>
@@ -603,12 +600,15 @@ const AdminLeadsPage = () => {
                     <p className="truncate text-sm text-slate-700">{lead.source || "—"}</p>
                   )}
                 </div>
-                <div className="col-span-6 lg:col-span-1 lg:flex lg:items-center">
-                  <p className="text-sm font-semibold text-slate-900">{formatDate(lead.createdAt)}</p>
+                <div className="col-span-6 lg:col-span-2 lg:flex lg:items-center">
+                  <AdminDateTime value={lead.createdAt} />
+                </div>
+                <div className="col-span-6 lg:col-span-2 lg:flex lg:items-center">
+                  <AdminDateTime value={getLeadLastUpdated(lead)} />
                 </div>
 
                 {/* Action column — Delete button (hard red, appears on row hover; hidden for converted leads). */}
-                <div className="col-span-6 flex items-center justify-end lg:col-span-2">
+                <div className="col-span-6 flex items-center justify-end lg:col-span-1">
                   {!lead.convertedToUserId ? (
                     <button
                       type="button"

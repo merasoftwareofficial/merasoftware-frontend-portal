@@ -48,6 +48,8 @@ const shots = process.env.LEAD_TEST_SHOTS;
   app.use('/api', requestMiddleware);
   app.use('/api/email-control', load('routes/emailControl'));
   const admin_ = (req, res, next) => { req.userId = String(admin._id); req.userRole = 'admin'; next(); };
+  app.get('/api/admin/clients', admin_, load('controller/user/getAdminClients'));
+  app.get('/api/admin/user-workspace', admin_, load('controller/user/getAdminUserWorkspace'));
   app.get('/api/admin/leads', admin_, load('controller/lead/getLeads'));
   app.get('/api/admin/leads/:leadId', admin_, load('controller/lead/getLeadDetail'));
   app.post('/api/admin/leads/:leadId', admin_, leadFileUpload, load('controller/lead/updateLead'));
@@ -80,11 +82,15 @@ const shots = process.env.LEAD_TEST_SHOTS;
       import EmailReviewDialog from './src/components/EmailReviewDialog';
       import AdminLeadDetailPage from './src/pages/AdminLeadDetailPage';
       import AdminLeadsPage from './src/pages/AdminLeadsPage';
+      import AdminClientWorkspace from './src/pages/AdminClientWorkspace';
+      import AdminClientsPage from './src/pages/AdminClientsPage';
       const store = configureStore({ reducer: { user: userReducer } });
       const leadId = new URLSearchParams(location.search).get('lead');
       createRoot(document.getElementById('root')).render(
-        <Provider store={store}><MemoryRouter initialEntries={[leadId ? '/admin-panel/leads/' + leadId : '/admin-panel/leads']}>
+        <Provider store={store}><MemoryRouter initialEntries={[location.search.includes('clients=true') ? '/admin-panel/clients' : leadId ? '/admin-panel/leads/' + leadId : '/admin-panel/leads']}>
           <Routes>
+            <Route path="/admin-panel/clients" element={<AdminClientsPage />} />
+            <Route path="/admin-panel/clients/:customerId" element={<AdminClientWorkspace />} />
             <Route path="/admin-panel/leads" element={<AdminLeadsPage />} />
             <Route path="/admin-panel/leads/:leadId" element={<AdminLeadDetailPage />} />
           </Routes>
@@ -132,6 +138,8 @@ const shots = process.env.LEAD_TEST_SHOTS;
   const shot = name => (shots ? page.screenshot({ path: path.join(shots, `${name}.png`), fullPage: true }) : null);
   let failed = false;
   const step = async (name, run) => {
+    if (process.env.TIMESTAMPS_ONLY === 'true' && !/timestamp columns/.test(name)) return;
+    if (process.env.MATURED_ONLY === 'true' && !/unconverted Won|converted lead keeps|client and lead links/.test(name)) return;
     try { await run(); console.log('PASS', name); }
     catch (error) { failed = true; console.log('FAIL', name, '\n  ', String(error.message).slice(0, 400)); await shot(`fail-${name.replace(/\W+/g, '-')}`); }
   };
@@ -139,6 +147,28 @@ const shots = process.env.LEAD_TEST_SHOTS;
   const phoneLead = await leadModel.create({ name: 'Ravi Phone', phone: '9876543210', status: 'Contacted' });
 
   const dropdown = () => stageBox().locator('button[type="button"]').first();
+  await step('timestamp columns show separate dates and IST times on leads and clients', async () => {
+    const lead = await leadModel.create({ name: 'Timestamp lead', status: 'Contacted' });
+    const client = await userModel.create({ name: 'Timestamp client', email: 'timestamps@example.test', roles: ['customer'] });
+    const createdAt = new Date('2026-10-30T23:30:00Z');
+    const updatedAt = new Date('2026-10-31T09:15:00Z');
+    await leadModel.collection.updateOne({ _id: lead._id }, { $set: { createdAt, updatedAt } });
+    await userModel.collection.updateOne({ _id: client._id }, { $set: { createdAt, updatedAt } });
+    for (const [query, name, first, second] of [['', 'Timestamp lead', 'Added', 'Modified'], ['?clients=true', 'Timestamp client', 'Joined', 'Updated']]) {
+      await page.goto(origin + '/' + query);
+      await page.getByText(new RegExp('^\\d+\\. ' + name + '$')).waitFor();
+      const row = page.locator('[tabindex="0"], button').filter({ has: page.getByText(new RegExp('^\\d+\\. ' + name + '$')) }).last();
+      await page.getByText(first, { exact: true }).waitFor();
+      await page.getByText(second, { exact: true }).waitFor();
+      const times = row.locator('time');
+      assert.equal(await times.count(), 2);
+      assert.match(await times.nth(0).innerText(), /31 Oct 2026\s*5:00 AM/);
+      assert.match(await times.nth(1).innerText(), /31 Oct 2026\s*2:45 PM/);
+      assert.equal(await times.nth(0).getAttribute('datetime'), createdAt.toISOString());
+      assert.equal(await times.nth(1).getAttribute('datetime'), updatedAt.toISOString());
+    }
+  });
+
   await step('the dropdown offers only the three stages, with the current one chosen', async () => {
     await open(phoneLead);
     assert.match(await dropdown().innerText(), /Contacted/);
@@ -291,11 +321,43 @@ const shots = process.env.LEAD_TEST_SHOTS;
     assert.ok(await has('Big') > 0);
   });
 
-  await step('a converted lead shows its proposals but no Add Proposal or follow-up form', async () => {
+  await step('a converted lead keeps proposals read-only and accepts follow-ups', async () => {
     const won = await leadModel.create({ name: 'Won', phone: '9000000014', status: 'Won', convertedToUserId: new mongoose.Types.ObjectId(), proposals: [{ version: 1, name: 'x.pdf', amount: 100, downloadLink: 'https://drive.example.test/x' }] });
     await page.goto(`${origin}/?lead=${won._id}`);
     await page.getByText('v1 · ₹100').waitFor();
     assert.equal(await page.getByRole('button', { name: 'Add Proposal' }).count(), 0);
+    assert.equal(await page.getByRole('button', { name: 'View Client', exact: true }).count(), 0);
+    await page.getByText('Linked client is unavailable.').waitFor();
+    await addFollowUp('Post-conversion call');
+    assert.equal((await fresh(won._id)).status, 'Won');
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
+    const editing = page.locator('form').nth(1);
+    await editing.locator('textarea').fill('Post-conversion call corrected');
+    await editing.getByRole('button', { name: 'Save', exact: true }).click();
+    await page.getByText('Post-conversion call corrected', { exact: true }).waitFor();
+    assert.equal((await fresh(won._id)).status, 'Won');
+  });
+
+  await step('client and lead links resolve the same record and ignore trashed records', async () => {
+    const client = await userModel.create({ name: 'Linked client', email: 'linked-client@example.test', roles: ['customer'] });
+    const won = await leadModel.create({ name: 'Linked lead', status: 'Won', convertedToUserId: client._id });
+    const workspace = async () => {
+      const response = await fetch(`${origin}/api/admin/user-workspace?customerId=${client._id}`);
+      assert.equal(response.status, 200);
+      return (await response.json()).data;
+    };
+    assert.equal(String((await workspace()).customer.leadId), String(won._id));
+    await page.goto(`${origin}/?lead=${won._id}`);
+    await page.getByRole('button', { name: 'View Client', exact: true }).click();
+    await page.getByRole('button', { name: 'View Lead', exact: true }).click();
+    await page.getByRole('button', { name: 'View Client', exact: true }).waitFor();
+    await leadModel.updateOne({ _id: won._id }, { $set: { deletedAt: new Date() } });
+    assert.equal((await workspace()).customer.leadId, null);
+    await leadModel.updateOne({ _id: won._id }, { $set: { deletedAt: null } });
+    await userModel.updateOne({ _id: client._id }, { $set: { deletedAt: new Date() } });
+    await page.reload();
+    await page.getByText('Linked client is unavailable.').waitFor();
+    assert.equal(await page.getByRole('button', { name: 'View Client', exact: true }).count(), 0);
   });
 
   assert.deepEqual(errors, [], 'no page errors');
