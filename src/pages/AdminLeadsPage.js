@@ -1,7 +1,7 @@
 import { emailApi, reviewEmail } from '../helpers/emailReview';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowUpDown, Loader2, Plus, RefreshCw, Search, Send, Trash2, UserPlus, X } from "lucide-react";
 import SummaryApi from "../common";
@@ -37,14 +37,26 @@ const AdminLeadsPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { isOnline } = useOnlineStatus();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [sortBy, setSortBy] = useState("lastUpdatedDesc");
-  const [sourceFilter, setSourceFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [proposalSentOnly, setProposalSentOnly] = useState(false);
+  // URL is the single source for list selection and the explicit return target.
+  const setFilter = (key, value, fallback = '') => setSearchParams(current => {
+    const next = new URLSearchParams(current);
+    if (value && value !== fallback) next.set(key, value); else next.delete(key);
+    return next;
+  }, { replace: true });
+  const searchTerm = searchParams.get("q") || "";
+  const setSearchTerm = value => setFilter("q", value);
+  const sortBy = searchParams.get("sort") || "lastUpdatedDesc";
+  const setSortBy = value => setFilter("sort", value, "lastUpdatedDesc");
+  const sourceFilter = searchParams.get("source") || "all";
+  const setSourceFilter = value => setFilter("source", value, "all");
+  const statusFilter = searchParams.get("status") || "all";
+  const setStatusFilter = value => setFilter("status", value, "all");
+  const proposalSentOnly = searchParams.get("proposal") === "1";
+  const setProposalSentOnly = value => setFilter("proposal", (typeof value === 'function' ? value(proposalSentOnly) : value) ? "1" : "");
   const [showAddModal, setShowAddModal] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -155,7 +167,7 @@ const AdminLeadsPage = () => {
   const openLead = (lead) => {
     if (!lead?._id) return;
     navigate(`/admin-panel/leads/${lead._id}`, {
-      state: adminReturnState("/admin-panel/leads"),
+      state: adminReturnState(`/admin-panel/leads${searchParams.size ? `?${searchParams}` : ""}`),
     });
   };
 

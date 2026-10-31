@@ -8,6 +8,7 @@ const optionLabel = option => (option.system && option.id ? `${option.name} (bui
 
 export default function EmailReviewDialog() {
   const [draft, setDraft] = useState(null);
+  const [preparing, setPreparing] = useState(false);
   const [subject, setSubject] = useState('');
   const [subjectDoc, setSubjectDoc] = useState(undefined);
   const [channel, setChannel] = useState('');
@@ -33,6 +34,8 @@ export default function EmailReviewDialog() {
       resolver.current = resolve;
       load(value);
     }));
+    const preparation = event => setPreparing(event.detail);
+    window.addEventListener('email-review-preparing', preparation);
     const error = event => toast.error(`Action saved. Email was not confirmed as sent: ${event.detail}. Open Email Control to review.`);
     const result = event => {
       if (event.detail?.delivery) toast.success([event.detail.delivery.email === 'sent' ? 'Email sent' : '', event.detail.delivery.whatsapp === 'queued' ? 'WhatsApp queued' : ''].filter(Boolean).join(' Â· '));
@@ -40,11 +43,12 @@ export default function EmailReviewDialog() {
     };
     window.addEventListener('email-review-error', error);
     window.addEventListener('email-review-result', result);
-    return () => { unregister(); window.removeEventListener('email-review-error', error); window.removeEventListener('email-review-result', result); resolver.current?.({ choice: 'skip' }); };
+    return () => { window.removeEventListener('email-review-preparing', preparation); unregister(); window.removeEventListener('email-review-error', error); window.removeEventListener('email-review-result', result); resolver.current?.({ choice: 'skip' }); };
   }, [load]);
   useEffect(() => {
-    if (draft && !dialogRef.current?.open) dialogRef.current?.showModal();
-  }, [draft]);
+    if ((draft || preparing) && !dialogRef.current?.open) dialogRef.current?.showModal();
+    if (!draft && !preparing) dialogRef.current?.close();
+  }, [draft, preparing]);
   // Original-template previews also support unsaved Add Lead / phone-only proposal reviews.
   const options = draft?.templateOptions || [];
   const locked = !!draft?.delivery?.lockedAt || draft?.status === 'failed' || draft?.status === 'sending';
@@ -108,7 +112,10 @@ export default function EmailReviewDialog() {
     resolver.current?.(decision); resolver.current = null;
     dialogRef.current?.close(); setDraft(null);
   };
-  if (!draft) return null;
+  if (!draft) return preparing ? createPortal(
+    <dialog ref={dialogRef} aria-label="Preparing message" aria-busy="true" onCancel={event => event.preventDefault()} className="w-[min(680px,95vw)] rounded-2xl p-6 shadow-xl backdrop:bg-black/50">
+      <h2 className="text-xl font-bold">Send message</h2><p role="status" className="my-3">Preparing your message…</p>
+    </dialog>, document.body) : null;
   const isWhatsapp = draft.channel === 'whatsapp' || (!draft.to?.length && channel === 'whatsapp');
   const types = draft.messageTypes;
   const typeNote = types?.find(type => type.id === draft.event)?.note;
