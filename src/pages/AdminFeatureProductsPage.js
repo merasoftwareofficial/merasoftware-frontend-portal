@@ -1,14 +1,8 @@
 import { useResource } from '../hooks/useResource';
 import React, { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { ListChecks, Plus, X } from "lucide-react";
 import SummaryApi from "../common";
-import { logout } from "../store/userSlice";
-import CookieManager from "../utils/cookieManager";
-import StorageService from "../utils/storageService";
-import AdminLayout from "../components/AdminLayout";
 import AdminWorkspaceShell, { AdminWorkspaceHeader } from "../components/admin/AdminWorkspaceShell";
 import useProjectCategories from "../hooks/useProjectCategories";
 
@@ -304,9 +298,6 @@ const FeatureEditForm = ({ feature, categories, onCancel, onSaved, onDeleted }) 
 };
 
 const AdminFeatureProductsPage = () => {
-  const user = useSelector((state) => state?.user?.user);
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
 
   const [features, setFeatures] = useState([]);
 
@@ -338,27 +329,8 @@ const AdminFeatureProductsPage = () => {
     fetchFeatures();
   };
 
-  const handleLogout = async () => {
-    try {
-      const response = await fetch(SummaryApi.logout_user.url, {
-        method: SummaryApi.logout_user.method,
-        credentials: "include",
-      });
-      const result = await response.json();
-      if (result.success) toast.success(result.message);
-    } catch (error) {
-      console.error("Error during logout:", error);
-      toast.error("Logout failed. Please try again.");
-    } finally {
-      CookieManager.clearAll();
-      StorageService.clearUserData();
-      dispatch(logout());
-      navigate("/");
-    }
-  };
-
   return (
-    <AdminLayout user={user} onLogout={handleLogout}>
+    <>
       <AdminWorkspaceShell>
         <AdminWorkspaceHeader
           icon={ListChecks}
@@ -455,7 +427,7 @@ const AdminFeatureProductsPage = () => {
           </div>
         ) : null}
       </AdminWorkspaceShell>
-    </AdminLayout>
+    </>
   );
 };
 

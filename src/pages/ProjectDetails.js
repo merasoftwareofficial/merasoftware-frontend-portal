@@ -3,7 +3,7 @@ import ProjectAgreement from '../components/ProjectAgreement';
 import WebsitePreviewPanel from '../components/WebsitePreviewPanel';
 import React, { useState, useEffect, useRef, useCallback, useContext, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { 
   X, ArrowLeft, Clock, Check, List, Upload,
   ExternalLink, ChevronDown
@@ -13,13 +13,8 @@ import { getOrderCategoryLabel, getOrderDisplayName } from '../helpers/orderPres
 import SummaryApi from '../common';
 import TriangleMazeLoader from '../components/TriangleMazeLoader';
 import DashboardLayout from '../components/DashboardLayout';
-import AdminLayout from '../components/AdminLayout';
 import UpdateRequestModal from '../components/UpdateRequestModal';
 import PaymentAlert from '../components/PaymentAlert';
-import { logout } from '../store/userSlice';
-import CookieManager from '../utils/cookieManager';
-import StorageService from '../utils/storageService';
-import { useOnlineStatus } from '../App';
 import { isPlanItem } from '../helpers/orderType';
 import AddServiceModal from '../components/AddServiceModal';
 import ProjectServiceWorkspace from '../components/ProjectServiceWorkspace';
@@ -271,9 +266,7 @@ const ProjectDetails = ({ isAdminView = false }) => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const dispatch = useDispatch();
   const user = useSelector((state) => state?.user?.user);
-  const { isOnline } = useOnlineStatus();
   const timelineRef = useRef(null);
   const [order, setOrder] = useState(null);
 
@@ -293,40 +286,9 @@ const ProjectDetails = ({ isAdminView = false }) => {
   const g = (adminClass, customerClass) => (isAdminView ? adminClass : customerClass);
   const [selectedNodeId, setSelectedNodeId] = useState('');
 
-  const handleLogout = async () => {
-    try {
-      if (isOnline) {
-        const response = await fetch(SummaryApi.logout_user.url, {
-          method: SummaryApi.logout_user.method,
-          credentials: 'include',
-        });
-
-        const data = await response.json();
-        if (data.success) {
-          toast.success(data.message);
-        }
-      }
-
-      CookieManager.clearAll();
-      StorageService.clearUserData();
-
-      dispatch(logout());
-      navigate('/');
-    } catch (error) {
-      console.error('Error during logout:', error);
-      toast.error('Logout failed. Please try again.');
-    }
-  };
-
-  const Shell = isAdminView ? AdminLayout : DashboardLayout;
-  const shellProps = isAdminView
-    ? {
-        user,
-        onLogout: handleLogout,
-      }
-    : {
-        user,
-      };
+  // The admin route already sits inside AdminShell.
+  const Shell = isAdminView ? React.Fragment : DashboardLayout;
+  const shellProps = isAdminView ? {} : { user };
   const checkPaymentStatus = useCallback(async (order) => {
     // If project is already completed, don't show payment alert
     // A finished or closed project has no payment left to chase. Derived from the engine's

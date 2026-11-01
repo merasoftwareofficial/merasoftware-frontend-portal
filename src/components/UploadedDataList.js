@@ -21,7 +21,8 @@ import { formatFileSize, getRequestStatusMeta } from '../helpers/clientSubmissio
 // Plan uploads carry a status history (helpers/uploadStatus.js on the backend): shown when
 // `showStatusHistory` is set. `onSetStatus(attempt, status, note)` adds the admin's
 // In progress / Done / Rejected buttons — only on plan uploads (attempt.isPlanUpload), the only
-// ones the backend lets change.
+// ones the backend lets change. `onRetryDelivery(attempt)` adds the admin's Retry delivery button
+// on an upload whose files could not reach Drive.
 
 const STATUS_NEXT = { pending: ['in_progress', 'completed', 'rejected'], in_progress: ['completed', 'rejected'] };
 const STATUS_ACTION = { in_progress: 'Mark in progress', completed: 'Mark done', rejected: 'Reject' };
@@ -38,6 +39,7 @@ const UploadedDataList = ({
   showStatusHistory = false,
   onSetStatus,
   statusBusyId = '',
+  onRetryDelivery,
 }) => {
   const isGlass = theme === 'glass';
   const t = (lightClass, glassClass) => (isGlass ? glassClass : lightClass);
@@ -191,6 +193,16 @@ const UploadedDataList = ({
                     {attempt.deliveryStatus === 'queued' ? 'Upload received. Files will be available shortly.' : attempt.deliveryStatus === 'needs_review' ? 'Files temporarily unavailable. Please contact support.' : 'Files are no longer available.'}
                   </p>
                 )}
+                {onRetryDelivery && attempt.deliveryStatus === 'needs_review' ? (
+                  <button
+                    type="button"
+                    onClick={() => onRetryDelivery(attempt)}
+                    disabled={Boolean(statusBusyId)}
+                    className="mt-2 inline-flex items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    {statusBusyId === attempt.id ? 'Retrying…' : 'Retry delivery'}
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </div>

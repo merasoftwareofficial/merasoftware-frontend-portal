@@ -1,5 +1,5 @@
 import { useResource } from './hooks/useResource';
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useDispatch, useSelector, useStore } from 'react-redux';
 import { useOnlineStatus } from './App';
@@ -180,7 +180,9 @@ const AppContent = () => {
         <div className="flex min-h-screen flex-col">
           <ScrollToTop />
           <main className="flex-1 pt-0 md:pt-0">
-            <Outlet key={`${user?._id || 'anonymous'}:${user?.role || ''}`} />
+            <Suspense fallback={<div role="status" aria-live="polite" className="p-6 text-center">Loading screen…</div>}>
+              <Outlet key={`${user?._id || 'anonymous'}:${user?.role || ''}`} />
+            </Suspense>
           </main>
         </div>
       </Context.Provider>

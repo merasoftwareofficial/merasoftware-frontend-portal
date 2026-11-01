@@ -1,26 +1,12 @@
 import { useResource } from '../hooks/useResource';
 import React, { useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
-import AdminLayout from '../components/AdminLayout';
 import { toast } from 'sonner';
-import SummaryApi from '../common';
-import StorageService from '../utils/storageService';
-import CookieManager from '../utils/cookieManager';
 
 const endpoint = `${process.env.REACT_APP_BACKEND_URL}/api/admin/my-settings`;
 export default function AdminSettingsPage() {
-  const user = useSelector(state => state?.user?.user);
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  async function handleLogout() {
-    try {
-      const response = await fetch(SummaryApi.logout_user.url, { method: SummaryApi.logout_user.method, credentials: 'include' });
-      const result = await response.json();
-      if (!response.ok || !result.success) throw new Error(result.message || 'Could not sign out');
-      StorageService.clearUserData(); CookieManager.clearAll(); window.location.assign('/');
-    } catch (err) { setError(err.message); }
-  }
   const { error: loadError, refresh: load } = useResource(endpoint, (next, initial) => { if (initial) setData(next); });
   useEffect(() => { if (loadError) setError(loadError); }, [loadError]);
   async function save(event) {
@@ -34,7 +20,7 @@ export default function AdminSettingsPage() {
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
   }
-  return <AdminLayout user={user} onLogout={handleLogout}><main className="mx-auto w-full max-w-3xl p-4 sm:p-8">
+  return <><main className="mx-auto w-full max-w-3xl p-4 sm:p-8">
     <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
     <p className="mt-2 text-sm text-slate-600">Manage your profile and contact information.</p>
     {error && <p role="alert" className="my-4 rounded-lg bg-red-50 p-3 text-red-800">{error} {!data && <button onClick={() => { setError(''); load(); }} className="underline">Retry</button>}</p>}
@@ -61,5 +47,5 @@ export default function AdminSettingsPage() {
           <button type="submit" className="rounded-lg bg-blue-700 px-5 py-2.5 font-semibold text-white disabled:opacity-50">{busy ? 'Saving...' : 'Save settings'}</button>
         </fieldset>
       </form>}
-  </main></AdminLayout>;
+  </main></>;
 }

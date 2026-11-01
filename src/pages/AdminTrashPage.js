@@ -1,16 +1,10 @@
 import { useListState } from '../hooks/useListState';
 import { useResource } from '../hooks/useResource';
+import { useListScroll } from '../hooks/useListScroll';
 import React, { useEffect, useMemo, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowUpDown, Loader2, RefreshCw, RotateCcw, Search, Trash2 } from "lucide-react";
 import SummaryApi from "../common";
-import { logout } from "../store/userSlice";
-import CookieManager from "../utils/cookieManager";
-import StorageService from "../utils/storageService";
-import { useOnlineStatus } from "../App";
-import AdminLayout from "../components/AdminLayout";
 import AdminWorkspaceShell, { AdminWorkspaceHeader } from "../components/admin/AdminWorkspaceShell";
 import AdminWorkspaceList from "../components/admin/AdminWorkspaceList";
 import AdminFilterDropdown from "../components/admin/AdminFilterDropdown";
@@ -34,10 +28,6 @@ const sortOptions = [
 ];
 
 const AdminTrashPage = () => {
-  const user = useSelector((state) => state?.user?.user);
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-  const { isOnline } = useOnlineStatus();
   const [items, setItems] = useState([]);
 
 
@@ -49,27 +39,8 @@ const AdminTrashPage = () => {
   const [busyKey, setBusyKey] = useState(null); // `${type}:${id}` while restoring/purging
   const [toPurge, setToPurge] = useState(null);
 
-  const handleLogout = async () => {
-    try {
-      if (isOnline) {
-        const response = await fetch(SummaryApi.logout_user.url, {
-          method: SummaryApi.logout_user.method,
-          credentials: "include",
-        });
-        const data = await response.json();
-        if (data.success) toast.success(data.message);
-      }
-      CookieManager.clearAll();
-      StorageService.clearUserData();
-      dispatch(logout());
-      navigate("/");
-    } catch (error) {
-      console.error("Error during logout:", error);
-      toast.error("Logout failed. Please try again.");
-    }
-  };
-
   const { loading, refreshing, error, refresh: fetchTrash } = useResource(SummaryApi.getTrash.url, next => setItems(next || []));
+  useListScroll(!loading);
   const handleRefresh = () => fetchTrash();
   useEffect(() => { if (error) toast.error(error); }, [error]);
 
@@ -161,7 +132,7 @@ const AdminTrashPage = () => {
   }, [items, searchTerm, sortBy]);
 
   return (
-    <AdminLayout user={user} onLogout={handleLogout}>
+    <>
       <AdminWorkspaceShell>
         <AdminWorkspaceHeader
           icon={Trash2}
@@ -321,7 +292,7 @@ const AdminTrashPage = () => {
           </div>
         </div>
       )}
-    </AdminLayout>
+    </>
   );
 };
 

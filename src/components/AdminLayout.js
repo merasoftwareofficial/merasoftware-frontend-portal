@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   BarChart3,
@@ -56,6 +56,10 @@ const AdminLayout = ({
 }) => {
   const location = useLocation();
   const currentPath = location.pathname;
+  // A screen's file may still be loading: the clicked link answers at once anyway.
+  const [pendingPath, setPendingPath] = useState(null);
+  useEffect(() => { setPendingPath(null); }, [currentPath]);
+  const activePath = pendingPath || currentPath;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { sidebarRef, mainRef, navRefs, handleSidebarKeyDown } = useSidebarFocusZones();
   navRefs.current = [];
@@ -136,14 +140,14 @@ const AdminLayout = ({
                   </div>
                   {module.children.map((child) => {
                     const ChildIcon = child.icon;
-                    const childIsActive = currentPath === child.to || currentPath.startsWith(`${child.to}/`);
+                    const childIsActive = activePath === child.to || activePath.startsWith(`${child.to}/`);
                     return (
                       <Link
                         key={child.id}
                         ref={registerNavRef}
                         to={child.to}
                         aria-current={childIsActive ? "page" : undefined}
-                        onClick={() => setMobileMenuOpen(false)}
+                        onClick={() => { setMobileMenuOpen(false); setPendingPath(child.to); }}
                         className={`group ml-3 flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-slate-950 ${childIsActive ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-950/30" : "bg-slate-900/70 text-slate-200 hover:bg-slate-800"}`}
                       >
                         <ChildIcon size={18} className="shrink-0" />
@@ -157,8 +161,8 @@ const AdminLayout = ({
             }
 
             const isActive =
-              currentPath === module.to ||
-              (module.to && currentPath.startsWith(`${module.to}/`));
+              activePath === module.to ||
+              (module.to && activePath.startsWith(`${module.to}/`));
             const Icon = module.icon;
             const isUpcoming = Boolean(module.soon);
             const buttonClassName = [
@@ -177,7 +181,7 @@ const AdminLayout = ({
                   ref={registerNavRef}
                   to={module.to}
                   aria-current={isActive ? "page" : undefined}
-                  onClick={() => setMobileMenuOpen(false)}
+                  onClick={() => { setMobileMenuOpen(false); setPendingPath(module.to); }}
                   className={buttonClassName}
                 >
                   <Icon size={18} className="shrink-0" />

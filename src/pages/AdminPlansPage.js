@@ -1,30 +1,16 @@
 import { useResource } from '../hooks/useResource';
 import React from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Layers3 } from 'lucide-react';
-import AdminLayout from '../components/AdminLayout';
 import AdminWorkspaceShell, { AdminWorkspaceHeader } from '../components/admin/AdminWorkspaceShell';
 import { PlansManager } from '../components/admin/AdminPlansManager';
 import SummaryApi from '../common';
-import CookieManager from '../utils/cookieManager';
-import StorageService from '../utils/storageService';
-import { logout } from '../store/userSlice';
 
 export default function AdminPlansPage() {
-  const user = useSelector(state => state?.user?.user);
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
   const [search] = useSearchParams();
   const { data: catalogue, error, refresh } = useResource(SummaryApi.adminPlanCatalogue.url);
 
-  async function handleLogout() {
-    try { await fetch(SummaryApi.logout_user.url, { method: SummaryApi.logout_user.method, credentials: 'include' }); }
-    finally {
-      CookieManager.clearAll(); StorageService.clearUserData(); dispatch(logout()); navigate('/');
-    }
-  }
-  return <AdminLayout user={user} onLogout={handleLogout}>
+  return <>
     <AdminWorkspaceShell>
       <AdminWorkspaceHeader icon={Layers3} eyebrow="Services" title="Manage plans"
         subtitle="Set up plans, categories and availability. Existing client purchases keep their original terms." />
@@ -34,5 +20,5 @@ export default function AdminPlansPage() {
           : !error && <p role="status" className="text-slate-600">Loading plans and categories…</p>}
       </div>
     </AdminWorkspaceShell>
-  </AdminLayout>;
+  </>;
 }

@@ -1,9 +1,9 @@
 import { getResourceScope } from '../utils/resourceClient';
 import { useResource } from '../hooks/useResource';
+import { useListScroll } from '../hooks/useListScroll';
 import { buildInstallmentPreview } from '../helpers/projectInstallments';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -38,11 +38,7 @@ import displayINRCurrency from "../helpers/displayCurrency";
 import { isFeatureForCategory } from "../helpers/projectCategoryOptions";
 import useProjectCategories from "../hooks/useProjectCategories";
 import { downloadAuthenticatedFile } from "../helpers/downloadFile";
-import { logout } from "../store/userSlice";
-import CookieManager from "../utils/cookieManager";
 import StorageService from "../utils/storageService";
-import { useOnlineStatus } from "../App";
-import AdminLayout from "../components/AdminLayout";
 import AdminInfoPill from "../components/admin/AdminInfoPill";
 import AdminWorkspaceList from "../components/admin/AdminWorkspaceList";
 import AdminWorkspaceShell, { AdminWorkspaceHeader } from "../components/admin/AdminWorkspaceShell";
@@ -288,9 +284,6 @@ const AdminClientWorkspace = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { customerId } = useParams();
-  const dispatch = useDispatch();
-  const user = useSelector((state) => state?.user?.user);
-  const { isOnline } = useOnlineStatus();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Which tab is open, and which project/plan/payment-group subpage is open inside it, is
@@ -315,7 +308,7 @@ const AdminClientWorkspace = () => {
     if (next.project) params.set("project", next.project);
     if (next.plan) params.set("plan", next.plan);
     if (next.group) params.set("group", next.group);
-    setSearchParams(params, { replace, state: location.state });
+    setSearchParams(params, { replace, state: location.state, preventScrollReset: !next.project && !next.plan && !next.group });
   };
 
   // Closing a layer with the header's Back button must be the SAME operation as Alt+Left —
@@ -1116,6 +1109,26 @@ const AdminClientWorkspace = () => {
     }
   };
 
+  // Files that could not reach Drive wait safely; this sends them to the worker again.
+  const handleRetryDelivery = async (attempt) => {
+    if (!attempt?.id || uploadStatusBusyId) return;
+    try {
+      setUploadStatusBusyId(attempt.id);
+      const response = await fetch(`${SummaryApi.adminUploadStatus.url}/${attempt.id}/retry-delivery`, {
+        method: SummaryApi.adminUploadStatus.method,
+        credentials: "include",
+      });
+      const result = await response.json();
+      if (!result.success) throw new Error(result.message || "Could not retry this upload");
+      toast.success("Retry started. The files will be available shortly.");
+      setUploadsRefreshKey((current) => current + 1);
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setUploadStatusBusyId("");
+    }
+  };
+
   const handleUploadDocument = async ({ file, source }) => {
     if (!customerId || !file) return;
     try {
@@ -1228,6 +1241,7 @@ const AdminClientWorkspace = () => {
   }, { revision: workspaceRefreshKey });
   const customerLoading = workspaceResource.loading;
   const dataLoading = workspaceResource.loading;
+  useListScroll(!dataLoading);
   const fetchError = workspaceResource.error;
 
   const projectOrders = useMemo(
@@ -1372,31 +1386,6 @@ const AdminClientWorkspace = () => {
     planOrders,
   ]);
 
-  const handleLogout = async () => {
-    try {
-      if (isOnline) {
-        const response = await fetch(SummaryApi.logout_user.url, {
-          method: SummaryApi.logout_user.method,
-          credentials: "include",
-        });
-
-        const data = await response.json();
-        if (data.success) {
-          toast.success(data.message);
-        }
-      }
-
-      CookieManager.clearAll();
-      StorageService.clearUserData();
-
-      dispatch(logout());
-      navigate("/");
-    } catch (error) {
-      console.error("Error during logout:", error);
-      toast.error("Logout failed. Please try again.");
-    }
-  };
-
   // Switching tabs closes whatever subpage is open, because setWorkspaceParams writes the
   // complete param set and this call omits project/plan/group — so a subpage cannot survive
   // into a tab that does not render it. Replace, not push: switching tabs should not stack a
@@ -1435,10 +1424,7 @@ const AdminClientWorkspace = () => {
   };
 
   return (
-    <AdminLayout
-      user={user}
-      onLogout={handleLogout}
-    >
+    <>
       <AdminWorkspaceShell>
         <AdminWorkspaceHeader
           eyebrow={
@@ -1554,6 +1540,7 @@ const AdminClientWorkspace = () => {
                 submissionsLoading={submissionsLoading}
                 submissionsError={submissionsError}
                 onSetUploadStatus={handleUploadStatus}
+                onRetryDelivery={handleRetryDelivery}
                 uploadStatusBusyId={uploadStatusBusyId}
                 onUploadsChanged={() => setUploadsRefreshKey((current) => current + 1)}
               />
@@ -1629,6 +1616,7 @@ const AdminClientWorkspace = () => {
                 submissionsLoading={submissionsLoading}
                 submissionsError={submissionsError}
                 onSetUploadStatus={handleUploadStatus}
+                onRetryDelivery={handleRetryDelivery}
                 uploadStatusBusyId={uploadStatusBusyId}
                 onUploadsChanged={() => {
                   setUploadsRefreshKey((current) => current + 1);
@@ -2527,7 +2515,7 @@ const AdminClientWorkspace = () => {
           </div>
         )}
 
-    </AdminLayout>
+    </>
   );
 };
 
@@ -4691,6 +4679,7 @@ const WorkspaceDetailSubpage = ({
   submissionsLoading = false,
   submissionsError = "",
   onSetUploadStatus,
+  onRetryDelivery,
   uploadStatusBusyId = "",
   onUploadsChanged,
 }) => {
@@ -5080,6 +5069,7 @@ const WorkspaceDetailSubpage = ({
         downloadingId={downloadingUploadId}
         onSetStatus={onSetUploadStatus}
         statusBusyId={uploadStatusBusyId}
+        onRetryDelivery={onRetryDelivery}
       />
     );
   }

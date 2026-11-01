@@ -5,7 +5,6 @@ import { ArrowLeft, Download, Eye, Mail, Send, Share2, Wallet } from "lucide-rea
 import { toast } from "sonner";
 import SummaryApi from "../common";
 import { downloadAuthenticatedFile } from "../helpers/downloadFile";
-import AdminLayout from "../components/AdminLayout";
 import { getTransactionPaymentLabel } from "../helpers/paymentLedger";
 import { getOrderDisplayName } from "../helpers/orderPresentation";
 import { getPaymentMethodText, isFreeInvoice } from "../helpers/invoicePresentation";
@@ -326,7 +325,7 @@ const SinglePaymentRecordDetail = () => {
   };
 
   return (
-    <AdminLayout>
+    <>
       <div className="min-h-screen bg-slate-100 px-4 py-6 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl space-y-5">
           <button
@@ -595,7 +594,7 @@ const SinglePaymentRecordDetail = () => {
           </div>
         </div>
       ) : null}
-    </AdminLayout>
+    </>
   );
 };
 
@@ -851,7 +850,7 @@ const PaymentOrderHistory = ({ customerId, orderId }) => {
   };
 
   return (
-    <AdminLayout>
+    <>
       <div className="min-h-screen bg-slate-100 px-4 py-6 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl space-y-5">
           <button
@@ -1034,7 +1033,7 @@ const PaymentOrderHistory = ({ customerId, orderId }) => {
           )}
         </div>
       </div>
-    </AdminLayout>
+    </>
   );
 };
 

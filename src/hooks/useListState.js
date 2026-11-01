@@ -23,7 +23,7 @@ export function useListState(defaults) {
       else next.set(key, typeof resolved === 'boolean' ? (resolved ? '1' : '0') : String(resolved));
     }
     pending.current.params = next;
-    setParams(next, { replace: true, state: location.state });
+    setParams(next, { replace: true, state: location.state, preventScrollReset: true });
   };
   return [values, update];
 }

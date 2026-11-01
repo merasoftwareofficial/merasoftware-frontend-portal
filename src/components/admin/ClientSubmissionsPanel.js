@@ -28,6 +28,7 @@ const ClientSubmissionsPanel = ({
   // Plan uploads: status history + In progress / Done / Rejected (UploadedDataList).
   onSetStatus,
   statusBusyId = "",
+  onRetryDelivery,
 }) => {
   const pendingCount = (submissions || []).filter((item) => item?.status === "pending").length;
 
@@ -81,6 +82,7 @@ const ClientSubmissionsPanel = ({
             showStatusHistory
             onSetStatus={onSetStatus}
             statusBusyId={statusBusyId}
+            onRetryDelivery={onRetryDelivery}
           />
         </div>
       </div>

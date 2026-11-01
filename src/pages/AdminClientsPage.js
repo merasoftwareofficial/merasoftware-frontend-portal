@@ -1,15 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowUpDown, RefreshCw, Search, Users2 } from "lucide-react";
 import { useResource } from '../hooks/useResource';
+import { useListScroll } from '../hooks/useListScroll';
 import SummaryApi from "../common";
-import { logout } from "../store/userSlice";
-import CookieManager from "../utils/cookieManager";
-import StorageService from "../utils/storageService";
-import { useOnlineStatus } from "../App";
-import AdminLayout from "../components/AdminLayout";
 import AdminWorkspaceShell, { AdminWorkspaceHeader } from "../components/admin/AdminWorkspaceShell";
 import { adminReturnState, getAdminPath } from "../helpers/adminReturnNavigation";
 import AdminWorkspaceList from "../components/admin/AdminWorkspaceList";
@@ -26,10 +21,7 @@ const sortOptions = [
 const getClientLastUpdated = (client) => client?.latestActivityAt || client?.createdAt || null;
 
 const AdminClientsPage = () => {
-  const user = useSelector((state) => state?.user?.user);
-  const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { isOnline } = useOnlineStatus();
   const [clients, setClients] = useState([]);
   const location = useLocation();
   const [params, setParams] = useSearchParams();
@@ -39,36 +31,12 @@ const AdminClientsPage = () => {
     const next = new URLSearchParams(previous);
     if (value) next.set(name, value); else next.delete(name);
     return next;
-  }, { replace: true });
+  }, { replace: true, preventScrollReset: true });
   const setSearchTerm = value => updateParam('q', value);
   const setSortBy = value => updateParam('sort', value === 'lastUpdatedDesc' ? '' : value);
 
-  const handleLogout = async () => {
-    try {
-      if (isOnline) {
-        const response = await fetch(SummaryApi.logout_user.url, {
-          method: SummaryApi.logout_user.method,
-          credentials: "include",
-        });
-
-        const data = await response.json();
-        if (data.success) {
-          toast.success(data.message);
-        }
-      }
-
-      CookieManager.clearAll();
-      StorageService.clearUserData();
-
-      dispatch(logout());
-      navigate("/");
-    } catch (error) {
-      console.error("Error during logout:", error);
-      toast.error("Logout failed. Please try again.");
-    }
-  };
-
   const { loading, refreshing, error, refresh: handleRefresh } = useResource(SummaryApi.adminClients.url, next => setClients(Array.isArray(next) ? next : []));
+  useListScroll(!loading);
   useEffect(() => { if (error) toast.error(error); }, [error]);
 
   // The workspace is reachable from here and from the dashboard, so it is told where
@@ -118,10 +86,7 @@ const AdminClientsPage = () => {
   }, [clients, searchTerm, sortBy]);
 
   return (
-    <AdminLayout
-      user={user}
-      onLogout={handleLogout}
-    >
+    <>
       <AdminWorkspaceShell>
         <AdminWorkspaceHeader
           icon={Users2}
@@ -216,7 +181,7 @@ const AdminClientsPage = () => {
           />
         </div>
       </AdminWorkspaceShell>
-    </AdminLayout>
+    </>
   );
 };
 

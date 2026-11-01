@@ -16,20 +16,23 @@ import { Navigate } from "react-router-dom";
 
 
 
-const AdminEmailControlPage = lazyPage(() => import('../pages/AdminEmailControlPage'));
-const AdminSettingsPage = lazyPage(() => import('../pages/AdminSettingsPage'));
-const AdminDashboard = lazyPage(() => import('../pages/AdminDashboard'));
-const AdminClientsPage = lazyPage(() => import('../pages/AdminClientsPage'));
-const AdminLeadsPage = lazyPage(() => import('../pages/AdminLeadsPage'));
-const AdminLeadDetailPage = lazyPage(() => import('../pages/AdminLeadDetailPage'));
-const AdminClientWorkspace = lazyPage(() => import('../pages/AdminClientWorkspace'));
-const AdminPaymentRecordDetail = lazyPage(() => import('../pages/AdminPaymentRecordDetail'));
-const ProjectDetails = lazyPage(() => import('../pages/ProjectDetails'));
-const AdminPlansPage = lazyPage(() => import('../pages/AdminPlansPage'));
-const AdminCategoryBasePricePage = lazyPage(() => import('../pages/AdminCategoryBasePricePage'));
-const AdminFeatureProductsPage = lazyPage(() => import('../pages/AdminFeatureProductsPage'));
-const AdminTrashPage = lazyPage(() => import('../pages/AdminTrashPage'));
-const AdminMoneyManagementPage = lazyPage(() => import('../pages/AdminMoneyManagementPage'));
+export const adminPageLoaders = [];
+const adminPage = load => { adminPageLoaders.push(load); return lazyPage(load); };
+
+const AdminEmailControlPage = adminPage(() => import('../pages/AdminEmailControlPage'));
+const AdminSettingsPage = adminPage(() => import('../pages/AdminSettingsPage'));
+const AdminDashboard = adminPage(() => import('../pages/AdminDashboard'));
+const AdminClientsPage = adminPage(() => import('../pages/AdminClientsPage'));
+const AdminLeadsPage = adminPage(() => import('../pages/AdminLeadsPage'));
+const AdminLeadDetailPage = adminPage(() => import('../pages/AdminLeadDetailPage'));
+const AdminClientWorkspace = adminPage(() => import('../pages/AdminClientWorkspace'));
+const AdminPaymentRecordDetail = adminPage(() => import('../pages/AdminPaymentRecordDetail'));
+const ProjectDetails = adminPage(() => import('../pages/ProjectDetails'));
+const AdminPlansPage = adminPage(() => import('../pages/AdminPlansPage'));
+const AdminCategoryBasePricePage = adminPage(() => import('../pages/AdminCategoryBasePricePage'));
+const AdminFeatureProductsPage = adminPage(() => import('../pages/AdminFeatureProductsPage'));
+const AdminTrashPage = adminPage(() => import('../pages/AdminTrashPage'));
+const AdminMoneyManagementPage = adminPage(() => import('../pages/AdminMoneyManagementPage'));
 
 export const adminRoutes = [
   { path: 'admin-panel/settings', element: <ProtectedRoute requireRole={['admin']}><AdminSettingsPage /></ProtectedRoute> },

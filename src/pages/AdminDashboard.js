@@ -1,23 +1,14 @@
 import React, { useEffect, useMemo } from "react";
-import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowRight, BarChart3, Clock3, Layers3, RefreshCw, Search, ShieldCheck, Users } from "lucide-react";
 import { useResource } from '../hooks/useResource';
 import SummaryApi from "../common";
-import { logout } from "../store/userSlice";
-import CookieManager from "../utils/cookieManager";
-import StorageService from "../utils/storageService";
-import { useOnlineStatus } from "../App";
-import AdminLayout from "../components/AdminLayout";
 import AdminWorkspaceList from "../components/admin/AdminWorkspaceList";
 import { adminReturnState } from "../helpers/adminReturnNavigation";
 
 const AdminDashboard = () => {
-  const user = useSelector((state) => state?.user?.user);
-  const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { isOnline } = useOnlineStatus();
   const dashboardUrl = useMemo(() => {
     const now = new Date();
     const query = new URLSearchParams({ monthStart: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(), monthEnd: new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString() });
@@ -30,40 +21,12 @@ const AdminDashboard = () => {
   const joinedThisMonth = summary?.joinedThisMonth || 0;
   const recentClients = summary?.recentClients || [];
 
-  const handleLogout = async () => {
-    try {
-      if (isOnline) {
-        const response = await fetch(SummaryApi.logout_user.url, {
-          method: SummaryApi.logout_user.method,
-          credentials: "include",
-        });
-
-        const data = await response.json();
-        if (data.success) {
-          toast.success(data.message);
-        }
-      }
-
-      CookieManager.clearAll();
-      StorageService.clearUserData();
-
-      dispatch(logout());
-      navigate("/");
-    } catch (error) {
-      console.error("Error during logout:", error);
-      toast.error("Logout failed. Please try again.");
-    }
-  };
-
   const openClientsPage = () => {
     navigate("/admin-panel/clients");
   };
 
   return (
-    <AdminLayout
-      user={user}
-      onLogout={handleLogout}
-    >
+    <>
       <div className="mx-auto flex max-w-[90rem] flex-col gap-6 px-4 pb-6 sm:px-6 lg:px-8">
         <section className="rounded-[2rem] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white shadow-xl shadow-slate-900/10">
           <div className="flex flex-col gap-6 p-6 lg:flex-row lg:items-end lg:justify-between lg:p-8">
@@ -197,7 +160,7 @@ const AdminDashboard = () => {
           </div>
         </section>
       </div>
-    </AdminLayout>
+    </>
   );
 };
 

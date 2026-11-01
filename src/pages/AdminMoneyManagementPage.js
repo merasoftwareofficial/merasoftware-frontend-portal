@@ -1,45 +1,14 @@
 import { useResource } from '../hooks/useResource';
 import React, { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { IndianRupee, Loader2 } from "lucide-react";
 import SummaryApi from "../common";
-import { logout } from "../store/userSlice";
-import CookieManager from "../utils/cookieManager";
-import StorageService from "../utils/storageService";
-import { useOnlineStatus } from "../App";
-import AdminLayout from "../components/AdminLayout";
 import AdminWorkspaceShell, { AdminWorkspaceHeader } from "../components/admin/AdminWorkspaceShell";
 
 const AdminMoneyManagementPage = () => {
-  const user = useSelector((state) => state?.user?.user);
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-  const { isOnline } = useOnlineStatus();
 
   const [saving, setSaving] = useState(false);
   const [rewardAmount, setRewardAmount] = useState("");
-
-  const handleLogout = async () => {
-    try {
-      if (isOnline) {
-        const response = await fetch(SummaryApi.logout_user.url, {
-          method: SummaryApi.logout_user.method,
-          credentials: "include",
-        });
-        const data = await response.json();
-        if (data.success) toast.success(data.message);
-      }
-      CookieManager.clearAll();
-      StorageService.clearUserData();
-      dispatch(logout());
-      navigate("/");
-    } catch (error) {
-      console.error("Error during logout:", error);
-      toast.error("Logout failed. Please try again.");
-    }
-  };
 
   const { loading, error } = useResource(SummaryApi.getAdminSettings.url, (next, initial) => {
     if (initial) setRewardAmount(String(next?.leadReferralRewardAmount ?? 0));
@@ -79,7 +48,7 @@ const AdminMoneyManagementPage = () => {
   };
 
   return (
-    <AdminLayout user={user} onLogout={handleLogout}>
+    <>
       <AdminWorkspaceShell>
         <AdminWorkspaceHeader
           icon={IndianRupee}
@@ -123,7 +92,7 @@ const AdminMoneyManagementPage = () => {
           )}
         </div>
       </AdminWorkspaceShell>
-    </AdminLayout>
+    </>
   );
 };
 

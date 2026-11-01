@@ -1,17 +1,12 @@
 import { useLeadResource } from '../hooks/useLeadResource';
+import { useListScroll } from '../hooks/useListScroll';
 import { useLeadUpdates } from '../hooks/useLeadUpdates';
 import { emailApi, reviewEmail } from '../helpers/emailReview';
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowUpDown, Loader2, Plus, RefreshCw, Search, Send, Trash2, UserPlus, X } from "lucide-react";
 import SummaryApi from "../common";
-import { logout } from "../store/userSlice";
-import CookieManager from "../utils/cookieManager";
-import StorageService from "../utils/storageService";
-import { useOnlineStatus } from "../App";
-import AdminLayout from "../components/AdminLayout";
 import AdminWorkspaceShell, { AdminWorkspaceHeader } from "../components/admin/AdminWorkspaceShell";
 import AdminWorkspaceList from "../components/admin/AdminWorkspaceList";
 import AdminDateTime from "../components/admin/AdminDateTime";
@@ -35,10 +30,7 @@ const getLeadLastUpdated = (lead) => lead?.updatedAt || lead?.createdAt || null;
 const emptyForm = { name: "", phone: "", email: "", source: "", notes: "", referredByUserId: "" };
 
 const AdminLeadsPage = () => {
-  const user = useSelector((state) => state?.user?.user);
-  const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { isOnline } = useOnlineStatus();
   const [searchParams, setSearchParams] = useSearchParams();
   const [leads, setLeads] = useState([]);
 
@@ -48,7 +40,7 @@ const AdminLeadsPage = () => {
     const next = new URLSearchParams(current);
     if (value && value !== fallback) next.set(key, value); else next.delete(key);
     return next;
-  }, { replace: true });
+  }, { replace: true, preventScrollReset: true });
   const searchTerm = searchParams.get("q") || "";
   const setSearchTerm = value => setFilter("q", value);
   const sortBy = searchParams.get("sort") || "lastUpdatedDesc";
@@ -82,32 +74,8 @@ const AdminLeadsPage = () => {
   const notesFieldRef = useRef(null);
   const submitButtonRef = useRef(null);
 
-  const handleLogout = async () => {
-    try {
-      if (isOnline) {
-        const response = await fetch(SummaryApi.logout_user.url, {
-          method: SummaryApi.logout_user.method,
-          credentials: "include",
-        });
-
-        const data = await response.json();
-        if (data.success) {
-          toast.success(data.message);
-        }
-      }
-
-      CookieManager.clearAll();
-      StorageService.clearUserData();
-
-      dispatch(logout());
-      navigate("/");
-    } catch (error) {
-      console.error("Error during logout:", error);
-      toast.error("Logout failed. Please try again.");
-    }
-  };
-
   const { refresh: fetchLeads, loading, error: refreshError } = useLeadResource(SummaryApi.adminLeads.url, data => setLeads(data || []));
+  useListScroll(!loading);
   const { refresh: fetchFinalMessageCount, error: countError } = useLeadResource(SummaryApi.finalMessageCount.url, data => setFinalMessageCount(data.count));
   const liveStatus = useLeadUpdates(() => { void fetchLeads(); void fetchFinalMessageCount(); });
 
@@ -134,7 +102,10 @@ const AdminLeadsPage = () => {
   const openLead = (lead) => {
     if (!lead?._id) return;
     navigate(`/admin-panel/leads/${lead._id}`, {
-      state: adminReturnState(`/admin-panel/leads${searchParams.size ? `?${searchParams}` : ""}`),
+      state: {
+        ...adminReturnState(`/admin-panel/leads${searchParams.size ? `?${searchParams}` : ""}`),
+        leadPreview: { _id: lead._id, name: lead.name, phone: lead.phone, email: lead.email, status: lead.status, source: lead.source },
+      },
     });
   };
 
@@ -439,10 +410,7 @@ const AdminLeadsPage = () => {
   ];
 
   return (
-    <AdminLayout
-      user={user}
-      onLogout={handleLogout}
-    >
+    <>
       <AdminWorkspaceShell>
         {(refreshError || countError || liveStatus === 'unavailable') && <p role="status" className="px-5 py-2 text-sm">{refreshError || countError || 'Live updates temporarily unavailable.'} <button type="button" onClick={() => { void fetchLeads(); void fetchFinalMessageCount(); }}>Refresh</button></p>}
         <AdminWorkspaceHeader
@@ -922,7 +890,7 @@ const AdminLeadsPage = () => {
           </div>
         </div>
       )}
-    </AdminLayout>
+    </>
   );
 };
 

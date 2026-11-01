@@ -1,16 +1,10 @@
 import { useLeadResource } from '../hooks/useLeadResource';
 import { useLeadUpdates } from '../hooks/useLeadUpdates';
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, Download, Loader2, Mail, MessageSquarePlus, Pencil, Phone, UserCheck, UserPlus, X } from "lucide-react";
 import SummaryApi from "../common";
-import { logout } from "../store/userSlice";
-import CookieManager from "../utils/cookieManager";
-import StorageService from "../utils/storageService";
-import { useOnlineStatus } from "../App";
-import AdminLayout from "../components/AdminLayout";
 import AdminWorkspaceShell, { AdminWorkspaceHeader } from "../components/admin/AdminWorkspaceShell";
 import AdminInfoPill from "../components/admin/AdminInfoPill";
 import EditLeadModal from "../components/admin/EditLeadModal";
@@ -28,12 +22,9 @@ const formatDateTime = (value) => {
 };
 
 const AdminLeadDetailPage = () => {
-  const user = useSelector((state) => state?.user?.user);
-  const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
   const { leadId } = useParams();
-  const { isOnline } = useOnlineStatus();
 
   const [lead, setLead] = useState(null);
   const [finalMessageBusy, setFinalMessageBusy] = useState(false);
@@ -73,27 +64,10 @@ const AdminLeadDetailPage = () => {
     nextRef.current?.focus();
   };
 
-  const handleLogout = async () => {
-    try {
-      if (isOnline) {
-        const response = await fetch(SummaryApi.logout_user.url, {
-          method: SummaryApi.logout_user.method,
-          credentials: "include",
-        });
-        const data = await response.json();
-        if (data.success) {
-          toast.success(data.message);
-        }
-      }
-      CookieManager.clearAll();
-      StorageService.clearUserData();
-      dispatch(logout());
-      navigate("/");
-    } catch (error) {
-      console.error("Error during logout:", error);
-      toast.error("Logout failed. Please try again.");
-    }
-  };
+  // Shown in the header only until the full lead arrives. It never goes into `lead`:
+  // the actions below must stay closed until the contact block and final message are known.
+  const leadPreview = location.state?.leadPreview?._id === leadId ? location.state.leadPreview : null;
+  const shownLead = lead || leadPreview;
 
   const { refresh: fetchLead, loading, error: refreshError } = useLeadResource(
     `${SummaryApi.leadDetail.url}/${leadId}`, (data, initial) => {
@@ -368,14 +342,14 @@ const AdminLeadDetailPage = () => {
   }, [lead, timelineTab]);
 
   return (
-    <AdminLayout user={user} onLogout={handleLogout}>
+    <>
       <AdminWorkspaceShell>
         {(refreshError || liveStatus === 'unavailable') && <p role="status" className="px-5 py-2 text-sm">{refreshError || 'Live updates temporarily unavailable.'} <button type="button" onClick={() => void fetchLead()}>Refresh</button></p>}
         <AdminWorkspaceHeader
           icon={UserPlus}
           eyebrow={<>Lead</>}
-          title={lead?.name || lead?.phone || (loading ? "Loading..." : "Lead")}
-          subtitle={lead?.email || lead?.phone || ""}
+          title={shownLead?.name || shownLead?.phone || (loading ? "Loading..." : "Lead")}
+          subtitle={shownLead?.email || shownLead?.phone || ""}
           leadingAction={
             <button
               type="button"
@@ -388,8 +362,8 @@ const AdminLeadDetailPage = () => {
           }
           meta={
             <>
-              <AdminInfoPill label="Status" value={leadStatusLabel(lead?.status)} variant="dark" />
-              <AdminInfoPill label="Source" value={lead?.source || "N/A"} variant="dark" />
+              <AdminInfoPill label="Status" value={leadStatusLabel(shownLead?.status)} variant="dark" />
+              <AdminInfoPill label="Source" value={shownLead?.source || "N/A"} variant="dark" />
               <AdminInfoPill label="Added" value={lead?.createdAt ? new Date(lead.createdAt).toLocaleDateString("en-IN") : "N/A"} variant="dark" />
             </>
           }
@@ -855,7 +829,7 @@ const AdminLeadDetailPage = () => {
           onSaved={handleLeadSaved}
         />
       ) : null}
-    </AdminLayout>
+    </>
   );
 };
 

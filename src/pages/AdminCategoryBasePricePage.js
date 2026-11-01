@@ -1,14 +1,6 @@
 import React, { useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
 import { Layers, Plus } from "lucide-react";
 import { ProjectCategoryDialog } from "../components/admin/ProjectCategoryDialog";
-import SummaryApi from "../common";
-import { logout } from "../store/userSlice";
-import CookieManager from "../utils/cookieManager";
-import StorageService from "../utils/storageService";
-import AdminLayout from "../components/AdminLayout";
 import AdminWorkspaceShell, { AdminWorkspaceHeader } from "../components/admin/AdminWorkspaceShell";
 import useProjectCategories from "../hooks/useProjectCategories";
 
@@ -30,9 +22,6 @@ const Badge = ({ tone = "slate", children }) => {
 };
 
 const AdminCategoryBasePricePage = () => {
-  const user = useSelector((state) => state?.user?.user);
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
   const { categories, loading, error, reload } = useProjectCategories("admin");
   const [editing, setEditing] = useState(null); // null = closed, "new" = create, otherwise the entry
   const [showArchived, setShowArchived] = useState(false);
@@ -46,27 +35,8 @@ const AdminCategoryBasePricePage = () => {
     reload();
   };
 
-  const handleLogout = async () => {
-    try {
-      const response = await fetch(SummaryApi.logout_user.url, {
-        method: SummaryApi.logout_user.method,
-        credentials: "include",
-      });
-      const result = await response.json();
-      if (result.success) toast.success(result.message);
-    } catch (logoutError) {
-      console.error("Error during logout:", logoutError);
-      toast.error("Logout failed. Please try again.");
-    } finally {
-      CookieManager.clearAll();
-      StorageService.clearUserData();
-      dispatch(logout());
-      navigate("/");
-    }
-  };
-
   return (
-    <AdminLayout user={user} onLogout={handleLogout}>
+    <>
       <AdminWorkspaceShell>
         <AdminWorkspaceHeader
           icon={Layers}
@@ -145,7 +115,7 @@ const AdminCategoryBasePricePage = () => {
             onCancel={() => setEditing(null)} onSaved={handleSaved} />
         ) : null}
       </AdminWorkspaceShell>
-    </AdminLayout>
+    </>
   );
 };
 
