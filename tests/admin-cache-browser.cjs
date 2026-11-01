@@ -392,8 +392,8 @@ async function run(browser, origin) {
     check('fresh list: spinner goes when data arrives', await page.evaluate(() => !document.querySelector('[data-spinner]')), null);
     await page.goto(`${origin}/admin-panel/leads/l5`);
     await page.waitForSelector('[data-spinner]', { timeout: 5000 });
-    const detail = await page.evaluate(() => ({ title: !!document.querySelector('h1'), back: !!document.querySelector('[aria-label="Go back"]'), body: document.querySelector('[data-lead-body]').hidden }));
-    check('fresh lead: spinner, with header there and empty fields hidden', detail.title && detail.back && detail.body, detail);
+    const detail = await page.evaluate(() => { const body = document.querySelector('[data-lead-body]'); return { title: !!document.querySelector('h1'), back: !!document.querySelector('[aria-label="Go back"]'), shown: !body.hidden && body.getBoundingClientRect().height > 100, sections: ['Contact', 'Current Stage', 'Proposals', 'Convert', 'Follow-ups'].every(name => body.innerText.toUpperCase().includes(name.toUpperCase())), passes: getComputedStyle(document.querySelector('[data-spinner]')).pointerEvents === 'none' }; });
+    check('fresh lead: every section shows under the spinner, which blocks nothing', detail.title && detail.back && detail.shown && detail.sections && detail.passes, detail);
     await page.waitForFunction(() => /Edit Lead/.test(document.body.innerText));
     check('fresh lead: body shows when data arrives', await page.evaluate(() => !document.querySelector('[data-spinner]') && !document.querySelector('[data-lead-body]').hidden), null);
     world.delay = 0;
@@ -408,11 +408,11 @@ async function run(browser, origin) {
     await page.goto(`${origin}/admin-panel/leads/l5`);
     await page.waitForSelector('[data-spinner]');
     const lead = await page.evaluate(() => document.querySelector('main').innerText);
-    check('loading lead: no invented status or N/A', !/Contacted|Neutral|N\/A/.test(lead.replace(/Dashboard[\s\S]*?Settings/, '')), lead.slice(0, 200));
+    check('loading lead: no invented status, N/A or empty message', !/Contacted|Neutral|N\/A|No proposals yet|No follow-ups yet/.test(lead.replace(/Dashboard[\s\S]*?Settings/, '')), lead.slice(0, 300));
     await page.goto(`${origin}/admin-panel/clients/c0`);
     await page.waitForSelector('[data-spinner]');
     const client = await page.evaluate(() => document.querySelector('main').innerText);
-    check('loading client: spinner, tabs there, no false "No projects"', /Projects/.test(client) && !/No projects found|No email available|N\/A/.test(client), client.slice(0, 200));
+    check('loading client: spinner, tabs and section there, no false "No projects"', /Projects/.test(client) && /Create Project for Client/.test(client) && !/No projects found|No email available|N\/A/.test(client), client.slice(0, 300));
     await page.waitForFunction(() => !document.querySelector('[data-spinner]'), null, { timeout: 5000 });
     check('loaded client: content shows', await page.evaluate(() => /Create Project for Client/.test(document.querySelector('main').innerText)), null);
     await page.goto(`${origin}/admin-panel/dashboard`);

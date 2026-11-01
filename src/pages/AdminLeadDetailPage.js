@@ -398,8 +398,8 @@ const AdminLeadDetailPage = () => {
         />
 
         {/* Hidden, not removed: a note being typed survives while too-old data is replaced. */}
-        {loading ? <DataSpinner /> : null}
-        <div hidden={loading || expired} data-lead-body="1" className={loading || expired ? "" : "grid grid-cols-1 gap-6 p-5 sm:p-6 lg:grid-cols-3"}>
+        {loading ? <DataSpinner floating /> : null}
+        <div hidden={expired} data-lead-body="1" className={expired ? "" : "grid grid-cols-1 gap-6 p-5 sm:p-6 lg:grid-cols-3"}>
           {/* Left: lead info + pipeline */}
           <div className="space-y-6 lg:col-span-1">
             <div className="rounded-3xl border border-slate-200 bg-white p-5">
@@ -407,11 +407,11 @@ const AdminLeadDetailPage = () => {
               <div className="mt-3 space-y-3">
                 <div className="flex items-center gap-3 text-sm text-slate-800">
                   <Mail size={16} className="text-slate-400" />
-                  <span className="truncate">{lead?.email || "N/A"}</span>
+                  <span className="truncate">{lead?.email || (loading ? "..." : "N/A")}</span>
                 </div>
                 <div className="flex items-center gap-3 text-sm text-slate-800">
                   <Phone size={16} className="text-slate-400" />
-                  <span className="truncate">{lead?.phone || "N/A"}</span>
+                  <span className="truncate">{lead?.phone || (loading ? "..." : "N/A")}</span>
                 </div>
               </div>
               {lead?.inquiry ? (
@@ -466,7 +466,7 @@ const AdminLeadDetailPage = () => {
                       leadStatusStyle(lead?.status),
                     ].join(" ")}
                   >
-                    {leadStatusLabel(lead?.status)}
+                    {lead || !loading ? leadStatusLabel(lead?.status) : "..."}
                   </span>
                   <p className="text-xs text-slate-500">
                     Change the stage on a follow-up. Adding a proposal never changes it.
@@ -519,7 +519,7 @@ const AdminLeadDetailPage = () => {
               </div>
             ) : null}
 
-            <LeadProposals lead={lead} readOnly={isConverted} actionsOpen={actionsOpen} onChanged={fetchLead} />
+            <LeadProposals lead={lead} loading={loading} readOnly={isConverted} actionsOpen={actionsOpen} onChanged={fetchLead} />
 
             {!isConverted ? (
               <div className="rounded-3xl border border-slate-200 bg-white p-5">
@@ -653,7 +653,7 @@ const AdminLeadDetailPage = () => {
               <div className="mt-5 space-y-3">
                 {followUps.length === 0 ? (
                   <p className="rounded-2xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-                    No follow-ups yet.
+                    {loading ? "Loading..." : "No follow-ups yet."}
                   </p>
                 ) : (
                   followUps.map((item, index) => (

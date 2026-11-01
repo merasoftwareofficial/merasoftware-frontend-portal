@@ -1465,9 +1465,8 @@ const AdminClientWorkspace = () => {
           ariaLabel="Client workspace sections"
         />
 
-          {dataLoading ? <DataSpinner /> : null}
-          {/* Hidden, not removed: an open project or plan keeps its own state. "No projects" must not show before the data. */}
-          <div hidden={dataLoading} className="p-5 sm:p-6" ref={tabContentRef} onKeyDown={handleTabContentKeyDown}>
+          {dataLoading ? <DataSpinner floating /> : null}
+          <div className="p-5 sm:p-6" ref={tabContentRef} onKeyDown={handleTabContentKeyDown}>
         {activeTab === "overview" && (
           <section>
             <div className="mb-4">
@@ -1486,7 +1485,7 @@ const AdminClientWorkspace = () => {
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-slate-500">{card.label}</p>
-                        <p className="mt-3 text-3xl font-bold text-slate-900">{card.value}</p>
+                        <p className="mt-3 text-3xl font-bold text-slate-900">{dataLoading ? "..." : card.value}</p>
                         <p className="mt-2 text-xs text-slate-500">{card.helper}</p>
                       </div>
                       <div className="rounded-2xl bg-white p-3 text-slate-700 shadow-sm">
@@ -1503,9 +1502,9 @@ const AdminClientWorkspace = () => {
                 <div>
                   <h3 className="text-base font-semibold text-slate-900">Summary</h3>
                   <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-500">
-                    <span>{allData.orders.length} orders</span>
-                    <span>{allData.invoices.length} invoices</span>
-                    <span>{allData.summary?.updateCount ?? 0} update requests</span>
+                    <span>{dataLoading ? "..." : allData.orders.length} orders</span>
+                    <span>{dataLoading ? "..." : allData.invoices.length} invoices</span>
+                    <span>{dataLoading ? "..." : allData.summary?.updateCount ?? 0} update requests</span>
                   </div>
                 </div>
               </div>
@@ -1548,9 +1547,9 @@ const AdminClientWorkspace = () => {
               <>
               <CompactWorkspaceCard
                 title="Projects"
-                subtitle={`Active projects first. Last updated ${lastUpdatedAt}.`}
+                subtitle={`Active projects first. Last updated ${dataLoading && !client ? "..." : lastUpdatedAt}.`}
                 items={projectOrders}
-                emptyText="No projects found for this client."
+                emptyText={dataLoading ? "Loading..." : "No projects found for this client."}
                 onRowClick={handleOpenProject}
                 onDelete={handleRequestDelete}
                 onCancel={handleRequestCancel}
@@ -1652,7 +1651,7 @@ const AdminClientWorkspace = () => {
                 title="Plans"
                 subtitle={`Active plans first. ${planOrders.length} total.`}
                 items={planOrders}
-                emptyText="No plans found for this client."
+                emptyText={dataLoading ? "Loading..." : "No plans found for this client."}
                 onRowClick={handleOpenPlan}
                 onDelete={handleRequestDelete}
                 onCancel={handleRequestCancel}
@@ -1698,6 +1697,7 @@ const AdminClientWorkspace = () => {
             />
           ) : (
             <PaymentInvoicesPanel
+              loading={dataLoading}
               transactions={allData.transactions}
               invoices={allData.invoices}
               getBadgeClassName={getBadgeClassName}
@@ -1712,6 +1712,7 @@ const AdminClientWorkspace = () => {
 
         {activeTab === "deleted-projects" && (
           <DeletedProjectsPanel
+            loading={dataLoading}
             transactions={allData.transactions}
             invoices={allData.invoices}
             formatDateTime={formatDateTime}
@@ -2853,6 +2854,7 @@ const AccountAccessPanel = ({
 };
 
 const PaymentInvoicesPanel = ({
+  loading = false,
   transactions,
   invoices,
   getBadgeClassName,
@@ -2951,7 +2953,7 @@ const PaymentInvoicesPanel = ({
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Wallet balance</p>
-            <p className="text-xl font-bold text-slate-900">₹{walletBalance.toLocaleString("en-IN")}</p>
+            <p className="text-xl font-bold text-slate-900">{loading ? "..." : `₹${walletBalance.toLocaleString("en-IN")}`}</p>
           </div>
         </div>
         <button
@@ -2975,7 +2977,7 @@ const PaymentInvoicesPanel = ({
         <div className="mt-5 space-y-5">
           {ledgerGroups.length === 0 ? (
             <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 p-6 text-center text-slate-500">
-              No payment or invoice records found for this client.
+              {loading ? "Loading..." : "No payment or invoice records found for this client."}
             </div>
           ) : (
             ledgerGroups.map((group) => {
@@ -3088,7 +3090,7 @@ const PaymentInvoicesPanel = ({
 // tab stays limited to the client's current projects; this tab is the only place that history
 // is still visible. Read-only — no recharge/actions here, matching what a deleted project's
 // records actually support.
-const DeletedProjectsPanel = ({ transactions, invoices, formatDateTime, onOpenGroup }) => {
+const DeletedProjectsPanel = ({ loading = false, transactions, invoices, formatDateTime, onOpenGroup }) => {
   const ledgerItems = buildLedgerItems(transactions, invoices);
   const deletedGroups = groupLedgerItemsByProject(ledgerItems).filter((group) =>
     group.items.some((item) => item.orderDeleted)
@@ -3107,7 +3109,7 @@ const DeletedProjectsPanel = ({ transactions, invoices, formatDateTime, onOpenGr
       <div className="space-y-5">
         {deletedGroups.length === 0 ? (
           <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 p-6 text-center text-slate-500">
-            No deleted projects with payment records for this client.
+            {loading ? "Loading..." : "No deleted projects with payment records for this client."}
           </div>
         ) : (
           deletedGroups.map((group) => {

@@ -15,7 +15,7 @@ const formatAmount = (amount) => (amount === null || amount === undefined ? null
  * entry. A lead with an email gets the usual review popup from the response; a phone-only lead's message
  * is reviewed here and added to the WhatsApp queue. `onChanged` reloads the lead.
  */
-const LeadProposals = ({ lead, readOnly, actionsOpen = true, onChanged }) => {
+const LeadProposals = ({ lead, loading = false, readOnly, actionsOpen = true, onChanged }) => {
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState(null);
   const [amount, setAmount] = useState("");
@@ -76,7 +76,7 @@ const LeadProposals = ({ lead, readOnly, actionsOpen = true, onChanged }) => {
     <div className="rounded-3xl border border-slate-200 bg-white p-5">
       <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Proposals</h3>
       {proposals.length === 0 ? (
-        <p className="mt-3 text-xs text-slate-500">No proposals yet.</p>
+        <p className="mt-3 text-xs text-slate-500">{loading ? "Loading..." : "No proposals yet."}</p>
       ) : (
         <ul className="mt-3 space-y-2">
           {proposals.map((item) => (
