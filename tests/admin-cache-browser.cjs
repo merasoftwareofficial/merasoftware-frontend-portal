@@ -381,6 +381,48 @@ async function run(browser, origin) {
     check('open list past 30 min: new data, scroll kept', await page.evaluate(() => document.querySelector('main').innerText.includes('Lead Fresh')) && await y(page) === 800, await y(page));
     await context.close();
   }
+  // Spinner on a fresh page, list and lead detail
+  {
+    const { context, page, world } = await open(browser, origin, { delay: 900 });
+    await page.goto(`${origin}/admin-panel/leads`);
+    await page.waitForSelector('[data-spinner]', { timeout: 5000 });
+    const shell = await page.evaluate(() => ({ spin: !!document.querySelector('[data-spinner] svg.animate-spin'), heading: !!document.querySelector('button[aria-label="Sort by Lead"]'), search: !!document.querySelector('main input') }));
+    check('fresh list: spinner, with headings and search already there', shell.spin && shell.heading && shell.search, shell);
+    await page.waitForFunction(() => document.body.innerText.includes('Lead 39'));
+    check('fresh list: spinner goes when data arrives', await page.evaluate(() => !document.querySelector('[data-spinner]')), null);
+    await page.goto(`${origin}/admin-panel/leads/l5`);
+    await page.waitForSelector('[data-spinner]', { timeout: 5000 });
+    const detail = await page.evaluate(() => ({ title: !!document.querySelector('h1'), back: !!document.querySelector('[aria-label="Go back"]'), body: document.querySelector('[data-lead-body]').hidden }));
+    check('fresh lead: spinner, with header there and empty fields hidden', detail.title && detail.back && detail.body, detail);
+    await page.waitForFunction(() => /Edit Lead/.test(document.body.innerText));
+    check('fresh lead: body shows when data arrives', await page.evaluate(() => !document.querySelector('[data-spinner]') && !document.querySelector('[data-lead-body]').hidden), null);
+    world.delay = 0;
+    await context.close();
+  }
+  // Nothing false shows while data is on its way
+  {
+    const { context, page } = await open(browser, origin, { delay: 1200 });
+    await page.goto(`${origin}/admin-panel/leads`);
+    await page.waitForSelector('[data-spinner]');
+    check('loading list: no "Showing 0 of 0"', await page.evaluate(() => !/Showing 0 of 0/.test(document.querySelector('main').innerText)), null);
+    await page.goto(`${origin}/admin-panel/leads/l5`);
+    await page.waitForSelector('[data-spinner]');
+    const lead = await page.evaluate(() => document.querySelector('main').innerText);
+    check('loading lead: no invented status or N/A', !/Contacted|Neutral|N\/A/.test(lead.replace(/Dashboard[\s\S]*?Settings/, '')), lead.slice(0, 200));
+    await page.goto(`${origin}/admin-panel/clients/c0`);
+    await page.waitForSelector('[data-spinner]');
+    const client = await page.evaluate(() => document.querySelector('main').innerText);
+    check('loading client: spinner, tabs there, no false "No projects"', /Projects/.test(client) && !/No projects found|No email available|N\/A/.test(client), client.slice(0, 200));
+    await page.waitForFunction(() => !document.querySelector('[data-spinner]'), null, { timeout: 5000 });
+    check('loaded client: content shows', await page.evaluate(() => /Create Project for Client/.test(document.querySelector('main').innerText)), null);
+    await page.goto(`${origin}/admin-panel/dashboard`);
+    await page.waitForSelector('main .animate-spin');
+    const dash = await page.evaluate(() => ({ text: document.querySelector('main').innerText, spinners: document.querySelectorAll('main .animate-spin').length }));
+    check('loading dashboard: no false 0, spinner in each count', !/Total Clients\s*0/.test(dash.text) && dash.spinners >= 4, { spinners: dash.spinners });
+    await page.waitForFunction(() => /Active Clients\s*1/.test(document.querySelector('main').innerText), null, { timeout: 5000 });
+    check('loaded dashboard: counts show', true, null);
+    await context.close();
+  }
   // 19: clickable headings
   {
     const { context, page, world } = await open(browser, origin);
@@ -407,6 +449,16 @@ async function run(browser, origin) {
     r = await head('Modified'); check('Modified: newest first', r.join() === 'Bravo,alpha,Charlie,Delta', r);
     r = await head('Modified'); check('Modified again: oldest first', r.join() === 'Delta,Charlie,alpha,Bravo', r);
     check('sort is in the URL', page.url().includes('sort=lastUpdatedAsc'), page.url());
+    await page.locator('button[aria-label="Sort by Status"]').click(); await wait(page, 200);
+    const look = await page.evaluate(() => {
+      const read = label => { const style = getComputedStyle(document.querySelector(`button[aria-label="Sort by ${label}"]`)); return { color: style.color, weight: Number(style.fontWeight), ring: style.boxShadow }; };
+      return { chosen: read('Status'), other: read('Lead') };
+    });
+    check('chosen heading is bold green', look.chosen.color === 'rgb(5, 150, 105)' && look.chosen.weight >= 800, look.chosen);
+    check('other headings are plain', look.other.color !== look.chosen.color && look.other.weight < 800, look.other);
+    check('a mouse click leaves no box', !/rgb\(110, 231, 183\)/.test(look.chosen.ring), look.chosen);
+    await page.evaluate(() => document.querySelector('button[aria-label="Sort by Modified"]').click()); await wait(page, 120);
+    await page.evaluate(() => document.querySelector('button[aria-label="Sort by Modified"]').click()); await wait(page, 120);
     check('Action heading is not clickable', await page.evaluate(() => !document.querySelector('button[aria-label="Sort by Action"]')), null);
     await page.evaluate(() => document.querySelector('main [role=button]').click()); await wait(page, 700);
     await backArrow(page); await wait(page, 300);

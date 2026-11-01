@@ -1,0 +1,18 @@
+.review-window { width:min(640px,95vw); max-height:90vh; padding:0; border:1px solid #cbd5e1; border-radius:12px; color:#1e293b; background:#fff; overflow:hidden; }
+.review-layout { display:flex; flex-direction:column; max-height:90dvh; }
+.review-header { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:15px 20px; border-bottom:1px solid #e2e8f0; flex:none; }
+.review-header h2 { margin:0; font-size:19px; }
+.review-header button { padding:0 8px; font-size:25px; }
+.review-body { padding:12px 20px 16px; min-height:0; overflow:auto; }
+.review-body summary { overflow-wrap:anywhere; }
+.review-body [role="textbox"][aria-multiline="true"] { min-height:110px; max-height:240px; overflow:auto; }
+.review-template-select { display:flex; gap:6px; align-items:stretch; }
+.review-template-select select { min-width:0; }
+.review-template-select button { border:1px solid #cbd5e1; border-radius:5px; padding:0 12px; margin-top:4px; }
+.review-template-tools { display:flex; flex-wrap:wrap; align-items:center; gap:8px; border:1px solid #cbd5e1; background:#f8fafc; border-radius:7px; padding:10px; margin-top:10px; font-size:13px; }
+.review-template-tools button { padding:6px 10px; border:1px solid #cbd5e1; border-radius:5px; background:#fff; }
+.review-template-tools input { flex:1; min-width:130px; border:1px solid #cbd5e1; border-radius:5px; padding:7px; }
+.review-footer { padding:12px 20px; border-top:1px solid #e2e8f0; flex:none; flex-wrap:wrap; }
+.review-window button:disabled { opacity:.45; cursor:default; }
+.review-window :is(button,input,select,summary):focus-visible { outline:2px solid #047857; outline-offset:2px; }
+@media(max-width:420px) { .review-body { padding:10px 12px; } .review-footer { padding:10px 12px; gap:8px; } }

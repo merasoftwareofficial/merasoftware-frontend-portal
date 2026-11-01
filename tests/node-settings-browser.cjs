@@ -5,7 +5,7 @@ const { build } = require('../../merasoftware/node_modules/esbuild');
 const { chromium } = require('../../merasoftware/node_modules/playwright');
 
 (async () => {
-  const script = await build({ bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx' },
+  const script = await build({ bundle: true, write: false, outfile: 'review-test.js', jsx: 'automatic', loader: { '.js': 'jsx' },
     define: { 'process.env.REACT_APP_BACKEND_URL': '"http://node.test"', 'process.env.NODE_ENV': '"production"', 'process.env': '{}' },
     plugins: [{ name: 'layout-fixture', setup(b) {
       b.onResolve({ filter: /^react(?:\/.*)?$/ }, args => ({ path: require.resolve(args.path, { paths: [path.resolve(__dirname, '..')] }) }));
@@ -13,6 +13,7 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
       b.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents: args.path === 'react-redux' ? 'export const useSelector=f=>f({user:{user:{name:"Admin"}}});' : 'export default function Layout({children}){return children}', loader: 'js' }));
     } }],
     stdin: { resolveDir: path.resolve(__dirname, '..'), loader: 'jsx', contents: `
+      import { MemoryRouter } from 'react-router-dom';
       import React, {useState} from 'react'; import {createRoot} from 'react-dom/client';
       window.calls=[];window.failSave=true;
       let settings={name:'Admin',loginEmail:'admin@example.test',contactEmail:'',whatsappNumbers:[],countries:[{code:'+91',label:'India',digits:10},{code:'+1',label:'USA / Canada',digits:10}]};
@@ -36,9 +37,9 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
       const Settings=require('./src/pages/AdminSettingsPage').default;
       const NextSettings=require('../merasoftware/src/app/admin/settings/admin-contact-settings').default;
       function App(){const[busy,setBusy]=useState(false);const[progress,setProgress]=useState(20);window.complete=()=>setProgress(100);return <><Node updateMode currentProjectProgress={progress} latestNodeId="complete-node" isSubmitting={busy} onAddNode={async()=>{setBusy(true);try{return(await fetch('http://node.test/api/node',{method:'POST'})).ok}finally{setBusy(false)}}}/><Dialog/>{location.search.includes('next')?<NextSettings/>:<Settings/>}</>}
-      createRoot(document.getElementById('root')).render(<App/>);
+      createRoot(document.getElementById('root')).render(<MemoryRouter><App/></MemoryRouter>);
     ` } });
-  const server = http.createServer((req, res) => { res.setHeader('Content-Type', req.url === '/app.js' ? 'text/javascript' : 'text/html'); res.end(req.url === '/app.js' ? script.outputFiles[0].text : '<!doctype html><html><meta name="viewport" content="width=device-width, initial-scale=1"><body><div id="root"></div><script src="/app.js"></script></body></html>'); });
+  const server = http.createServer((req, res) => { res.setHeader('Content-Type', req.url === '/app.js' ? 'text/javascript' : 'text/html'); res.end(req.url === '/app.js' ? script.outputFiles.find(file => file.path.endsWith('.js')).text : '<!doctype html><html><meta name="viewport" content="width=device-width, initial-scale=1"><body><div id="root"></div><script src="/app.js"></script></body></html>'); });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const browser = await chromium.launch({ headless: true });
   try {

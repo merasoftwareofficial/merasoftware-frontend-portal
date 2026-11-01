@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowRight, BarChart3, Clock3, Layers3, RefreshCw, Search, ShieldCheck, Users } from "lucide-react";
+import { ArrowRight, BarChart3, Clock3, Layers3, Loader2, RefreshCw, Search, ShieldCheck, Users } from "lucide-react";
 import { useResource } from '../hooks/useResource';
 import SummaryApi from "../common";
 import AdminWorkspaceList from "../components/admin/AdminWorkspaceList";
@@ -20,6 +20,9 @@ const AdminDashboard = () => {
   const inactiveClients = summary?.inactive || 0;
   const joinedThisMonth = summary?.joinedThisMonth || 0;
   const recentClients = summary?.recentClients || [];
+
+  // A count not yet known must not read as 0.
+  const count = value => (loading ? <Loader2 size={24} aria-label="Loading" className="animate-spin text-emerald-500" /> : value);
 
   const openClientsPage = () => {
     navigate("/admin-panel/clients");
@@ -55,9 +58,9 @@ const AdminDashboard = () => {
           </div>
 
           <div className="grid grid-cols-1 gap-4 border-t border-white/10 p-6 sm:grid-cols-2 xl:grid-cols-3">
-            <StatCard icon={Users} label="Total Clients" value={summary?.total || 0} />
-            <StatCard icon={Layers3} label="Active Clients" value={activeClients} />
-            <StatCard icon={BarChart3} label="Joined This Month" value={joinedThisMonth} />
+            <StatCard icon={Users} label="Total Clients" value={count(summary?.total || 0)} />
+            <StatCard icon={Layers3} label="Active Clients" value={count(activeClients)} />
+            <StatCard icon={BarChart3} label="Joined This Month" value={count(joinedThisMonth)} />
           </div>
         </section>
 
@@ -79,7 +82,7 @@ const AdminDashboard = () => {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold text-slate-900">Inactive Clients</p>
-                <p className="mt-2 text-2xl font-bold text-slate-950">{inactiveClients}</p>
+                <div className="mt-2 text-2xl font-bold text-slate-950">{count(inactiveClients)}</div>
               </div>
               <Clock3 className="h-5 w-5 text-slate-400" />
             </div>
@@ -170,7 +173,7 @@ const StatCard = ({ icon: Icon, label, value }) => {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm text-slate-300">{label}</p>
-          <p className="mt-2 text-3xl font-bold text-white">{value}</p>
+          <div className="mt-2 text-3xl font-bold text-white">{value}</div>
         </div>
         <div className="rounded-xl bg-white/10 p-3 text-white">
           <Icon size={20} />

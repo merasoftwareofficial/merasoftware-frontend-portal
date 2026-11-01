@@ -56,6 +56,7 @@ import {
   groupLedgerItemsByProject,
 } from "../helpers/paymentLedger";
 import { goToAdminReturn } from "../helpers/adminReturnNavigation";
+import DataSpinner from "../components/admin/DataSpinner";
 import focusFirstInteractiveElement, { getInteractiveElements } from "../utils/focusFirstInteractiveElement";
 import { getItemSummary, getOrderCategoryLabel, getOrderDisplayName } from "../helpers/orderPresentation";
 import { isPlanItem } from "../helpers/orderType";
@@ -1239,7 +1240,6 @@ const AdminClientWorkspace = () => {
     setCustomer(workspaceData.customer || fallbackClient || null);
     setAllData({ orders: workspaceData.orders || [], renewals: workspaceData.renewals || [], transactions: workspaceData.transactions || [], invoices: workspaceData.invoices || [], updates: workspaceData.updates || [], plans: workspaceData.plans || [], summary: workspaceData.summary || null });
   }, { revision: workspaceRefreshKey });
-  const customerLoading = workspaceResource.loading;
   const dataLoading = workspaceResource.loading;
   useListScroll(!dataLoading);
   const fetchError = workspaceResource.error;
@@ -1433,8 +1433,8 @@ const AdminClientWorkspace = () => {
               Admin Client Workspace
             </>
           }
-          title={clientName}
-          subtitle={clientEmail}
+          title={dataLoading && !client ? "Loading..." : clientName}
+          subtitle={dataLoading && !client ? "" : clientEmail}
           leadingAction={
             <button
               type="button"
@@ -1447,14 +1447,13 @@ const AdminClientWorkspace = () => {
           }
           meta={
             <>
-              <AdminInfoPill label="Status" value={clientStatus} variant="dark" />
+              <AdminInfoPill label="Status" value={dataLoading && !client ? "..." : clientStatus} variant="dark" />
               {customer?.leadId ? (
                 <button type="button" onClick={() => navigate(`/admin-panel/leads/${customer.leadId}`)} className="rounded-xl border border-white/20 px-3 py-2 text-sm font-semibold text-white hover:bg-white/10">View Lead</button>
               ) : null}
-              <AdminInfoPill label="Joined" value={createdAt} variant="dark" />
+              <AdminInfoPill label="Joined" value={dataLoading && !client ? "..." : createdAt} variant="dark" />
             </>
           }
-          loadingText={customerLoading ? "Loading customer profile..." : ""}
         />
 
         <AdminWorkspaceTabs
@@ -1466,7 +1465,9 @@ const AdminClientWorkspace = () => {
           ariaLabel="Client workspace sections"
         />
 
-          <div className="p-5 sm:p-6" ref={tabContentRef} onKeyDown={handleTabContentKeyDown}>
+          {dataLoading ? <DataSpinner /> : null}
+          {/* Hidden, not removed: an open project or plan keeps its own state. "No projects" must not show before the data. */}
+          <div hidden={dataLoading} className="p-5 sm:p-6" ref={tabContentRef} onKeyDown={handleTabContentKeyDown}>
         {activeTab === "overview" && (
           <section>
             <div className="mb-4">
@@ -1507,7 +1508,6 @@ const AdminClientWorkspace = () => {
                     <span>{allData.summary?.updateCount ?? 0} update requests</span>
                   </div>
                 </div>
-                {dataLoading ? <div className="text-sm text-slate-600">Loading...</div> : null}
               </div>
             </div>
           </section>

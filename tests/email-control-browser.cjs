@@ -10,14 +10,24 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
       import React from 'react';
       import { createRoot } from 'react-dom/client';
       window.emailCalls = [];
+      const preferences = {};
       window.fetch = async (url, options = {}) => {
         window.emailCalls.push({ url: String(url), options });
         const json = data => new Response(JSON.stringify({ success: true, ...data }), { headers: { 'content-type': 'application/json' } });
+        if (String(url).includes('/preferences/')) {
+          const key = String(url).split('/preferences/')[1];
+          if(options.method === 'PUT') preferences[key] = { ...preferences[key], ...JSON.parse(options.body) };
+          return json({ data: preferences[key] || {} });
+        }
+        if (String(url).endsWith('/templates/smart-template')) return json({ data: { _id: 'smart-template', name: 'Saved message', updatedAt: '2026-11-02T00:00:00.000Z' } });
         if (String(url).endsWith('/api/action')) return json({ emailStatus: 'awaiting-review', emailDraftIds: ['draft1'] });
         if (String(url).endsWith('/api/admin-action')) return json({ emailStatus: 'awaiting-review', emailDraftIds: ['draft2'] });
         const paragraph = (...content) => ({ type: 'doc', content: [{ type: 'paragraph', content }] });
         if (String(url).endsWith('/templates')) return json({ data: { _id: 'new-template', name: 'Saved message copy', updatedAt: '2026-10-30T12:01:00.000Z' } });
-        if (String(url).endsWith('/drafts/smart-draft/preview')) return json({ data: { html: '<p>Dear Ravi, updated</p>' } });
+        if (String(url).endsWith('/drafts/smart-draft/preview')) {
+          const body = JSON.parse(options.body);
+          return json({ data: body.templateId ? { subject: 'For Ravi', html: '<p>Dear Ravi, updated</p>', selectedTemplateId: body.templateId, templateLabel: 'Saved message copy', templateRevision: '2026-11-02T00:00:00.000Z', templateSubjectDoc: paragraph({type:'text',text:'For '},{type:'emailVariable',attrs:{key:'name'}}), templateDoc: paragraph({type:'text',text:'Dear '},{type:'emailVariable',attrs:{key:'name'}}) } : { html: '<p>Dear Ravi, updated</p>' } });
+        }
         if (String(url).endsWith('/drafts/smart-draft/decision')) return json({ data: { status: 'queued', delivery: { email: 'not-selected', whatsapp: 'queued', channels: ['whatsapp'] } } });
         if (String(url).endsWith('/drafts/draft2')) return json({ data: { _id: 'draft2', to: ['client@example.test'], subject: 'Project Cancelled', text: 'Hello Ravi', html: '<p>prepared mail</p>',
           doc: paragraph({ type: 'text', text: 'Hello ' }, { type: 'emailVariable', attrs: { key: 'name' } }),
@@ -39,17 +49,18 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
         templateDoc: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Dear ' }, { type: 'emailVariable', attrs: { key: 'name' } }] }] },
         templateSubjectDoc: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'For ' }, { type: 'emailVariable', attrs: { key: 'name' } }] }] },
         selectedTemplateId: 'smart-template', templateLabel: 'Saved message', templateRevision: '2026-10-30T12:00:00.000Z',
-        templateOptions: [{ id: 'smart-template', name: 'Saved message' }], editorFields: { variables: [{ key: 'name', label: 'Customer name', value: 'Ravi' }], blocks: [] },
+        templateOptions: [{ id: 'smart-template', name: 'Saved message' }, ...(preferences['lead.proposal']?.templateId === 'new-template' ? [{id:'new-template',name:'Saved message copy'}] : [])], editorFields: { variables: [{ key: 'name', label: 'Customer name', value: 'Ravi' }], blocks: [] },
         defaultChannel: 'both', channelOptions: [{ id: 'email', label: 'Email', enabled: true }, { id: 'whatsapp', label: 'WhatsApp', enabled: true }, { id: 'both', label: 'Both', enabled: true }]
       }).then(result => { window.smartDecision = result; });
       createRoot(document.getElementById('root')).render(<EmailReviewDialog />);
     ` },
-    bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.js': 'jsx' },
+    bundle: true, write: false, outfile: 'review-test.js', format: 'iife', jsx: 'automatic', loader: { '.js': 'jsx' },
     define: { 'process.env.REACT_APP_BACKEND_URL': '"http://email.test"', 'process.env.NODE_ENV': '"production"' },
   });
   const app = http.createServer((req, res) => {
-    if (req.url === '/app.js') { res.setHeader('Content-Type', 'application/javascript'); return res.end(script.outputFiles[0].text); }
-    res.setHeader('Content-Type', 'text/html'); res.end('<div id="root"></div><script src="/app.js"></script>');
+    if (req.url === '/app.js') { res.setHeader('Content-Type', 'application/javascript'); return res.end(script.outputFiles.find(file => file.path.endsWith('.js')).text); }
+    if (req.url === '/app.css') { res.setHeader('Content-Type', 'text/css'); return res.end(script.outputFiles.find(file => file.path.endsWith('.css')).text); }
+    res.setHeader('Content-Type', 'text/html'); res.end('<link rel="stylesheet" href="/app.css"><div id="root"></div><script src="/app.js"></script>');
   });
   let browser;
   try {
@@ -77,10 +88,12 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     assert.equal(await page.evaluate(() => window.emailDecision.choice), 'skip');
     await page.evaluate(() => { window.emailDecision = null; window.askEmail(); });
     await page.getByRole('dialog').waitFor(); await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: "Don't send and close", exact: true }).click();
     await page.waitForFunction(() => window.emailDecision);
     assert.equal(await page.evaluate(() => window.emailDecision.choice), 'skip');
     await page.evaluate(() => { window.runAction(); });
     await page.getByRole('dialog').waitFor();
+    await page.locator('summary').filter({ hasText: /To:.*Details/ }).click();
     assert.match(await page.getByRole('dialog').innerText(), /invoice.pdf/);
     assert.equal(await page.evaluate(() => !!window.actionFinished), false);
     assert.equal(await page.getByLabel('Template', { exact: true }).count(), 0, 'Customers get no template choice');
@@ -139,6 +152,16 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     assert.equal(await page.getByLabel('Send via').inputValue(), 'both');
     assert.equal(await message.locator('[data-email-variable="name"]').innerText(), 'Customer name');
     await message.click(); await page.keyboard.press('End'); await page.keyboard.type(', updated');
+    await page.getByRole('button', { name: 'Manage template', exact: true }).click();
+    await page.getByRole('button', { name: 'Update this template', exact: true }).click();
+    await page.getByRole('button', { name: 'Update template', exact: true }).click();
+    await page.getByRole('status').filter({ hasText: 'Template updated.' }).waitFor();
+    assert.equal(await page.getByLabel('Template', { exact: true }).inputValue(), 'smart-template');
+    const updateCalls = await page.evaluate(() => window.emailCalls.filter(call => call.url.endsWith('/templates/smart-template')));
+    assert.equal(updateCalls.length, 1); assert.equal(updateCalls[0].options.method, 'PUT');
+    assert.equal(JSON.parse(updateCalls[0].options.body).expectedUpdatedAt, '2026-10-30T12:00:00.000Z');
+    await page.getByRole('button', { name: 'Manage template', exact: true }).click();
+    await page.getByRole('button', { name: 'Save as new template', exact: true }).click();
     await page.getByRole('button', { name: 'Save template', exact: true }).click();
     await page.getByRole('status').filter({ hasText: 'New template saved. Original unchanged.' }).waitFor();
     const saved = await page.evaluate(() => window.emailCalls.filter(call => call.url.endsWith('/templates')));
@@ -156,6 +179,14 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     const smart = await page.evaluate(() => window.smartDecision);
     assert.equal(smart.channels, 'whatsapp'); assert.equal(smart.processedResult.status, 'queued');
     assert.equal(await page.evaluate(() => window.emailCalls.filter(call => call.url.endsWith('/drafts/smart-draft/decision')).length), 1);
+    await page.evaluate(() => { window.smartDecision = null; window.askSmart(); });
+    await page.waitForFunction(() => document.getElementById('review-channel')?.value === 'whatsapp' && document.getElementById('email-review-template')?.value === 'new-template');
+    assert.equal(await message.locator('[data-email-variable="name"]').innerText(), 'Customer name');
+    await page.setViewportSize({width:375,height:620});
+    const footer = await page.getByRole('button', {name:'Send WhatsApp',exact:true}).boundingBox();
+    assert.ok(footer.y >= 0 && footer.y + footer.height <= 620);
+    await page.getByRole('button', {name:'Don’t Send Mail',exact:true}).click();
+    await page.waitForFunction(() => window.smartDecision);
     assert.deepEqual(errors, []);
     console.log('PASS: legacy review plus compact channel selection, original name chips, new-template POST and processed delivery without duplicate submit.');
   } finally { await browser?.close(); await new Promise(resolve => app.close(resolve)); }

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import DataSpinner from "./DataSpinner";
 import UpdatingSign from "./UpdatingSign";
 
 /**
@@ -57,7 +58,7 @@ const AdminWorkspaceList = ({ columns, loading, emptyText, items, renderRow, foo
   };
 
   const sortIcon = (key) => {
-    if (sort?.key !== key) return <ArrowUpDown size={12} className="opacity-40" />;
+    if (sort?.key !== key) return <ArrowUpDown size={12} className="opacity-70" />;
     return sort.direction === "Asc" ? <ArrowUp size={12} /> : <ArrowDown size={12} />;
   };
 
@@ -73,7 +74,8 @@ const AdminWorkspaceList = ({ columns, loading, emptyText, items, renderRow, foo
                 onClick={() => onSort(column.sortKey)}
                 aria-label={`Sort by ${column.label}`}
                 aria-pressed={sort?.key === column.sortKey}
-                className={["inline-flex items-center gap-1 rounded uppercase tracking-[0.2em] outline-none transition hover:text-slate-900 focus:ring-2 focus:ring-emerald-300", sort?.key === column.sortKey ? "text-slate-900" : ""].join(" ")}
+                // focus-visible: the ring is for keyboard users only, so a mouse click leaves no box.
+                className={["inline-flex cursor-pointer items-center gap-1 rounded uppercase tracking-[0.2em] outline-none transition focus-visible:ring-2 focus-visible:ring-emerald-300", sort?.key === column.sortKey ? "font-extrabold text-emerald-600" : "font-semibold text-slate-500 hover:text-emerald-600"].join(" ")}
               >
                 {column.label}
                 {sortIcon(column.sortKey)}
@@ -84,7 +86,7 @@ const AdminWorkspaceList = ({ columns, loading, emptyText, items, renderRow, foo
       </div>
 
       {loading ? (
-        <div className="px-5 py-10 text-center text-sm text-slate-500 sm:px-6">Loading...</div>
+        <DataSpinner />
       ) : items.length === 0 ? (
         <div className="px-5 py-10 text-center text-sm text-slate-500 sm:px-6">{emptyText}</div>
       ) : (
@@ -110,7 +112,7 @@ const AdminWorkspaceList = ({ columns, loading, emptyText, items, renderRow, foo
         </div>
       )}
 
-      {footer ? <div className="border-t border-slate-200 px-5 py-3 text-sm text-slate-500 sm:px-6">{footer}</div> : null}
+      {footer && !loading ? <div className="border-t border-slate-200 px-5 py-3 text-sm text-slate-500 sm:px-6">{footer}</div> : null}
     </div>
   );
 };

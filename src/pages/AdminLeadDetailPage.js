@@ -12,6 +12,7 @@ import KeyboardSelect from "../components/KeyboardSelect";
 import KeyboardHint from "../components/KeyboardHint";
 import { goToAdminReturn } from "../helpers/adminReturnNavigation";
 import { LEAD_CACHE, patchCachedRow } from "../utils/resourceCache";
+import DataSpinner from "../components/admin/DataSpinner";
 import UpdatingSign from "../components/admin/UpdatingSign";
 import isAccountEmail from "../helpers/accountEmail";
 import { CLIENT_BEHAVIOUR_OPTIONS, DEFAULT_CLIENT_BEHAVIOUR, DEFAULT_LEAD_STATUS, leadStatusLabel, leadStatusOptions, leadStatusStyle, offerStageOptions } from "../helpers/leadStatuses";
@@ -377,9 +378,9 @@ const AdminLeadDetailPage = () => {
           }
           meta={
             <>
-              <AdminInfoPill label="Status" value={leadStatusLabel(shownLead?.status)} variant="dark" />
-              <AdminInfoPill label="Source" value={shownLead?.source || "N/A"} variant="dark" />
-              <AdminInfoPill label="Added" value={lead?.createdAt ? new Date(lead.createdAt).toLocaleDateString("en-IN") : "N/A"} variant="dark" />
+              <AdminInfoPill label="Status" value={shownLead || !loading ? leadStatusLabel(shownLead?.status) : "..."} variant="dark" />
+              <AdminInfoPill label="Source" value={shownLead?.source || (loading ? "..." : "N/A")} variant="dark" />
+              <AdminInfoPill label="Added" value={lead?.createdAt ? new Date(lead.createdAt).toLocaleDateString("en-IN") : loading ? "..." : "N/A"} variant="dark" />
             </>
           }
           actions={
@@ -394,11 +395,11 @@ const AdminLeadDetailPage = () => {
               </button>
             ) : null
           }
-          loadingText={loading ? "Loading lead..." : ""}
         />
 
         {/* Hidden, not removed: a note being typed survives while too-old data is replaced. */}
-        <div hidden={expired} data-lead-body="1" className={expired ? "" : "grid grid-cols-1 gap-6 p-5 sm:p-6 lg:grid-cols-3"}>
+        {loading ? <DataSpinner /> : null}
+        <div hidden={loading || expired} data-lead-body="1" className={loading || expired ? "" : "grid grid-cols-1 gap-6 p-5 sm:p-6 lg:grid-cols-3"}>
           {/* Left: lead info + pipeline */}
           <div className="space-y-6 lg:col-span-1">
             <div className="rounded-3xl border border-slate-200 bg-white p-5">

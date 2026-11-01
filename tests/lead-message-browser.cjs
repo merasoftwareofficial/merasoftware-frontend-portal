@@ -38,11 +38,11 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
         templateOptions: [{ id: 'x', name: 'Standard' }], selectedTemplateId: 'x', templateLabel: 'Standard', doc: paragraph('Other text') }, 'Other description');
       createRoot(document.getElementById('root')).render(<EmailReviewDialog />);
     ` },
-    bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.js': 'jsx' },
+    bundle: true, write: false, outfile: 'review-test.js', format: 'iife', jsx: 'automatic', loader: { '.js': 'jsx' },
     define: { 'process.env.REACT_APP_BACKEND_URL': '"http://email.test"', 'process.env.NODE_ENV': '"production"' },
   });
   const app = http.createServer((req, res) => {
-    if (req.url === '/app.js') { res.setHeader('Content-Type', 'application/javascript'); return res.end(script.outputFiles[0].text); }
+    if (req.url === '/app.js') { res.setHeader('Content-Type', 'application/javascript'); return res.end(script.outputFiles.find(file => file.path.endsWith('.js')).text); }
     res.setHeader('Content-Type', 'text/html'); res.end('<div id="root"></div><script src="/app.js"></script>');
   });
   let browser;
@@ -70,7 +70,8 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     await page.waitForFunction(() => window.calls.some(call => call.url.endsWith('/message-type')));
     await page.getByText('This only sends the message.').waitFor();
     assert.equal(await page.getByLabel('Subject', { exact: true }).inputValue().catch(() => ''), 'Your free website offer');
-    assert.equal(await page.getByLabel('Send via').inputValue(), 'whatsapp', 'the chosen channel stays');
+    assert.equal(await page.getByLabel('Send via').inputValue(), 'both', 'each action uses its own default until a personal preference exists');
+    await page.getByLabel('Send via').selectOption('whatsapp');
     assert.equal(await dialog.evaluate(node => node.open), true);
 
     await page.getByRole('button', { name: 'Send WhatsApp', exact: true }).click();
@@ -84,6 +85,7 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     await page.evaluate(() => { window.otherReview(); });
     await dialog.waitFor();
     assert.equal(await page.getByLabel('Message type').count(), 0, 'other popups stay as they were');
+    await page.locator('summary').filter({ hasText: /To:.*Details/ }).click();
     assert.match(await dialog.innerText(), /Other description/);
     assert.equal(await page.getByLabel('Template', { exact: true }).locator('option[value="current"]').count(), 1);
     assert.deepEqual(errors, []);
