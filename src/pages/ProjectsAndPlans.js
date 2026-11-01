@@ -1,3 +1,5 @@
+import { useListState } from '../hooks/useListState';
+import { useResource } from '../hooks/useResource';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -22,34 +24,13 @@ const ProjectsAndPlans = () => {
   const user = useSelector((state) => state?.user?.user);
   const context = useContext(Context);
   const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [view, setView] = useState('all');
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(SummaryApi.ordersList.url, {
-        method: SummaryApi.ordersList.method,
-        credentials: 'include',
-      });
+  const [{ view }, updateList] = useListState({ view: 'all' });
+  const setView = value => updateList({ view: value });
+  // view is URL navigation state.
 
-      const result = await response.json();
-      if (result.success) {
-        const nextOrders = Array.isArray(result.data) ? [...result.data] : [];
-        setOrders(nextOrders);
-      }
-    } catch (error) {
-      console.error('Error fetching projects and plans:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (user?._id) {
-      fetchData();
-    }
-  }, [user?._id]);
+  const { loading, error, refresh: fetchData } = useResource(user?._id ? SummaryApi.ordersList.url : null, next => setOrders(Array.isArray(next) ? next : []));
+  useEffect(() => { if (error) console.error(error); }, [error]);
 
   const items = useMemo(
     () => orders.filter((order) => isProjectItem(order) || isPlanItem(order)),

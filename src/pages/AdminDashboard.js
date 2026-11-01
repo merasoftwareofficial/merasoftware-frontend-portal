@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowRight, BarChart3, Clock3, Layers3, RefreshCw, Search, ShieldCheck, Users } from "lucide-react";
+import { useResource } from '../hooks/useResource';
 import SummaryApi from "../common";
 import { logout } from "../store/userSlice";
 import CookieManager from "../utils/cookieManager";
@@ -17,9 +18,17 @@ const AdminDashboard = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { isOnline } = useOnlineStatus();
-  const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const dashboardUrl = useMemo(() => {
+    const now = new Date();
+    const query = new URLSearchParams({ monthStart: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(), monthEnd: new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString() });
+    return `${SummaryApi.adminDashboard.url}?${query}`;
+  }, []);
+  const { data: summary, loading, refreshing, error, refresh: handleRefresh } = useResource(dashboardUrl);
+  useEffect(() => { if (error) toast.error(error); }, [error]);
+  const activeClients = summary?.active || 0;
+  const inactiveClients = summary?.inactive || 0;
+  const joinedThisMonth = summary?.joinedThisMonth || 0;
+  const recentClients = summary?.recentClients || [];
 
   const handleLogout = async () => {
     try {
@@ -45,68 +54,6 @@ const AdminDashboard = () => {
       toast.error("Logout failed. Please try again.");
     }
   };
-
-  const fetchClients = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(SummaryApi.adminClients.url, {
-        method: SummaryApi.adminClients.method,
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const result = await response.json();
-      if (!result.success) {
-        toast.error(result.message || "Failed to load clients");
-        return;
-      }
-
-      const customerList = (result.data || []).sort(
-        (left, right) => new Date(right.latestActivityAt || right.createdAt || 0) - new Date(left.latestActivityAt || left.createdAt || 0)
-      );
-
-      setClients(customerList);
-    } catch (error) {
-      console.error("Error fetching clients:", error);
-      toast.error("Error loading clients");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchClients();
-  }, []);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await fetchClients();
-  };
-
-  const activeClients = useMemo(() => {
-    return clients.filter((client) => (client.status || "active").toLowerCase() === "active").length;
-  }, [clients]);
-
-  const joinedThisMonth = useMemo(() => {
-    const now = new Date();
-    return clients.filter((client) => {
-      if (!client.createdAt) return false;
-      const createdAt = new Date(client.createdAt);
-      return (
-        createdAt.getMonth() === now.getMonth() &&
-        createdAt.getFullYear() === now.getFullYear()
-      );
-    }).length;
-  }, [clients]);
-
-  const recentClients = useMemo(() => {
-    return clients.slice(0, 6);
-  }, [clients]);
-
-  const inactiveClients = useMemo(() => {
-    return clients.filter((client) => (client.status || "active").toLowerCase() !== "active").length;
-  }, [clients]);
 
   const openClientsPage = () => {
     navigate("/admin-panel/clients");
@@ -145,7 +92,7 @@ const AdminDashboard = () => {
           </div>
 
           <div className="grid grid-cols-1 gap-4 border-t border-white/10 p-6 sm:grid-cols-2 xl:grid-cols-3">
-            <StatCard icon={Users} label="Total Clients" value={clients.length} />
+            <StatCard icon={Users} label="Total Clients" value={summary?.total || 0} />
             <StatCard icon={Layers3} label="Active Clients" value={activeClients} />
             <StatCard icon={BarChart3} label="Joined This Month" value={joinedThisMonth} />
           </div>
@@ -190,7 +137,7 @@ const AdminDashboard = () => {
             <div>
               <h2 className="text-xl font-bold text-slate-900">Recent Clients</h2>
               <p className="mt-1 text-sm text-slate-500">
-                Latest customer records from the admin clients endpoint.
+                Recently active customers.
               </p>
             </div>
             <button

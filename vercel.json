@@ -1,3 +1,3 @@
 {
-  "buildCommand": "CI=false npm run build"
+  "buildCommand": "CI=true npm run build"
 }

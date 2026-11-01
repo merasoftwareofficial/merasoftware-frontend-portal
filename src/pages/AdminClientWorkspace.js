@@ -1,3 +1,5 @@
+import { getResourceScope } from '../utils/resourceClient';
+import { useResource } from '../hooks/useResource';
 import { buildInstallmentPreview } from '../helpers/projectInstallments';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -28,7 +30,6 @@ import {
   ShieldAlert,
   Upload,
   Download,
-  Send,
   Share2,
   Ban,
 } from "lucide-react";
@@ -58,7 +59,7 @@ import {
   buildLedgerItems,
   groupLedgerItemsByProject,
 } from "../helpers/paymentLedger";
-import { adminReturnState, getAdminReturnTarget, goToAdminReturn } from "../helpers/adminReturnNavigation";
+import { goToAdminReturn } from "../helpers/adminReturnNavigation";
 import focusFirstInteractiveElement, { getInteractiveElements } from "../utils/focusFirstInteractiveElement";
 import { getItemSummary, getOrderCategoryLabel, getOrderDisplayName } from "../helpers/orderPresentation";
 import { isPlanItem } from "../helpers/orderType";
@@ -344,9 +345,9 @@ const AdminClientWorkspace = () => {
     }
     setWorkspaceParams({ tab }, { replace: true });
   };
-  const [customerLoading, setCustomerLoading] = useState(true);
-  const [dataLoading, setDataLoading] = useState(true);
-  const [fetchError, setFetchError] = useState("");
+
+
+
   const [customer, setCustomer] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteScan, setDeleteScan] = useState(null);
@@ -391,8 +392,8 @@ const AdminClientWorkspace = () => {
   const [showCreateProjectForm, setShowCreateProjectForm] = useState(false);
   const [workspaceRefreshKey, setWorkspaceRefreshKey] = useState(0);
   const [activeProject, setActiveProject] = useState(null);
-  const [activeProjectLoading, setActiveProjectLoading] = useState(false);
-  const [activeProjectError, setActiveProjectError] = useState("");
+
+
   const [activeProjectRefreshKey, setActiveProjectRefreshKey] = useState(0);
   const [activePlanRefreshKey, setActivePlanRefreshKey] = useState(0);
   const [uploadsRefreshKey, setUploadsRefreshKey] = useState(0);
@@ -400,12 +401,12 @@ const AdminClientWorkspace = () => {
   const [startPlanOpen, setStartPlanOpen] = useState(false);
   const [selectedProjectCheckpointId, setSelectedProjectCheckpointId] = useState(null);
   const [activePlan, setActivePlan] = useState(null);
-  const [activePlanLoading, setActivePlanLoading] = useState(false);
-  const [activePlanError, setActivePlanError] = useState("");
+
+
   // Account & Access section state
   const [accessData, setAccessData] = useState(null);
-  const [accessLoading, setAccessLoading] = useState(false);
-  const [accessError, setAccessError] = useState("");
+
+
   const [showPassword, setShowPassword] = useState(false);
   const [newPasswordInput, setNewPasswordInput] = useState("");
   const [resetting, setResetting] = useState(false);
@@ -417,17 +418,17 @@ const AdminClientWorkspace = () => {
   // GET /api/orders/:orderId/uploads. Keyed by nothing — only one record is open at a
   // time, and switching records refetches.
   const [submissions, setSubmissions] = useState([]);
-  const [submissionsLoading, setSubmissionsLoading] = useState(false);
-  const [submissionsError, setSubmissionsError] = useState("");
+
+
   const [documentsList, setDocumentsList] = useState(null);
-  const [documentsLoading, setDocumentsLoading] = useState(false);
-  const [documentsError, setDocumentsError] = useState("");
+
+
   const [documentUploading, setDocumentUploading] = useState(false);
-  const [uploadLinks, setUploadLinks] = useState(null);
-  const [uploadLinksLoading, setUploadLinksLoading] = useState(false);
-  const [uploadLinksLoadingMore, setUploadLinksLoadingMore] = useState(false);
-  const [uploadLinksCursor, setUploadLinksCursor] = useState(null);
-  const [uploadLinksError, setUploadLinksError] = useState("");
+
+
+
+
+
   const [selectedUploadLinkOrderId, setSelectedUploadLinkOrderId] = useState("");
   const [uploadLinkMode, setUploadLinkMode] = useState("single");
   const [generatedUploadLink, setGeneratedUploadLink] = useState("");
@@ -588,108 +589,14 @@ const AdminClientWorkspace = () => {
     });
   };
 
-  // Sole owner of activeProject. Nothing else writes it: the id in the URL says WHICH
-  // project is open, and this effect supplies its data and clears it again. Both halves
-  // matter — closing a project by pressing Alt+Left runs no handler at all, so if the
-  // cache were only cleared by the Back handlers a closed project would stay in memory.
-  useEffect(() => {
-    if (!activeProjectId) {
-      setActiveProject(null);
-      setActiveProjectError("");
-      setActiveProjectLoading(false);
-      setSelectedProjectCheckpointId(null);
-      return;
-    }
-
-    let isMounted = true;
-
-    const loadProjectDetails = async () => {
-      try {
-        // Cleared BEFORE the request, not after it returns: otherwise switching from one
-        // project to another renders the previous project's data under the new project's
-        // URL until the response lands.
-        setActiveProject(null);
-        setSelectedProjectCheckpointId(null);
-        setActiveProjectLoading(true);
-        setActiveProjectError("");
-
-        const response = await fetch(`${SummaryApi.orderDetails.url}/${activeProjectId}`, {
-          credentials: "include",
-        });
-        const result = await response.json();
-
-        if (!result.success) {
-          throw new Error(result.message || "Failed to load project details");
-        }
-
-        if (isMounted) {
-          setActiveProject(result.data || null);
-        }
-      } catch (error) {
-        if (!isMounted) return;
-        console.error("Error loading project details:", error);
-        setActiveProjectError(error.message || "Failed to load project details");
-      } finally {
-        if (isMounted) {
-          setActiveProjectLoading(false);
-        }
-      }
-    };
-
-    loadProjectDetails();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [activeProjectId, activeProjectRefreshKey]);
-
-  // Sole owner of activePlan — same contract as the project effect above.
-  useEffect(() => {
-    if (!activePlanId) {
-      setActivePlan(null);
-      setActivePlanError("");
-      setActivePlanLoading(false);
-      return;
-    }
-
-    let isMounted = true;
-
-    const loadPlanDetails = async () => {
-      try {
-        // Cleared before the request — see the project effect above.
-        setActivePlan(null);
-        setActivePlanLoading(true);
-        setActivePlanError("");
-
-        const response = await fetch(`${SummaryApi.orderDetails.url}/${activePlanId}`, {
-          credentials: "include",
-        });
-        const result = await response.json();
-
-        if (!result.success) {
-          throw new Error(result.message || "Failed to load plan details");
-        }
-
-        if (isMounted) {
-          setActivePlan(result.data || null);
-        }
-      } catch (error) {
-        if (!isMounted) return;
-        console.error("Error loading plan details:", error);
-        setActivePlanError(error.message || "Failed to load plan details");
-      } finally {
-        if (isMounted) {
-          setActivePlanLoading(false);
-        }
-      }
-    };
-
-    loadPlanDetails();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [activePlanId, activePlanRefreshKey]);
+  const projectResource = useResource(activeProjectId ? `${SummaryApi.orderDetails.url}/${activeProjectId}` : null, next => setActiveProject(next || null), { revision: activeProjectRefreshKey });
+  const planResource = useResource(activePlanId ? `${SummaryApi.orderDetails.url}/${activePlanId}` : null, next => setActivePlan(next || null), { revision: activePlanRefreshKey });
+  const activeProjectLoading = projectResource.loading;
+  const activeProjectError = projectResource.error;
+  const activePlanLoading = planResource.loading;
+  const activePlanError = planResource.error;
+  useEffect(() => { setActiveProject(null); setSelectedProjectCheckpointId(null); }, [activeProjectId]);
+  useEffect(() => { setActivePlan(null); }, [activePlanId]);
 
   useEffect(() => {
     const nodes = activeProject?.projectNodes || [];
@@ -1104,100 +1011,26 @@ const AdminClientWorkspace = () => {
     stepBackOrReplace(paymentGroupTab());
   };
 
-  // --- Account & Access handlers ---
-  const loadAccessData = async () => {
-    if (!customerId) return;
-    try {
-      setAccessLoading(true);
-      setAccessError("");
-      const response = await fetch(`${SummaryApi.clientCredentials.url}/${customerId}/credentials`, {
-        method: SummaryApi.clientCredentials.method,
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-      });
-      const result = await response.json();
-      if (!result.success) throw new Error(result.message || "Failed to load credentials");
-      setAccessData(result.data);
-    } catch (err) {
-      setAccessError(err.message || "Failed to load credentials");
-    } finally {
-      setAccessLoading(false);
-    }
-  };
+  const accessResource = useResource(activeTab === 'access' && customerId ? `${SummaryApi.clientCredentials.url}/${customerId}/credentials` : null, setAccessData);
+  const { loading: accessLoading, error: accessError, refresh: loadAccessData } = accessResource;
+  const documentsResource = useResource(activeTab === 'documents' && customerId ? `${SummaryApi.adminClientDocuments.url}/${customerId}/documents` : null, next => setDocumentsList(next?.documents || []));
+  const { loading: documentsLoading, error: documentsError, refresh: loadDocuments } = documentsResource;
 
-  // Load credentials when the Account & Access tab opens.
-  useEffect(() => {
-    if (activeTab === "access" && customerId && !accessData && !accessLoading) {
-      loadAccessData();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, customerId]);
-
-  // --- Documents handlers ---
-  const loadDocuments = async () => {
-    if (!customerId) return;
-    try {
-      setDocumentsLoading(true);
-      setDocumentsError("");
-      const response = await fetch(`${SummaryApi.adminClientDocuments.url}/${customerId}/documents`, {
-        method: SummaryApi.adminClientDocuments.method,
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-      });
-      const result = await response.json();
-      if (!result.success) throw new Error(result.message || "Failed to load documents");
-      setDocumentsList(result.data?.documents || []);
-    } catch (err) {
-      setDocumentsError(err.message || "Failed to load documents");
-    } finally {
-      setDocumentsLoading(false);
-    }
-  };
-
-  // Load documents when the Documents tab opens.
-  useEffect(() => {
-    if (activeTab === "documents" && customerId && documentsList === null && !documentsLoading) {
-      loadDocuments();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, customerId]);
-
-  const loadUploadLinks = async ({ append = false, cursor = null } = {}) => {
-    if (!customerId) return;
-    if (append) setUploadLinksLoadingMore(true);
-    else setUploadLinksLoading(true);
-    setUploadLinksError("");
-    try {
-      const query = new URLSearchParams({ limit: "20" });
-      if (cursor) query.set("cursor", cursor);
-      const response = await fetch(`${SummaryApi.adminUploadLinks.url}/${customerId}/upload-links?${query.toString()}`, { credentials: "include" });
-      const result = await response.json();
-      if (!result.success) throw new Error(result.message || "Could not load upload links");
-      const items = result.data?.items || [];
-      setUploadLinks((current) => append ? [...(current || []), ...items] : items);
-      setUploadLinksCursor(result.data?.nextCursor || null);
-    } catch (error) {
-      setUploadLinksError(error.message || "Could not load upload links");
-      if (!append) setUploadLinks([]);
-    } finally {
-      if (append) setUploadLinksLoadingMore(false);
-      else setUploadLinksLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    setUploadLinks(null);
-    setUploadLinksCursor(null);
-    setGeneratedUploadLink("");
-  }, [customerId]);
-
-  useEffect(() => {
-    if (activeTab === "upload-links" && customerId && uploadLinks === null && !uploadLinksLoading) loadUploadLinks();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, customerId]);
+  const linkOwner = useRef(customerId); linkOwner.current = customerId;
+  useEffect(() => { linkOwner.current = customerId; return () => { linkOwner.current = null; }; }, [customerId]);
+  const linkHistory = useResource(activeTab === 'upload-links' && customerId ? `${SummaryApi.adminUploadLinks.url}/${customerId}/upload-links?limit=20` : null, undefined, { paginated: true, eventId: customerId });
+  const uploadLinks = linkHistory.data?.items || null;
+  const uploadLinksCursor = linkHistory.data?.nextCursor;
+  const uploadLinksLoading = linkHistory.loading;
+  const uploadLinksLoadingMore = linkHistory.loadingMore || linkHistory.refreshing;
+  const uploadLinksError = linkHistory.error;
+  const loadUploadLinks = linkHistory.refresh;
+  useEffect(() => { setGeneratedUploadLink(''); setUploadLinkGenerating(false); setUploadLinkRevokingId(''); }, [customerId]);
 
   const handleGenerateUploadLink = async () => {
     if (!selectedUploadLinkOrderId || uploadLinkGenerating) return;
+    const scope = getResourceScope();
+    const current = () => linkOwner.current === customerId && getResourceScope() === scope;
     setUploadLinkGenerating(true);
     setGeneratedUploadLink("");
     try {
@@ -1208,19 +1041,22 @@ const AdminClientWorkspace = () => {
         body: JSON.stringify({ orderId: selectedUploadLinkOrderId, mode: uploadLinkMode }),
       });
       const result = await response.json();
+      if (!current()) return;
       if (!result.success) throw new Error(result.message || "Could not generate upload link");
       setGeneratedUploadLink(result.data.publicUrl);
       await loadUploadLinks();
-      toast.success("Secure upload link generated");
+      if (current()) toast.success("Secure upload link generated");
     } catch (error) {
-      toast.error(error.message || "Could not generate upload link");
+      if (current()) toast.error(error.message || "Could not generate upload link");
     } finally {
-      setUploadLinkGenerating(false);
+      if (current()) setUploadLinkGenerating(false);
     }
   };
 
   const handleRevokeUploadLink = async (linkId) => {
     if (!linkId || uploadLinkRevokingId) return;
+    const scope = getResourceScope();
+    const current = () => linkOwner.current === customerId && getResourceScope() === scope;
     setUploadLinkRevokingId(linkId);
     try {
       const response = await fetch(`${SummaryApi.revokeAdminUploadLink.url}/${customerId}/upload-links/${linkId}/revoke`, {
@@ -1228,14 +1064,15 @@ const AdminClientWorkspace = () => {
         credentials: "include",
       });
       const result = await response.json();
+      if (!current()) return;
       if (!result.success) throw new Error(result.message || "Could not revoke upload link");
       setGeneratedUploadLink("");
       await loadUploadLinks();
-      toast.success("Upload link revoked");
+      if (current()) toast.success("Upload link revoked");
     } catch (error) {
-      toast.error(error.message || "Could not revoke upload link");
+      if (current()) toast.error(error.message || "Could not revoke upload link");
     } finally {
-      setUploadLinkRevokingId("");
+      if (current()) setUploadLinkRevokingId("");
     }
   };
 
@@ -1249,49 +1086,9 @@ const AdminClientWorkspace = () => {
     }
   };
 
-  // Uploaded data follows whichever record is open. The endpoint authorises server-side
-  // (admin reads any order) and resolves which records belong to it — including those made
-  // against services linked to a project — so nothing is filtered or merged here.
-  useEffect(() => {
-    const openOrderId = activeProjectId || activePlanId;
-    if (!openOrderId) {
-      setSubmissions([]);
-      setSubmissionsError("");
-      return;
-    }
-
-    let cancelled = false;
-    const loadUploads = async () => {
-      setSubmissionsLoading(true);
-      setSubmissionsError("");
-      try {
-        const response = await fetch(`${SummaryApi.orderUploads.url}/${openOrderId}/uploads`, {
-          method: SummaryApi.orderUploads.method,
-          credentials: "include",
-        });
-        const data = await response.json();
-        if (cancelled) return;
-        if (!data?.success) {
-          setSubmissions([]);
-          setSubmissionsError(data?.message || "Could not load uploaded data");
-          return;
-        }
-        setSubmissions(data.data || []);
-      } catch (error) {
-        if (cancelled) return;
-        console.error("Error loading uploaded data:", error);
-        setSubmissions([]);
-        setSubmissionsError("Could not load uploaded data");
-      } finally {
-        if (!cancelled) setSubmissionsLoading(false);
-      }
-    };
-
-    loadUploads();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeProjectId, activePlanId, uploadsRefreshKey]);
+  const openOrderId = activeProjectId || activePlanId;
+  const { loading: submissionsLoading, error: submissionsError } = useResource(openOrderId ? `${SummaryApi.orderUploads.url}/${openOrderId}/uploads` : null, next => setSubmissions(next || []), { revision: uploadsRefreshKey });
+  useEffect(() => { setSubmissions([]); }, [openOrderId]);
 
   // Plan uploads only (the backend refuses others): In progress / Done / Rejected with the note
   // the client sees. A rejected upload can give its update back, so the open plan reloads too.
@@ -1425,57 +1222,13 @@ const AdminClientWorkspace = () => {
     }
   };
 
-  useEffect(() => {
-    if (!customerId) return;
-
-    const loadWorkspace = async () => {
-      try {
-        setCustomerLoading(true);
-        setDataLoading(true);
-        setFetchError("");
-
-        const response = await fetch(`${SummaryApi.adminUserWorkspace.url}?customerId=${customerId}`, {
-          method: SummaryApi.adminUserWorkspace.method,
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-        });
-
-        const workspaceResult = await response.json();
-        if (!workspaceResult.success) {
-          throw new Error(workspaceResult.message || "Failed to load customer workspace");
-        }
-
-        const workspaceData = workspaceResult.data || {};
-        const fetchedCustomer = workspaceData.customer || fallbackClient;
-
-        setCustomer(fetchedCustomer || null);
-        setAllData({
-          orders: workspaceData.orders || [],
-          renewals: workspaceData.renewals || [],
-          transactions: workspaceData.transactions || [],
-          invoices: workspaceData.invoices || [],
-          updates: workspaceData.updates || [],
-          plans: workspaceData.plans || [],
-          summary: workspaceData.summary || null,
-        });
-        // Deliberately does NOT touch activeProject/activePlan. This effect loads the
-        // CLIENT; the open subpage's data belongs to the fetch effects keyed on
-        // activeProjectId/activePlanId, and a value with two owners is how the open project
-        // used to blank out: a history navigation gave location.state a new object identity,
-        // this effect re-ran on it and cleared the cache, and the fetch effect did not
-        // reload because the id itself had not changed — so the subpage fell through to the
-        // list mid-flight.
-      } catch (error) {
-        console.error("Error loading admin client workspace:", error);
-        setFetchError("Failed to load customer data");
-      } finally {
-        setCustomerLoading(false);
-        setDataLoading(false);
-      }
-    };
-
-    loadWorkspace();
-  }, [customerId, fallbackClient, workspaceRefreshKey]);
+  const workspaceResource = useResource(customerId ? `${SummaryApi.adminUserWorkspace.url}?customerId=${customerId}` : null, workspaceData => {
+    setCustomer(workspaceData.customer || fallbackClient || null);
+    setAllData({ orders: workspaceData.orders || [], renewals: workspaceData.renewals || [], transactions: workspaceData.transactions || [], invoices: workspaceData.invoices || [], updates: workspaceData.updates || [], plans: workspaceData.plans || [], summary: workspaceData.summary || null });
+  }, { revision: workspaceRefreshKey });
+  const customerLoading = workspaceResource.loading;
+  const dataLoading = workspaceResource.loading;
+  const fetchError = workspaceResource.error;
 
   const projectOrders = useMemo(
     () => allData.orders.filter((order) => !isPlanItem(order)).slice().sort((a, b) => sortWorkspaceItem(a, b, getProjectSortRank)),
@@ -1614,7 +1367,6 @@ const AdminClientWorkspace = () => {
   }, [
     allData.orders,
     allData.summary,
-    allData.updates,
     client,
     projectOrders,
     planOrders,
@@ -2009,7 +1761,8 @@ const AdminClientWorkspace = () => {
             onGenerate={handleGenerateUploadLink}
             onCopy={handleCopyGeneratedUploadLink}
             onRevoke={handleRevokeUploadLink}
-            onLoadMore={() => loadUploadLinks({ append: true, cursor: uploadLinksCursor })}
+            onLoadMore={linkHistory.loadMore}
+            onRefresh={() => loadUploadLinks()}
           />
         )}
 
@@ -2914,7 +2667,7 @@ const ClientDocumentsPanel = ({ documents, loading, error, uploading, onUpload, 
 
 const UploadLinksPanel = ({
   customer, orders, links, loading, loadingMore, hasMore, error, selectedOrderId, setSelectedOrderId,
-  mode, setMode, generatedLink, generating, revokingId, onGenerate, onCopy, onRevoke, onLoadMore,
+  mode, setMode, generatedLink, generating, revokingId, onGenerate, onCopy, onRevoke, onLoadMore, onRefresh,
 }) => {
   const eligibleOrders = (orders || []).filter((order) => {
     if (order?.isWebsiteProject === true) return true;
@@ -2934,7 +2687,7 @@ const UploadLinksPanel = ({
         <div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${customer?.allowLoginFreeUploadLinks ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>{customer?.allowLoginFreeUploadLinks ? "Client allows login-free upload links." : "Client requires credential verification before upload."}</div>
         {generatedLink ? <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4"><p className="text-sm font-semibold text-emerald-900">New link — copy it now</p><div className="mt-2 flex gap-2"><input readOnly value={generatedLink} className="min-w-0 flex-1 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-700" /><button type="button" onClick={onCopy} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white"><Copy size={15} />Copy</button></div><p className="mt-2 text-xs text-emerald-700">For security, the full link is shown only when generated.</p></div> : null}
       </div>
-      <div className="rounded-2xl border border-slate-200 bg-white p-5"><h3 className="text-base font-bold text-slate-900">Link history</h3>{loading ? <p className="mt-4 text-sm text-slate-500">Loading links…</p> : error && !(links || []).length ? <p className="mt-4 text-sm text-rose-600">{error}</p> : !(links || []).length ? <p className="mt-4 text-sm text-slate-500">No upload links generated.</p> : <div className="mt-4 space-y-3">{links.map((link) => <div key={link._id} className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-slate-800">{labelFor(link.orderId)}</p><p className="mt-1 text-xs text-slate-500">{link.mode === "single" ? "Single use" : "Multiple use"} · {link.status} · Used {link.useCount || 0} time(s)</p></div>{link.status === "active" ? <button type="button" onClick={() => onRevoke(link._id)} disabled={revokingId === link._id} className="inline-flex items-center justify-center gap-2 rounded-lg border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700 disabled:opacity-50"><Ban size={15} />{revokingId === link._id ? "Revoking…" : "Revoke"}</button> : null}</div>)}{error ? <p className="text-sm text-rose-600">{error}</p> : null}{hasMore ? <button type="button" onClick={onLoadMore} disabled={loadingMore} className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 disabled:opacity-50">{loadingMore ? "Loading…" : "Load more"}</button> : null}</div>}</div>
+      <div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="flex items-center justify-between gap-3"><h3 className="text-base font-bold text-slate-900">Link history</h3><button type="button" onClick={onRefresh} disabled={loading || loadingMore} className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50">Refresh links</button></div>{loading ? <p className="mt-4 text-sm text-slate-500">Loading links…</p> : error && !(links || []).length ? <p className="mt-4 text-sm text-rose-600">{error}</p> : !(links || []).length ? <p className="mt-4 text-sm text-slate-500">No upload links generated.</p> : <div className="mt-4 space-y-3">{links.map((link) => <div key={link._id} className="flex flex-col gap-3 rounded-xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-slate-800">{labelFor(link.orderId)}</p><p className="mt-1 text-xs text-slate-500">{link.mode === "single" ? "Single use" : "Multiple use"} · {link.status} · Used {link.useCount || 0} time(s)</p></div>{link.status === "active" ? <button type="button" onClick={() => onRevoke(link._id)} disabled={revokingId === link._id} className="inline-flex items-center justify-center gap-2 rounded-lg border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700 disabled:opacity-50"><Ban size={15} />{revokingId === link._id ? "Revoking…" : "Revoke"}</button> : null}</div>)}{error ? <p className="text-sm text-rose-600">{error}</p> : null}{hasMore ? <button type="button" onClick={onLoadMore} disabled={loadingMore} className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 disabled:opacity-50">{loadingMore ? "Loading…" : "Load more"}</button> : null}</div>}</div>
     </section>
   );
 };
@@ -3448,37 +3201,10 @@ const PaymentOrderHistorySubpage = ({ customerId, orderId, onBack }) => {
   const [finalInvoiceAction, setFinalInvoiceAction] = useState("");
   const isGeneralPayments = orderId === "general";
 
-  useEffect(() => {
-    let isMounted = true;
+  const paymentResource = useResource(`${SummaryApi.adminUserWorkspace.url}?${new URLSearchParams({ customerId, orderId })}`, next => setWorkspace(next || null), { revision: reloadKey });
+  useEffect(() => { setLoading(paymentResource.loading); setError(paymentResource.error); }, [paymentResource.loading, paymentResource.error]);
 
-    const loadWorkspace = async () => {
-      try {
-        setLoading(true);
-        setError("");
-        const response = await fetch(`${SummaryApi.adminUserWorkspace.url}?customerId=${customerId}`, {
-          method: SummaryApi.adminUserWorkspace.method,
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-        });
-        const result = await response.json();
-        if (!result.success) throw new Error(result.message || "Failed to load payment history");
-        if (isMounted) setWorkspace(result.data || null);
-      } catch (loadError) {
-        if (!isMounted) return;
-        console.error("Error loading payment history:", loadError);
-        setError(loadError.message || "Failed to load payment history");
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    loadWorkspace();
-    return () => {
-      isMounted = false;
-    };
-  }, [customerId, orderId, reloadKey]);
-
-  const { order, invoices, finalInvoice, transactions, combinedRecords, paymentGroups, serviceName, invoiceValue, recordedPayments, pendingRecords, initialProjectInvoiceId } = useMemo(() => {
+  const { order, finalInvoice, transactions, paymentGroups, serviceName, pendingRecords, initialProjectInvoiceId } = useMemo(() => {
     const allOrders = workspace?.orders || [];
     const allInvoices = workspace?.invoices || [];
     const allTransactions = workspace?.transactions || [];

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, ChevronRight, FileText } from 'lucide-react';
+import { useResource } from '../hooks/useResource';
 import SummaryApi from '../common';
 import DashboardLayout from '../components/DashboardLayout';
 import TriangleMazeLoader from '../components/TriangleMazeLoader';
@@ -63,54 +64,17 @@ const OrderDetailPage = () => {
   const location = useLocation();
   const [order, setOrder] = useState(null);
   const [invoices, setInvoices] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const detail = useResource(`${SummaryApi.orderDetails.url}/${encodeURIComponent(orderId)}`, setOrder);
+  const billing = useResource(`${SummaryApi.myInvoices.url}?orderId=${encodeURIComponent(orderId)}`, next => setInvoices(Array.isArray(next) ? next : []));
+  const loading = detail.loading || billing.loading;
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    fetchOrderDetails();
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
   }, [orderId]);
-
-  const fetchOrderDetails = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${SummaryApi.orderDetails.url}/${orderId}`, {
-        credentials: 'include',
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setOrder(data.data);
-        fetchInvoices();
-      }
-    } catch (error) {
-      console.error("Error fetching order details:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchInvoices = async () => {
-    try {
-      const response = await fetch(SummaryApi.myPaymentWorkspace.url, {
-        method: SummaryApi.myPaymentWorkspace.method,
-        credentials: 'include',
-      });
-      const data = await response.json();
-      if (data.success) {
-        const orderInvoices = (data.data.invoices || []).filter(
-          (inv) => String(inv.orderId?._id || inv.orderId) === String(orderId)
-        );
-        // An order without an invoice must say nothing about billing, never show a made-up bill.
-        setInvoices(orderInvoices);
-      }
-    } catch (error) {
-      console.error("Error fetching invoices:", error);
-    }
-  };
 
   // Route to the actual installment-payment page (wallet-instant / UPI / combined, same SSOT
   // path as ProjectDetails.js's PaymentAlert button). `/direct-payment` was the wrong destination

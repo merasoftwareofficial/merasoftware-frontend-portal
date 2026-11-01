@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { AlertCircle, MessageSquare } from 'lucide-react';
 import SummaryApi from '../common';
@@ -20,7 +20,7 @@ const CreateTicket = ({ show, handleClose, refreshTickets }) => {
   const userDetails = useSelector((state) => state.user.user);
 
   // Check if user has any open tickets
-  const checkOpenTickets = async () => {
+  const checkOpenTickets = useCallback(async () => {
     if (!userDetails?._id) return;
     
     try {
@@ -48,7 +48,7 @@ const CreateTicket = ({ show, handleClose, refreshTickets }) => {
     } catch (error) {
       console.error('Error checking open tickets:', error);
     }
-  };
+  }, [userDetails?._id]);
 
   // Handle ticket creation
   const handleSubmit = async (e) => {
@@ -113,7 +113,7 @@ const CreateTicket = ({ show, handleClose, refreshTickets }) => {
     if (show && userDetails?._id) {
       checkOpenTickets();
     }
-  }, [show, userDetails]);
+  }, [show, userDetails, checkOpenTickets]);
 
   const closeModal = () => {
     resetForm();

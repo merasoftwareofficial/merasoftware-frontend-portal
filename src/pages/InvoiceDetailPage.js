@@ -4,6 +4,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, Sparkles, Share2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'react-toastify';
+import { useResource } from '../hooks/useResource';
 import SummaryApi from '../common';
 import Context from '../context';
 import displayINRCurrency from '../helpers/displayCurrency';
@@ -40,38 +41,16 @@ const InvoiceDetailPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [invoice, setInvoice] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { loading, error } = useResource(`${SummaryApi.myInvoices.url}?invoiceId=${encodeURIComponent(invoiceId)}`, next => setInvoice(next?.[0] || null));
+  useEffect(() => { if (error) toast.error(error); }, [error]);
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    fetchInvoice();
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
   }, [invoiceId]);
-
-  const fetchInvoice = async () => {
-    try {
-      setLoading(true);
-
-      const response = await fetch(SummaryApi.myPaymentWorkspace.url, {
-        method: SummaryApi.myPaymentWorkspace.method,
-        credentials: 'include',
-      });
-      const data = await response.json();
-      if (data.success) {
-        const found = (data.data.invoices || []).find(
-          (inv) => String(inv._id) === String(invoiceId)
-        );
-        setInvoice(found || null);
-      }
-    } catch (error) {
-      console.error("Error fetching invoice:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // ---- Canonical in-page payment (SSOT) ----
   // This page is the single source of truth for paying an invoice. It pays THIS invoice

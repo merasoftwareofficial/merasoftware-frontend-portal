@@ -1,7 +1,5 @@
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import { Phone, Mail, MessageSquare, HelpCircle, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
-import { toast } from 'sonner';
-import Context from '../context';
 import CreateTicket from '../components/CreateTicket';
 import TicketsList from '../components/TicketsList';
 import DashboardLayout from '../components/DashboardLayout';
@@ -10,10 +8,9 @@ import Badge from '../components/Badge';
 import { AnimatedSection, getStaggerDelay } from '../components/PageMotion';
 
 const ContactSupportPage = () => {
-  const { userDetails } = useContext(Context);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [openFaq, setOpenFaq] = useState(null);
-  const [user, setUser] = useState(null);
+  const user = null;
   
   // Common FAQs
   const faqs = [

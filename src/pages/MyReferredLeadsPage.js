@@ -1,3 +1,4 @@
+import { useResource } from '../hooks/useResource';
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { Users2, Loader2 } from 'lucide-react';
@@ -18,29 +19,10 @@ const REFERRED_TONES = { Matured: 'success', Closed: 'neutral', 'In progress': '
 const MyReferredLeadsPage = () => {
   const user = useSelector((state) => state?.user?.user);
   const [leads, setLeads] = useState([]);
-  const [loading, setLoading] = useState(true);
 
-  const fetchReferredLeads = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(SummaryApi.myReferredLeads.url, {
-        method: SummaryApi.myReferredLeads.method,
-        credentials: 'include',
-      });
-      const result = await response.json();
-      if (result.success) {
-        setLeads(Array.isArray(result.data) ? result.data : []);
-      }
-    } catch (error) {
-      console.error('Error fetching referred leads:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  useEffect(() => {
-    fetchReferredLeads();
-  }, []);
+  const { loading, error } = useResource(SummaryApi.myReferredLeads.url, next => setLeads(Array.isArray(next) ? next : []));
+  useEffect(() => { if (error) console.error(error); }, [error]);
 
   const totalEarned = leads.reduce((sum, lead) => sum + (lead.rewardAmount || 0), 0);
 

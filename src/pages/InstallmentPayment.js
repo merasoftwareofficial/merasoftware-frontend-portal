@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { ArrowLeft, CalendarClock } from 'lucide-react';
@@ -40,8 +40,10 @@ const InstallmentPayment = () => {
   const [user, setUser] = useState(null);
   // const [isPartialPayment, setIsPartialPayment] = useState(false);
 
+  const loadOrderOnRoute = useRef(null);
+  useEffect(() => { loadOrderOnRoute.current = fetchOrderDetails; });
   useEffect(() => {
-    fetchOrderDetails();
+    loadOrderOnRoute.current();
     // Get user from local storage or context
     const storedUser = localStorage.getItem('user');
     if (storedUser) {

@@ -40,7 +40,7 @@ export default function ChessLobby({ onCreateRoom, onJoinByCode, onFindRandomMat
   const [mode, setMode] = useState(null);
   const [step, setStep] = useState(0);
   const [chosenColor, setChosenColor] = useState(null);
-  const [chosenPalette, setChosenPalette] = useState(null);
+  const [, setChosenPalette] = useState(null);
   const [joinCode, setJoinCode] = useState('');
 
   const flowKeys = mode === 'create' ? ['color', 'palette'] : mode ? [mode] : [];

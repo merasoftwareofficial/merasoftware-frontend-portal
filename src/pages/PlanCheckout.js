@@ -1,3 +1,4 @@
+import { usePortalUpdates } from '../hooks/usePortalUpdates';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -96,6 +97,7 @@ const CheckoutScreen = ({ planId }) => {
   const context = useContext(Context);
   const from = checkoutOrigin(location.search);
   const [plan, setPlan] = useState(null);
+  const [loadRevision, setLoadRevision] = useState(0);
   const [loadState, setLoadState] = useState({ loaded: false, error: '' });
   const [refreshToken, setRefreshToken] = useState(0);
   const [offer, setOffer] = useState(null);
@@ -104,6 +106,7 @@ const CheckoutScreen = ({ planId }) => {
   const [processing, setProcessing] = useState(false);
   const [slow, setSlow] = useState(false);
   const [notice, setNotice] = useState('');
+  usePortalUpdates(() => { if (!processing) setLoadRevision(value => value + 1); }, ['catalog']);
 
   // The one timer of the waiting line: runs only while a payment is being sent.
   useEffect(() => {
@@ -123,7 +126,7 @@ const CheckoutScreen = ({ planId }) => {
       if (!controller.signal.aborted) setLoadState({ loaded: true, error: error.message || 'Could not load this plan.' });
     });
     return () => controller.abort();
-  }, [planId]);
+  }, [planId, loadRevision]);
 
   // The choice from the address, kept only where this plan offers it (same rule as the builder).
   const choice = useMemo(() => {
@@ -197,7 +200,7 @@ const CheckoutScreen = ({ planId }) => {
   if (!plan) {
     return (
       <Shell header={<CustomerPageHeader title="Plan not available" />}>
-        <GlassPageState type="error" message={loadState.error} onRetry={() => window.location.reload()} />
+        <GlassPageState type="error" message={loadState.error} onRetry={() => { setLoadState({ loaded: false, error: '' }); setLoadRevision(value => value + 1); }} />
       </Shell>
     );
   }
@@ -325,6 +328,7 @@ export function PlanCheckoutDone() {
   const from = checkoutOrigin(location.search);
   const [order, setOrder] = useState(null);
   const [error, setError] = useState('');
+  const [loadRevision, setLoadRevision] = useState(0);
   const [seconds, setSeconds] = useState(REDIRECT_SECONDS);
   const [stayed, setStayed] = useState(!location.state?.justPaid);
 
@@ -338,7 +342,7 @@ export function PlanCheckoutDone() {
       })
       .catch((cause) => { if (cause.name !== 'AbortError') setError(cause.message); });
     return () => controller.abort();
-  }, [orderId]);
+  }, [orderId, loadRevision]);
 
   const result = order && checkoutResult(order);
   const steps = checkoutNextSteps(orderId, from, WEBSITE_URL);
@@ -361,7 +365,7 @@ export function PlanCheckoutDone() {
   }, [counting, seconds, nextHref, nextExternal, navigate]);
 
   if (error) {
-    return <Shell header={<CustomerPageHeader title="Purchase" />}><GlassPageState type="error" message={error} onRetry={() => window.location.reload()} /></Shell>;
+    return <Shell header={<CustomerPageHeader title="Purchase" />}><GlassPageState type="error" message={error} onRetry={() => { setError(''); setLoadRevision(value => value + 1); }} /></Shell>;
   }
   if (!order) return <Shell><GlassPageState message="Checking your purchase…" /></Shell>;
 

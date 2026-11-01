@@ -1,13 +1,18 @@
-import Login from "../pages/Login";
+import { lazyPage } from './lazyPage';
+
 import RoleBasedHome from "../components/RoleBasedHome";
-import ExternalUploadPage from "../pages/ExternalUploadPage";
-import MyOffers from "../pages/MyOffers";
+
+
 import ProtectedRoute from "../components/ProtectedRoute";
 
 // The public marketing site has been removed — the app is portal-only.
 // Only the entry routes survive here: the root landing (redirects to the
 // correct portal or /login) and the login screen itself. Everything else is
 // served by customerRoutes / adminRoutes.
+const Login = lazyPage(() => import('../pages/Login'));
+const ExternalUploadPage = lazyPage(() => import('../pages/ExternalUploadPage'));
+const MyOffers = lazyPage(() => import('../pages/MyOffers'));
+
 export const publicRoutes = [
   { path: 'my-offers', element: <ProtectedRoute><MyOffers /></ProtectedRoute> },
   {

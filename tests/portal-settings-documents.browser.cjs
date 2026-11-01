@@ -124,6 +124,8 @@ const comparisons = [], browserErrors = [], profileWrites = [];
     await page.goto(origin + '/settings');
     const themeGroup = page.getByRole('radiogroup', { name: 'Theme', exact: true });
     const colourGroup = page.getByRole('radiogroup', { name: 'Colour', exact: true });
+    await themeGroup.waitFor();
+    await colourGroup.waitFor();
     assert.equal(await themeGroup.locator('[role=radio][tabindex="0"]').count(), 1);
     assert.equal(await colourGroup.locator('[role=radio][tabindex="0"]').count(), 1);
     await themeGroup.getByRole('radio').first().focus();

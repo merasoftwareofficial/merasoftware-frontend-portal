@@ -1,3 +1,5 @@
+import { useListState } from '../hooks/useListState';
+import { useResource } from '../hooks/useResource';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -190,17 +192,18 @@ const OrderRow = ({ order, navigate, location, formatDate }) => {
 
 const OrdersPage = () => {
   const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
+
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   // Lets a caller (e.g. the Dashboard "Open alerts" tile) deep-link straight
   // into a specific tab instead of always landing on "All orders".
-  const [activeTab, setActiveTab] = useState(location.state?.initialTab || 'all');
+  const [{ activeTab }, updateList] = useListState({ activeTab: location.state?.initialTab || 'all' });
+  const setActiveTab = value => updateList({ activeTab: value });
+  // activeTab is URL navigation state.
   const [activeProject, setActiveProject] = useState(null);
 
   useEffect(() => {
-    fetchOrders();
 
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
@@ -208,17 +211,8 @@ const OrdersPage = () => {
     }
   }, []);
 
-  const fetchOrders = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(SummaryApi.ordersList.url, {
-        method: SummaryApi.ordersList.method,
-        credentials: 'include',
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        const allOrders = Array.isArray(data.data) ? [...data.data] : [];
+  const { loading, error, refresh: fetchOrders } = useResource(SummaryApi.ordersList.url, next => {
+        const allOrders = Array.isArray(next) ? [...next] : [];
         allOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setOrders(allOrders);
 
@@ -240,13 +234,8 @@ const OrdersPage = () => {
         });
 
         setActiveProject(activeProj || null);
-      }
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  });
+  useEffect(() => { if (error) console.error(error); }, [error]);
 
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString('en-GB', {

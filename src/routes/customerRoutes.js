@@ -1,32 +1,62 @@
+import { lazyPage } from './lazyPage';
 import { Navigate } from "react-router-dom";
 import ProtectedRoute from "../components/ProtectedRoute";
-import CustomerDashboard from "../pages/CustomerDashboard";
-import OrderPage from "../pages/OrderPage";
-import OrderDetailPage from "../pages/OrderDetailPage";
-import InvoiceDetailPage from "../pages/InvoiceDetailPage";
-import ProjectDetails from "../pages/ProjectDetails";
-import PlanDetails from "../pages/PlanDetails";
-import WalletDetails from "../pages/WalletDetails";
-import UserInvoices from "../pages/UserInvoices";
-import DirectPayment from "../pages/DirectPayment";
-import ContactSupport from "../pages/ContactSupport";
-import InstallmentPayment from "../pages/InstallmentPayment";
-import SettingsPage from "../pages/SettingsPage";
-import TicketDetail from "../pages/TicketDetail";
-import CompleteProfile from "../pages/CompleteProfile";
-import ProjectsAndPlans from "../pages/ProjectsAndPlans";
-import StartNewProject from "../pages/StartNewProject";
-import StartProject from "../pages/startproject";
-import StartNewProjectDetail from "../pages/StartNewProjectDetail";
-import ServicePlanDetail from "../pages/ServicePlanDetail";
-import PlanCheckout, { PlanCheckoutDone } from "../pages/PlanCheckout";
-import GamesListPage from "../chess/GamesListPage";
-import ChessPage from "../chess/ChessPage";
-import SetNewPassword from "../pages/SetNewPassword";
-import CustomerDocuments from "../pages/CustomerDocuments";
-import StartProjectRequest from "../pages/StartProjectRequest";
-import StartProjectRequestDetails from "../pages/StartProjectRequestDetails";
-import MyReferredLeadsPage from "../pages/MyReferredLeadsPage";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const CustomerDashboard = lazyPage(() => import('../pages/CustomerDashboard'));
+const OrderPage = lazyPage(() => import('../pages/OrderPage'));
+const OrderDetailPage = lazyPage(() => import('../pages/OrderDetailPage'));
+const InvoiceDetailPage = lazyPage(() => import('../pages/InvoiceDetailPage'));
+const ProjectDetails = lazyPage(() => import('../pages/ProjectDetails'));
+const PlanDetails = lazyPage(() => import('../pages/PlanDetails'));
+const WalletDetails = lazyPage(() => import('../pages/WalletDetails'));
+const UserInvoices = lazyPage(() => import('../pages/UserInvoices'));
+const DirectPayment = lazyPage(() => import('../pages/DirectPayment'));
+const ContactSupport = lazyPage(() => import('../pages/ContactSupport'));
+const InstallmentPayment = lazyPage(() => import('../pages/InstallmentPayment'));
+const SettingsPage = lazyPage(() => import('../pages/SettingsPage'));
+const TicketDetail = lazyPage(() => import('../pages/TicketDetail'));
+const CompleteProfile = lazyPage(() => import('../pages/CompleteProfile'));
+const ProjectsAndPlans = lazyPage(() => import('../pages/ProjectsAndPlans'));
+const StartNewProject = lazyPage(() => import('../pages/StartNewProject'));
+const StartProject = lazyPage(() => import('../pages/startproject'));
+const StartNewProjectDetail = lazyPage(() => import('../pages/StartNewProjectDetail'));
+const ServicePlanDetail = lazyPage(() => import('../pages/ServicePlanDetail'));
+const PlanCheckout = lazyPage(() => import('../pages/PlanCheckout'));
+const PlanCheckoutDone = lazyPage(() => import('../pages/PlanCheckout'), 'PlanCheckoutDone');
+const GamesListPage = lazyPage(() => import('../chess/GamesListPage'));
+const ChessPage = lazyPage(() => import('../chess/ChessPage'));
+const SetNewPassword = lazyPage(() => import('../pages/SetNewPassword'));
+const CustomerDocuments = lazyPage(() => import('../pages/CustomerDocuments'));
+const StartProjectRequest = lazyPage(() => import('../pages/StartProjectRequest'));
+const StartProjectRequestDetails = lazyPage(() => import('../pages/StartProjectRequestDetails'));
+const MyReferredLeadsPage = lazyPage(() => import('../pages/MyReferredLeadsPage'));
 
 const CustomerProtectedRoute = ({ children }) => (
   <ProtectedRoute requireRole={['customer']}>

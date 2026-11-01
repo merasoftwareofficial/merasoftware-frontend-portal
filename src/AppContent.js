@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useResource } from './hooks/useResource';
+import { useCallback, useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useDispatch, useSelector, useStore } from 'react-redux';
 import { useOnlineStatus } from './App';
@@ -10,18 +11,14 @@ import StorageService from './utils/storageService';
 import ScrollToTop from './helpers/scrollTop';
 import { isActiveWorkItem } from './helpers/orderPresentation';
 import { isProjectItem } from './helpers/orderType';
-import { clearOrderSummary, getOrderSummary } from './utils/orderSummaryClient';
+import { clearOrderSummary } from './utils/orderSummaryClient';
+import { getResourceScope } from './utils/resourceClient';
 import { createSessionClient } from './utils/sessionClient';
 // import QRModal from './components/QRModal';
 // import socket from './components/socket';
 // import { AnimatePresence } from 'framer-motion';
 // import AnimatedRoutes from './components/AnimatedRoutes';
 
-const STORAGE_KEYS = {
-  WALLET_BALANCE: 'walletBalance',
-  USER_DETAILS: 'userDetails',
-  GUEST_SLIDES: 'guestSlides'
-};
 
 const AppContent = () => {
   const dispatch = useDispatch();
@@ -30,7 +27,6 @@ const AppContent = () => {
   const { isOnline, isInitialized } = useOnlineStatus(); 
   const [walletBalance, setWalletBalance] = useState(0);
   const [activeProject, setActiveProject] = useState(null);
-  const [showQR, setShowQR] = useState(false);
 
   const [sessionError, setSessionError] = useState('');
   const [sessionChecking, setSessionChecking] = useState(false);
@@ -60,6 +56,11 @@ const AppContent = () => {
     },
   }));
   const fetchUserDetails = sessionClient.check;
+  useEffect(() => {
+    const verify = () => { void sessionClient.check(); };
+    window.addEventListener('portal-session-check', verify);
+    return () => window.removeEventListener('portal-session-check', verify);
+  }, [sessionClient]);
 
   // Drops everything this browser remembers about the signed-in user.
   const clearLocalSession = () => {
@@ -91,7 +92,8 @@ const AppContent = () => {
     }
   };
 
-  const fetchWalletBalance = async () => {
+  const fetchWalletBalance = useCallback(async () => {
+    const scope = getResourceScope();
     try {
       const response = await fetch(SummaryApi.current_user.url, {
         method: SummaryApi.current_user.method,
@@ -103,6 +105,7 @@ const AppContent = () => {
       }
 
       const data = await response.json();
+      if (getResourceScope() !== scope) return;
       if (data.success) {
         const balance = Number(data.data?.walletBalance || 0);
         setWalletBalance(balance);
@@ -111,13 +114,14 @@ const AppContent = () => {
       }
     } catch (error) {
       console.error("Error fetching wallet balance:", error);
+      if (getResourceScope() !== scope) return;
       const cachedBalance = StorageService.getWalletBalance();
       if (cachedBalance !== null) {
         setWalletBalance(cachedBalance);
         dispatch(updateWalletBalance(cachedBalance));
       }
     }
-  };
+  }, [dispatch]);
 
    // Add a function to update active project that can be called from child components
  const updateActiveProject = (project) => {
@@ -142,39 +146,10 @@ const AppContent = () => {
     }
   }), [store, sessionClient]);
 
-  // In AppContent.js
-useEffect(() => {
-  const fetchActiveProject = async () => {
-    if (!user?._id || user.role !== "customer") {
-      setActiveProject(null);
-      return;
-    }
-    
-    try {
-      const allOrders = await getOrderSummary({ force: true });
-      if (allOrders) {
-        
-        // Find the active (in-progress) project. "Is a project" is the shared orderType.js rule,
-        // so a project in any admin-created category counts — not only the original four.
-        // isActiveWorkItem is shared with every other "what is the customer working on" list
-        // (helpers/orderPresentation.js), so a cancelled project never counts as active.
-        const activeProj = allOrders.find(project => isProjectItem(project) && isActiveWorkItem(project));
-        
-        // console.log("Setting active project at AppContent level:", activeProj);
-        setActiveProject(activeProj || null);
-      }
-    } catch (error) {
-      console.error("Error fetching active project:", error);
-    }
-  };
-
-  fetchActiveProject();
-  
-  // Re-fetch at intervals or when user changes
-  const interval = setInterval(fetchActiveProject, 300000); // every 5 minutes
-  return () => clearInterval(interval);
-  
-}, [user?._id, user?.role]);
+  useResource(user?._id && user.role === 'customer' ? SummaryApi.ordersList?.url : null, orders => {
+    setActiveProject((orders || []).find(project => isProjectItem(project) && isActiveWorkItem(project)) || null);
+  });
+  useEffect(() => { setActiveProject(null); }, [user?._id, user?.role]);
 
 // useEffect(() => {
 //   const handleQR = () => setShowQR(true);
@@ -205,7 +180,7 @@ useEffect(() => {
         <div className="flex min-h-screen flex-col">
           <ScrollToTop />
           <main className="flex-1 pt-0 md:pt-0">
-            <Outlet />
+            <Outlet key={`${user?._id || 'anonymous'}:${user?.role || ''}`} />
           </main>
         </div>
       </Context.Provider>

@@ -1,17 +1,17 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
+import { useResource } from '../hooks/useResource';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ArrowLeft, Send, User, Check, X, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import SummaryApi from '../common';
-import Context from '../context';
 import TriangleMazeLoader from '../components/TriangleMazeLoader';
 import DashboardLayout from '../components/DashboardLayout';
 import Surface from '../components/Surface';
 import Badge from '../components/Badge';
 import GlassButton from '../components/GlassButton';
 import { useSelector } from 'react-redux';
-import { customerReturnState, goToCustomerReturn } from '../helpers/customerReturnNavigation';
+import { goToCustomerReturn } from '../helpers/customerReturnNavigation';
 
 const TicketDetail = ({ isAdmin = false }) => {
   const { ticketId } = useParams();
@@ -29,43 +29,14 @@ const TicketDetail = ({ isAdmin = false }) => {
   const userDetails = useSelector((state) => state.user.user);
   const isInitialized = useSelector((state) => state.user.initialized);
   const [ticket, setTicket] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+
+
   const [replyMessage, setReplyMessage] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
   const [closingTicket, setClosingTicket] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // Fetch ticket details
-  const fetchTicketDetails = async () => {
-    if (!ticketId || !userDetails?._id) {
-      console.log("No user ID or ticket ID available");
-      return;
-    }
-    
-    setLoading(true);
-    try {
-      const response = await fetch(`${SummaryApi.getTicketDetails.url}/${ticketId}`, {
-        method: SummaryApi.getTicketDetails.method,
-        headers: { "Content-Type": "application/json" },
-        credentials: 'include'
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        setTicket(result.data);
-      } else {
-        setError(result.message || 'Failed to load ticket details');
-        toast.error(result.message || 'Failed to load ticket details');
-      }
-    } catch (err) {
-      console.error('Error fetching ticket details:', err);
-      setError('Failed to load ticket details. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { loading, error, refresh: fetchTicketDetails } = useResource(isInitialized && userDetails?._id && ticketId ? `${SummaryApi.getTicketDetails.url}/${ticketId}` : null, setTicket);
 
   // Handle reply submission
   const handleReply = async (e) => {
@@ -166,14 +137,6 @@ const TicketDetail = ({ isAdmin = false }) => {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [ticket?.messages]);
-
-  // Load ticket details on component mount
-  useEffect(() => {
-    if (isInitialized && userDetails?._id) {
-      console.log("Fetching ticket details for:", ticketId);
-      fetchTicketDetails();
-    }
-  }, [ticketId, userDetails, isInitialized]);
 
   if (loading) {
     return (

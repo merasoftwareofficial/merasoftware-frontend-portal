@@ -179,9 +179,9 @@ const Login = () => {
                 />
                 Remember me
               </label>
-              <a href="#" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+              <button type="button" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
                 Forgot password?
-              </a>
+              </button>
             </div>
 
             {/* Login Button */}
@@ -224,9 +224,9 @@ const Login = () => {
           <div className="mt-8 text-center text-sm text-slate-600">
             <p>
               Don't have an account?{" "}
-              <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">
+              <button type="button" className="text-blue-600 hover:text-blue-700 font-medium">
                 Contact Sales
-              </a>
+              </button>
             </p>
           </div>
         </div>

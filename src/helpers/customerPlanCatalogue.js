@@ -1,10 +1,8 @@
+import { readResource } from '../utils/resourceClient';
 import SummaryApi from '../common';
 
 export async function readCustomerPlanCatalogue(signal) {
-  const response = await fetch(SummaryApi.customerPlanCatalogue.url, { credentials: 'include', cache: 'no-store', signal });
-  const result = await response.json();
-  if (!response.ok || !result.success) throw new Error(result.message || 'Could not load services. Please try again.');
-  return result.data;
+  return readResource(SummaryApi.customerPlanCatalogue.url, { signal, cache: 'no-store' });
 }
 
 export function planGroups(plans, categories) {

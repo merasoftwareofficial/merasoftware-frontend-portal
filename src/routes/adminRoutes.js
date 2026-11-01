@@ -1,19 +1,35 @@
-import AdminEmailControlPage from '../pages/AdminEmailControlPage';
-import AdminSettingsPage from '../pages/AdminSettingsPage';
+import { lazyPage } from './lazyPage';
+
+
 import ProtectedRoute from "../components/ProtectedRoute";
-import AdminDashboard from "../pages/AdminDashboard";
-import AdminClientsPage from "../pages/AdminClientsPage";
-import AdminLeadsPage from "../pages/AdminLeadsPage";
-import AdminLeadDetailPage from "../pages/AdminLeadDetailPage";
-import AdminClientWorkspace from "../pages/AdminClientWorkspace";
-import AdminPaymentRecordDetail from "../pages/AdminPaymentRecordDetail";
-import ProjectDetails from "../pages/ProjectDetails";
+
+
+
+
+
+
+
 import { Navigate } from "react-router-dom";
-import AdminPlansPage from "../pages/AdminPlansPage";
-import AdminCategoryBasePricePage from "../pages/AdminCategoryBasePricePage";
-import AdminFeatureProductsPage from "../pages/AdminFeatureProductsPage";
-import AdminTrashPage from "../pages/AdminTrashPage";
-import AdminMoneyManagementPage from "../pages/AdminMoneyManagementPage";
+
+
+
+
+
+
+const AdminEmailControlPage = lazyPage(() => import('../pages/AdminEmailControlPage'));
+const AdminSettingsPage = lazyPage(() => import('../pages/AdminSettingsPage'));
+const AdminDashboard = lazyPage(() => import('../pages/AdminDashboard'));
+const AdminClientsPage = lazyPage(() => import('../pages/AdminClientsPage'));
+const AdminLeadsPage = lazyPage(() => import('../pages/AdminLeadsPage'));
+const AdminLeadDetailPage = lazyPage(() => import('../pages/AdminLeadDetailPage'));
+const AdminClientWorkspace = lazyPage(() => import('../pages/AdminClientWorkspace'));
+const AdminPaymentRecordDetail = lazyPage(() => import('../pages/AdminPaymentRecordDetail'));
+const ProjectDetails = lazyPage(() => import('../pages/ProjectDetails'));
+const AdminPlansPage = lazyPage(() => import('../pages/AdminPlansPage'));
+const AdminCategoryBasePricePage = lazyPage(() => import('../pages/AdminCategoryBasePricePage'));
+const AdminFeatureProductsPage = lazyPage(() => import('../pages/AdminFeatureProductsPage'));
+const AdminTrashPage = lazyPage(() => import('../pages/AdminTrashPage'));
+const AdminMoneyManagementPage = lazyPage(() => import('../pages/AdminMoneyManagementPage'));
 
 export const adminRoutes = [
   { path: 'admin-panel/settings', element: <ProtectedRoute requireRole={['admin']}><AdminSettingsPage /></ProtectedRoute> },

@@ -23,7 +23,7 @@ const DirectPayment = () => {
   const [transactionId, setTransactionId] = useState('');
   const [upiLink, setUpiLink] = useState('');
   const [verificationStatus, setVerificationStatus] = useState('');
-  const [paymentProcessed, setPaymentProcessed] = useState(false);
+  const [, setPaymentProcessed] = useState(false);
   const [upiTransactionId, setUpiTransactionId] = useState('');
   // Add these additional states to DirectPayment component
   const [isPartialPayment, setIsPartialPayment] = useState(false);
@@ -86,14 +86,6 @@ const DirectPayment = () => {
   };
 
   // Add this helper function at the top of your component
-const calculateFeatureDiscount = (feature, totalDiscount, originalTotal) => {
-    if (!paymentData.couponData || originalTotal === 0) return 0;
-    
-    const featureTotal = feature.sellingPrice * (feature.quantity || 1);
-    // Calculate discount proportionally based on feature price relative to total
-    const proportion = featureTotal / originalTotal;
-    return Math.round(totalDiscount * proportion);
-  };
 
   // Proceed with wallet payment
  // Proceed with wallet payment
@@ -269,13 +261,6 @@ const handleWalletPayment = async () => {
         sum + (feature.sellingPrice * (feature.quantity || 1)), 0)
     );
     
-    // Calculate discount for main product
-    const mainProductDiscount = paymentData.couponData ?
-      calculateItemDiscount(
-        paymentData.product.sellingPrice,
-        originalTotal,
-        paymentData.couponData.data.discountAmount
-      ) : 0;
     
     // Create orderItems array starting with the main product
     const orderItems = [
@@ -304,16 +289,8 @@ if (paymentData.selectedFeatures && paymentData.selectedFeatures.length > 0) {
     const quantity = feature.quantity || 1;
     
     // Calculate base price without any discount
-    let featurePrice;
     const isAddNewPage = featureName.toLowerCase().includes('add new page');
-    
-    if (isAddNewPage) {
-      const additionalQuantity = Math.max(0, quantity - paymentData.product.totalPages);
-      featurePrice = feature.sellingPrice * additionalQuantity;
-    } else {
-      featurePrice = feature.sellingPrice * quantity;
-    }
-    
+
     orderItems.push({
       id: featureId,
       name: featureName,

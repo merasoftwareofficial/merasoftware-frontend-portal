@@ -1,3 +1,5 @@
+import { useListState } from '../hooks/useListState';
+import { useResource } from '../hooks/useResource';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText } from 'lucide-react';
@@ -10,42 +12,14 @@ import { getOrderDisplayName } from '../helpers/orderPresentation';
 
 const UserInvoices = () => {
     const [invoices, setInvoices] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState('all');
+
+    const [{ filter }, updateList] = useListState({ filter: 'all' });
+  const setFilter = value => updateList({ filter: value });
+  // filter is URL navigation state.
     const navigate = useNavigate();
 
-    useEffect(() => {
-        fetchInvoices();
-    }, []);
-
-    const fetchInvoices = async () => {
-        try {
-            setLoading(true);
-            // The old /api/my-invoices endpoint is not mounted. Invoice Detail and Order Detail
-            // already use this authenticated customer workspace, which returns both invoice
-            // models with their owned order display data; this page now reads that same truth.
-            const response = await fetch(SummaryApi.myPaymentWorkspace.url, {
-                method: SummaryApi.myPaymentWorkspace.method,
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                setInvoices(Array.isArray(data.data?.invoices) ? data.data.invoices : []);
-            } else {
-                toast.error(data.message || 'Failed to fetch invoices');
-            }
-        } catch (error) {
-            console.error('Error fetching invoices:', error);
-            toast.error('Failed to load invoices');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const { loading, error } = useResource(SummaryApi.myInvoices.url, next => setInvoices(Array.isArray(next) ? next : []));
+    useEffect(() => { if (error) toast.error(error); }, [error]);
 
     const formatDate = (dateString) => {
         if (!dateString) return '';

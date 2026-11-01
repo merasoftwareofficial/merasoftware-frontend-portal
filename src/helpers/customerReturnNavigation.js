@@ -90,7 +90,7 @@ export const goToCustomerReturn = (navigate, location, fallback, options = {}) =
   });
 };
 
-export default {
+const customerReturnNavigation = {
   customerReturnState,
   customerChildState,
   getCustomerPath,
@@ -98,3 +98,5 @@ export default {
   getCustomerReturnTarget,
   goToCustomerReturn,
 };
+
+export default customerReturnNavigation;

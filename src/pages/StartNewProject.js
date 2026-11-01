@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import SummaryApi from '../common';
+import { useResource } from '../hooks/useResource';
+import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import DashboardLayout from '../components/DashboardLayout';
@@ -7,24 +9,14 @@ import GlassPageState from '../components/GlassPageState';
 import CustomerPlanCards from '../components/CustomerPlanCards';
 import CustomerPageHeader from '../components/CustomerPageHeader';
 import { customerChildState, goToCustomerReturn } from '../helpers/customerReturnNavigation';
-import { readCustomerPlanCatalogue, planGroups } from '../helpers/customerPlanCatalogue';
+import { planGroups } from '../helpers/customerPlanCatalogue';
 import { SURFACE, canBuyOnSurface } from '../helpers/serviceDependency';
 
 export default function StartNewProject() {
   const user = useSelector(state => state?.user?.user);
   const location = useLocation();
   const navigate = useNavigate();
-  const [catalogue, setCatalogue] = useState(null);
-  const [error, setError] = useState('');
-  const [retry, setRetry] = useState(0);
-  useEffect(() => {
-    const controller = new AbortController();
-    setError(''); setCatalogue(null);
-    readCustomerPlanCatalogue(controller.signal).then(setCatalogue).catch(cause => {
-      if (!controller.signal.aborted) setError(cause.message);
-    });
-    return () => controller.abort();
-  }, [retry]);
+  const { data: catalogue, error, refresh } = useResource(SummaryApi.customerPlanCatalogue.url);
   const plans = (catalogue?.plans || []).filter(plan => canBuyOnSurface(plan, SURFACE.STANDALONE));
   const groups = planGroups(plans, catalogue?.categories || []);
   return <DashboardLayout user={user}>
@@ -37,7 +29,7 @@ export default function StartNewProject() {
           onBack={() => goToCustomerReturn(navigate, location, '/start-new-project')}
         />
         <div className="mt-10">
-          {error ? <GlassPageState type="error" message={error} onRetry={() => setRetry(value => value + 1)} />
+          {error ? <GlassPageState type="error" message={error} onRetry={() => refresh()} />
             : !catalogue ? <GlassPageState message="Loading plans and categories…" />
               : !plans.length ? <Surface size="card"><p className="text-[var(--text-secondary)]">No standalone services are available right now. Services that need a project are available from that project's Add a Service option.</p></Surface>
                 : <CustomerPlanCards groups={groups} navigationState={customerChildState(location)} />}

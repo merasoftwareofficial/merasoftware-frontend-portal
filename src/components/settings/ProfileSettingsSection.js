@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useResource } from '../../hooks/useResource';
+import React, { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Camera, Mail, Phone, User, Calendar, Link2, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
@@ -35,43 +36,16 @@ const ProfileSettingsSection = () => {
   const [initialFormData, setInitialFormData] = useState(() => getFormData(user));
   const [selectedImage, setSelectedImage] = useState(null);
   const pictureInput = useRef(null);
-  const [loading, setLoading] = useState(true);
+  const draftDirty = useRef(false);
   const [saving, setSaving] = useState(false);
   const [allowLoginFreeUploadLinks, setAllowLoginFreeUploadLinks] = useState(Boolean(user?.allowLoginFreeUploadLinks));
   const [uploadLinkPreferenceSaving, setUploadLinkPreferenceSaving] = useState(false);
 
-  const fetchUserDetails = useCallback(async () => {
-    try {
-      const cachedUser = StorageService.getUserDetails();
-      if (cachedUser) {
-        dispatch(setUserDetails(cachedUser));
-        setFormData(getFormData(cachedUser));
-        setInitialFormData(getFormData(cachedUser));
-        setLoading(false);
-      }
-
-      if (!isOnline) return;
-      const response = await fetch(SummaryApi.current_user.url, {
-        method: SummaryApi.current_user.method,
-        credentials: 'include',
-      });
-      const data = await response.json();
-      if (data.success) {
-        dispatch(setUserDetails(data.data));
-        StorageService.setUserDetails(data.data);
-        setFormData(getFormData(data.data));
-        setInitialFormData(getFormData(data.data));
-      }
-    } catch (error) {
-      console.error('Error fetching user details:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [dispatch, isOnline]);
-
-  useEffect(() => {
-    fetchUserDetails();
-  }, [fetchUserDetails]);
+  const { loading, error } = useResource(isOnline ? SummaryApi.current_user.url : null, next => {
+    dispatch(setUserDetails(next)); StorageService.setUserDetails(next);
+    if (!draftDirty.current) { setFormData(getFormData(next)); setInitialFormData(getFormData(next)); }
+  });
+  useEffect(() => { if (error) toast.error(error); }, [error]);
 
   useEffect(() => {
     setAllowLoginFreeUploadLinks(Boolean(user?.allowLoginFreeUploadLinks));
@@ -103,6 +77,7 @@ const ProfileSettingsSection = () => {
   };
 
   const isDirty = Boolean(selectedImage) || Object.keys(initialFormData).some((key) => formData[key] !== initialFormData[key]);
+  draftDirty.current = isDirty;
 
   const handleChange = (event) => {
     const { name, value } = event.target;

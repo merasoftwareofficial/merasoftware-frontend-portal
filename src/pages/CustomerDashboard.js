@@ -1,3 +1,4 @@
+import { useResource } from '../hooks/useResource';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -93,45 +94,9 @@ const CustomerDashboard = () => {
   const [orders, setOrders] = useState([]);
   const [referredLeadsCount, setReferredLeadsCount] = useState(0);
 
-  const fetchDashboardData = async () => {
-    try {
-      const response = await fetch(SummaryApi.ordersList.url, {
-        method: SummaryApi.ordersList.method,
-        credentials: 'include',
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        const allOrders = Array.isArray(data.data) ? [...data.data] : [];
-        setOrders(allOrders);
-      }
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    }
-  };
-
-  const fetchReferredLeadsCount = async () => {
-    try {
-      const response = await fetch(SummaryApi.myReferredLeads.url, {
-        method: SummaryApi.myReferredLeads.method,
-        credentials: 'include',
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setReferredLeadsCount(Array.isArray(data.data) ? data.data.length : 0);
-      }
-    } catch (error) {
-      console.error('Error fetching referred leads count:', error);
-    }
-  };
-
-  useEffect(() => {
-    if (user?._id) {
-      fetchDashboardData();
-      fetchReferredLeadsCount();
-    }
-  }, [user?._id]);
+  const { refresh: fetchDashboardData, error: orderError } = useResource(user?._id ? SummaryApi.ordersList.url : null, next => setOrders(Array.isArray(next) ? next : []));
+  const { error: referralError } = useResource(user?._id ? SummaryApi.myReferredLeads.url : null, next => setReferredLeadsCount(Array.isArray(next) ? next.length : 0));
+  useEffect(() => { if (orderError || referralError) console.error(orderError || referralError); }, [orderError, referralError]);
 
   const dashboardItems = useMemo(
     () =>

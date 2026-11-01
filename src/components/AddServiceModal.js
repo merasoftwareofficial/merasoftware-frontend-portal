@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Check, Clock, ExternalLink, Loader2, X } from 'lucide-react';
+import { Check, Clock, ExternalLink, Loader2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import SummaryApi from '../common';
 // The admin's dependency rule. This modal buys services attached to a project,

@@ -1,10 +1,10 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import { useResource } from '../hooks/useResource';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Clock, CalendarClock, AlertTriangle, Lock, Upload,
-  List, X,
 } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import TriangleMazeLoader from '../components/TriangleMazeLoader';
@@ -168,65 +168,24 @@ const PlanDetails = ({ isProjectServiceView = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useSelector((state) => state?.user?.user);
-  const [timelineExpanded, setTimelineExpanded] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
 
   const [plan, setPlan] = useState(null);
   const [requests, setRequests] = useState([]);
   const [downloadingUploadId, setDownloadingUploadId] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-  const [stoppingRenewal, setStoppingRenewal] = useState(false);
-  const [serviceActionMessage, setServiceActionMessage] = useState('');
 
-  const fetchPlanDetails = useCallback(async () => {
-    try {
-      setLoading(true);
-      setNotFound(false);
 
-      // Uploads come from the shared per-order endpoint. It used to fetch every request
-      // the customer had ever made and filter locally on `updatePlanId?._id === orderId`
-      // — which only matched when the controller happened to populate that field, so the
-      // history could silently come back empty. The server now decides what belongs to
-      // this order, and returns the same shape the admin side reads.
-      const [orderResponse, requestsResponse] = await Promise.all([
-        fetch(`${SummaryApi.orderDetails.url}/${orderId}`, { credentials: 'include' }),
-        fetch(`${SummaryApi.orderUploads.url}/${orderId}/uploads`, {
-          method: SummaryApi.orderUploads.method,
-          credentials: 'include',
-        }),
-      ]);
+  const serviceActionMessage = '';
 
-      const orderData = await orderResponse.json();
-      if (!orderData.success || !orderData.data) {
-        setPlan(null);
-        setNotFound(true);
-        return;
-      }
-
-      if (!isPlanItem(orderData.data)) {
-        navigate(`/project-details/${orderId}`, { replace: true, state: location.state });
-        return;
-      }
-
-      setPlan(orderData.data);
-
-      const requestsData = await requestsResponse.json();
-      // Already scoped to this order and sorted newest-first by the server.
-      const planRequests = requestsData.success ? (requestsData.data || []) : [];
-      setRequests(planRequests);
-    } catch (error) {
-      console.error('Error fetching plan details:', error);
-      setPlan(null);
-      setNotFound(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [orderId]);
-
-  useEffect(() => {
-    fetchPlanDetails();
-  }, [fetchPlanDetails]);
+  const detail = useResource(`${SummaryApi.orderDetails.url}/${orderId}`, next => {
+    if (!isPlanItem(next)) { navigate(`/project-details/${orderId}`, { replace: true, state: location.state }); return; }
+    setPlan(next);
+  });
+  const history = useResource(`${SummaryApi.orderUploads.url}/${orderId}/uploads`, next => setRequests(next || []));
+  const loading = detail.loading || history.loading;
+  const notFound = Boolean(detail.error && !plan);
+  const fetchPlanDetails = () => Promise.all([detail.refresh(), history.refresh()]);
+  useEffect(() => { if (detail.error || history.error) toast.error(detail.error || history.error); }, [detail.error, history.error]);
 
   const handleBack = () => {
     goToCustomerReturn(
@@ -234,16 +193,6 @@ const PlanDetails = ({ isProjectServiceView = false }) => {
       location,
       isProjectServiceView && projectOrderId ? `/project-details/${projectOrderId}` : '/projects-and-plans'
     );
-  };
-  const handleStopRenewal = async () => {
-    try {
-      setStoppingRenewal(true);
-      const response = await fetch(SummaryApi.stopServiceRenewal.url, { method: SummaryApi.stopServiceRenewal.method, credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ serviceOrderId: orderId }) });
-      const result = await response.json();
-      if (!result.success) throw new Error(result.message || 'Could not stop renewal');
-      setServiceActionMessage(result.message);
-      fetchPlanDetails();
-    } catch (error) { setServiceActionMessage(error.message || 'Could not stop renewal'); } finally { setStoppingRenewal(false); }
   };
 
   // The upload zip is fetched, not linked to, so the session cookie travels with it —

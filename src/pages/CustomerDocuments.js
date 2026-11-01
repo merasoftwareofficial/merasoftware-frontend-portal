@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import { useResource } from '../hooks/useResource';
+import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { ArrowLeft, FileText, Download, RefreshCw } from 'lucide-react';
@@ -44,35 +45,7 @@ const CustomerDocuments = () => {
   const user = useSelector((state) => state?.user?.user);
 
   const [documents, setDocuments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [reload, setReload] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        setLoading(true);
-        setError('');
-        const response = await fetch(SummaryApi.myDocuments.url, {
-          method: SummaryApi.myDocuments.method,
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-        });
-        const result = await response.json();
-        if (!response.ok || !result.success) throw new Error(result.message || 'Failed to load documents');
-        if (!cancelled) setDocuments(result.data?.documents || []);
-      } catch (err) {
-        if (!cancelled) setError(err.message || 'Failed to load documents');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [reload]);
+  const { loading, error, refresh } = useResource(SummaryApi.myDocuments.url, next => setDocuments(next?.documents || []));
 
   const handleBack = () => goToCustomerReturn(navigate, location, '/dashboard');
 
@@ -94,7 +67,7 @@ const CustomerDocuments = () => {
             </header>
           <WorkspacePanel className="mt-10" title="Documents" icon={FileText} actions={<>
             <GlassButton onClick={handleBack}><ArrowLeft size={16} />Back</GlassButton>
-            <GlassButton disabled={loading} onClick={() => setReload(value => value + 1)}><RefreshCw size={16} />{loading ? 'Refreshing…' : 'Refresh'}</GlassButton>
+            <GlassButton disabled={loading} onClick={() => refresh()}><RefreshCw size={16} />{loading ? 'Refreshing…' : 'Refresh'}</GlassButton>
           </>}>
             <div className="relative">
               {loading ? (
@@ -102,7 +75,7 @@ const CustomerDocuments = () => {
               ) : error ? (
                 <div role="alert" className="flex flex-wrap items-center justify-between gap-3 px-5 py-6 sm:px-6">
                   <p className="text-sm text-[var(--badge-error-fg)]">{error}</p>
-                  <GlassButton onClick={() => setReload(value => value + 1)}><RefreshCw size={16} />Retry</GlassButton>
+                  <GlassButton onClick={() => refresh()}><RefreshCw size={16} />Retry</GlassButton>
                 </div>
               ) : documents.length === 0 ? (
                 <p className="px-5 py-12 text-center text-base text-[var(--text-secondary)] sm:px-6">

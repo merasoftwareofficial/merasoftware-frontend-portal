@@ -1,3 +1,4 @@
+import { useResource } from '../hooks/useResource';
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Download, Eye, Mail, Send, Share2, Wallet } from "lucide-react";
@@ -106,49 +107,14 @@ const SinglePaymentRecordDetail = () => {
     [customerId, recordType, recordId]
   );
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadRecord = async () => {
-      try {
-        setLoading(true);
-        setError("");
-        const response = await fetch(baseActionUrl, {
-          method: SummaryApi.adminPaymentRecord.method,
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-        });
-        const result = await response.json();
-
-        if (!result.success) {
-          throw new Error(result.message || "Failed to load payment record");
-        }
-
-        if (isMounted) {
-          setRecord(result.data || null);
-        }
-      } catch (loadError) {
-        if (!isMounted) return;
-        console.error("Error loading payment record:", loadError);
-        setError(loadError.message || "Failed to load payment record");
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadRecord();
-    return () => {
-      isMounted = false;
-    };
-  }, [baseActionUrl]);
-
-  useEffect(() => {
-    if (!invoice) return;
-    setMarkPaidEntry(createPaymentEntry(invoice.paymentMethod || "upi", invoice.transactionReference || ""));
-    setMarkPaidNote(invoice.internalNote || "");
-  }, [invoice]);
+  const recordResource = useResource(baseActionUrl, (next, initial) => {
+    setRecord(next || null);
+    if (initial && next?.invoice) {
+      setMarkPaidEntry(createPaymentEntry(next.invoice.paymentMethod || 'upi', next.invoice.transactionReference || ''));
+      setMarkPaidNote(next.invoice.internalNote || '');
+    }
+  });
+  useEffect(() => { setLoading(recordResource.loading); setError(recordResource.error); }, [recordResource.loading, recordResource.error]);
 
   const handleDownloadInvoice = async () => {
     if (!canUseInvoiceActions || actionLoading) return;
@@ -658,35 +624,8 @@ const PaymentOrderHistory = ({ customerId, orderId }) => {
   const [finalInvoiceAction, setFinalInvoiceAction] = useState("");
   const isGeneralPayments = orderId === "general";
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadWorkspace = async () => {
-      try {
-        setLoading(true);
-        setError("");
-        const response = await fetch(`${SummaryApi.adminUserWorkspace.url}?customerId=${customerId}`, {
-          method: SummaryApi.adminUserWorkspace.method,
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-        });
-        const result = await response.json();
-        if (!result.success) throw new Error(result.message || "Failed to load payment history");
-        if (isMounted) setWorkspace(result.data || null);
-      } catch (loadError) {
-        if (!isMounted) return;
-        console.error("Error loading payment history:", loadError);
-        setError(loadError.message || "Failed to load payment history");
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    loadWorkspace();
-    return () => {
-      isMounted = false;
-    };
-  }, [customerId, reloadKey]);
+  const historyResource = useResource(`${SummaryApi.adminUserWorkspace.url}?${new URLSearchParams({ customerId, orderId })}`, next => setWorkspace(next || null), { revision: reloadKey });
+  useEffect(() => { setLoading(historyResource.loading); setError(historyResource.error); }, [historyResource.loading, historyResource.error]);
 
   const { order, invoices, finalInvoice, transactions, serviceName, invoiceValue, recordedPayments, pendingRecords, initialProjectInvoiceId } = useMemo(() => {
     const allOrders = workspace?.orders || [];

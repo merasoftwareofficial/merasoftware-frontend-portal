@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowUpDown, RefreshCw, Search, Users2 } from "lucide-react";
+import { useResource } from '../hooks/useResource';
 import SummaryApi from "../common";
 import { logout } from "../store/userSlice";
 import CookieManager from "../utils/cookieManager";
@@ -10,7 +11,7 @@ import StorageService from "../utils/storageService";
 import { useOnlineStatus } from "../App";
 import AdminLayout from "../components/AdminLayout";
 import AdminWorkspaceShell, { AdminWorkspaceHeader } from "../components/admin/AdminWorkspaceShell";
-import { adminReturnState } from "../helpers/adminReturnNavigation";
+import { adminReturnState, getAdminPath } from "../helpers/adminReturnNavigation";
 import AdminWorkspaceList from "../components/admin/AdminWorkspaceList";
 import AdminDateTime from "../components/admin/AdminDateTime";
 import AdminFilterDropdown from "../components/admin/AdminFilterDropdown";
@@ -30,10 +31,17 @@ const AdminClientsPage = () => {
   const navigate = useNavigate();
   const { isOnline } = useOnlineStatus();
   const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [sortBy, setSortBy] = useState("lastUpdatedDesc");
+  const location = useLocation();
+  const [params, setParams] = useSearchParams();
+  const searchTerm = params.get('q') || '';
+  const sortBy = sortOptions.some(option => option.value === params.get('sort')) ? params.get('sort') : 'lastUpdatedDesc';
+  const updateParam = (name, value) => setParams(previous => {
+    const next = new URLSearchParams(previous);
+    if (value) next.set(name, value); else next.delete(name);
+    return next;
+  }, { replace: true });
+  const setSearchTerm = value => updateParam('q', value);
+  const setSortBy = value => updateParam('sort', value === 'lastUpdatedDesc' ? '' : value);
 
   const handleLogout = async () => {
     try {
@@ -60,43 +68,8 @@ const AdminClientsPage = () => {
     }
   };
 
-  const fetchClients = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(SummaryApi.adminClients.url, {
-        method: SummaryApi.adminClients.method,
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const result = await response.json();
-      if (!result.success) {
-        toast.error(result.message || "Failed to load clients");
-        return;
-      }
-
-      const customerList = (result.data || []).sort(
-        (left, right) => new Date(right.latestActivityAt || right.createdAt || 0) - new Date(left.latestActivityAt || left.createdAt || 0)
-      );
-
-      setClients(customerList);
-    } catch (error) {
-      console.error("Error fetching clients:", error);
-      toast.error("Error loading clients");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchClients();
-  }, []);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await fetchClients();
-  };
+  const { loading, refreshing, error, refresh: handleRefresh } = useResource(SummaryApi.adminClients.url, next => setClients(Array.isArray(next) ? next : []));
+  useEffect(() => { if (error) toast.error(error); }, [error]);
 
   // The workspace is reachable from here and from the dashboard, so it is told where
   // Back should return to rather than being left to guess from history.
@@ -104,7 +77,7 @@ const AdminClientsPage = () => {
   const handleClientOpen = (client) => {
     if (!client?._id) return;
     navigate(`/admin-panel/clients/${client._id}`, {
-      state: { client, ...adminReturnState("/admin-panel/clients") },
+      state: { client, ...adminReturnState(getAdminPath(location)) },
     });
   };
 

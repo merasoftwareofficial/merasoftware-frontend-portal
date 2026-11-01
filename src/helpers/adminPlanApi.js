@@ -1,3 +1,4 @@
+import { readResource } from '../utils/resourceClient';
 import SummaryApi from '../common';
 
 async function request(url, body) {
@@ -13,7 +14,7 @@ async function request(url, body) {
   return result.data;
 }
 
-export const readAdminPlanCatalogue = () => request(SummaryApi.adminPlanCatalogue.url);
+export const readAdminPlanCatalogue = (signal) => readResource(SummaryApi.adminPlanCatalogue.url, { signal });
 export function sendAdminPlan({ target, ...body }) {
   const paths = {
     plan: SummaryApi.adminPlanCatalogue.url,

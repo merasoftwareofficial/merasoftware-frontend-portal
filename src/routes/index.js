@@ -28,8 +28,3 @@ export const createRoleBasedRouter = (user, initialized) => {
 
   return createAppRouter(routes);
 };
-
-// Default router with only public routes (for initial load)
-const defaultRouter = createAppRouter([...publicRoutes, catchAllRoute]);
-
-export default defaultRouter;

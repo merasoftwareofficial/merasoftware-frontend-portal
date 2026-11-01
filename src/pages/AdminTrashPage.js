@@ -1,3 +1,5 @@
+import { useListState } from '../hooks/useListState';
+import { useResource } from '../hooks/useResource';
 import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -37,10 +39,13 @@ const AdminTrashPage = () => {
   const navigate = useNavigate();
   const { isOnline } = useOnlineStatus();
   const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [sortBy, setSortBy] = useState("deletedDesc");
+
+
+  const [{ searchTerm, sortBy }, updateList] = useListState({ searchTerm: "", sortBy: "deletedDesc" });
+  const setSearchTerm = value => updateList({ searchTerm: value });
+  const setSortBy = value => updateList({ sortBy: value });
+  // searchTerm is URL navigation state.
+  // sortBy is URL navigation state.
   const [busyKey, setBusyKey] = useState(null); // `${type}:${id}` while restoring/purging
   const [toPurge, setToPurge] = useState(null);
 
@@ -64,37 +69,9 @@ const AdminTrashPage = () => {
     }
   };
 
-  const fetchTrash = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(SummaryApi.getTrash.url, {
-        method: SummaryApi.getTrash.method,
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-      });
-      const result = await response.json();
-      if (!result.success) {
-        toast.error(result.message || "Failed to load Trash");
-        return;
-      }
-      setItems(result.data || []);
-    } catch (error) {
-      console.error("Error fetching Trash:", error);
-      toast.error("Error loading Trash");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchTrash();
-  }, []);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await fetchTrash();
-  };
+  const { loading, refreshing, error, refresh: fetchTrash } = useResource(SummaryApi.getTrash.url, next => setItems(next || []));
+  const handleRefresh = () => fetchTrash();
+  useEffect(() => { if (error) toast.error(error); }, [error]);
 
   const handleRestore = async (item) => {
     const key = `${item.type}:${item._id}`;

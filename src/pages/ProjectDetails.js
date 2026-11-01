@@ -1,3 +1,4 @@
+import { useResource } from '../hooks/useResource';
 import ProjectAgreement from '../components/ProjectAgreement';
 import WebsitePreviewPanel from '../components/WebsitePreviewPanel';
 import React, { useState, useEffect, useRef, useCallback, useContext, useMemo } from 'react';
@@ -275,13 +276,13 @@ const ProjectDetails = ({ isAdminView = false }) => {
   const { isOnline } = useOnlineStatus();
   const timelineRef = useRef(null);
   const [order, setOrder] = useState(null);
-  const [loading, setLoading] = useState(true);
+
   const [shouldShowPaymentAlert, setShouldShowPaymentAlert] = useState(false);
   const [currentInstallment, setCurrentInstallment] = useState(null);
   const [updateModalOpen, setUpdateModalOpen] = useState(false);
   // What the customer has uploaded against THIS order (updateRequestModel records).
   const [uploadHistory, setUploadHistory] = useState([]);
-  const [uploadHistoryLoading, setUploadHistoryLoading] = useState(false);
+
   const [downloadingUploadId, setDownloadingUploadId] = useState('');
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
   const [isProjectPaused, setIsProjectPaused] = useState(false);
@@ -415,39 +416,12 @@ const ProjectDetails = ({ isAdminView = false }) => {
   // The server resolves which records belong to this order — a project also owns the
   // uploads made against the services linked to it — so nothing is filtered here, and
   // the admin view reads the same endpoint rather than being skipped.
-  const fetchUploadHistory = useCallback(async () => {
-    setUploadHistoryLoading(true);
-    try {
-      const response = await fetch(`${SummaryApi.orderUploads.url}/${orderId}/uploads`, {
-        method: SummaryApi.orderUploads.method,
-        credentials: 'include',
-      });
-      const data = await response.json();
-      setUploadHistory(data?.success ? (data.data || []) : []);
-    } catch (error) {
-      console.error('Error fetching upload history:', error);
-      setUploadHistory([]);
-    } finally {
-      setUploadHistoryLoading(false);
+  const { loading: uploadHistoryLoading, refresh: fetchUploadHistory, error: uploadError } = useResource(`${SummaryApi.orderUploads.url}/${orderId}/uploads`, next => setUploadHistory(next || []));
+  const { loading, refresh: fetchOrderDetails, error: orderError } = useResource(`${SummaryApi.orderDetails.url}/${orderId}`, order => {
+    if (!isAdminView && isPlanItem(order)) {
+      navigate(`/plan-details/${orderId}`, { replace: true, state: location.state });
+      return;
     }
-  }, [orderId]);
-
-  const fetchOrderDetails = useCallback(async () => {
-    try {
-      // First fetch order data
-      const orderResponse = await fetch(`${SummaryApi.orderDetails.url}/${orderId}`, {
-        credentials: 'include',
-      });
-      const orderData = await orderResponse.json();
-      
-      if (orderData.success) {
-        const order = orderData.data;
-
-        if (!isAdminView && isPlanItem(order)) {
-          navigate(`/plan-details/${orderId}`, { replace: true, state: location.state });
-          return;
-        }
-
         // A pending-approval order (payment submitted, awaiting admin approval — either the whole
         // order or a later installment's UPI portion) no longer full-page-blocks the customer.
         // The project stays visible and interactive to whatever degree it already is; the
@@ -461,7 +435,6 @@ const ProjectDetails = ({ isAdminView = false }) => {
             isPaymentRejected: true,
             rejectionReason: order.rejectionReason || "Your payment was rejected. Please retry payment to access this project."
           });
-          setLoading(false);
           return;
         }
 
@@ -490,31 +463,8 @@ const ProjectDetails = ({ isAdminView = false }) => {
         if (order.isPartialPayment) {
           checkPaymentStatus(mappedOrder);
         }
-      }
-    } catch (error) {
-      console.error("Error:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [orderId, checkPaymentStatus, isAdminView]);
-
-  useEffect(() => {
-    fetchOrderDetails();
-  }, [fetchOrderDetails]);
-
-  useEffect(() => {
-    fetchUploadHistory();
-  }, [fetchUploadHistory]);
-
-  // Add polling mechanism — covers changes made by SOMEONE ELSE (admin approving a payment,
-  // pushing project progress), which this tab has no way of knowing about.
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      fetchOrderDetails();
-    }, 30000); // Check every 30 seconds
-
-    return () => clearInterval(intervalId);
-  }, [fetchOrderDetails]);
+  });
+  useEffect(() => { if (uploadError || orderError) toast.error(uploadError || orderError); }, [uploadError, orderError]);
 
   // Soft refresh after the customer pays — InvoiceDetailPage sets a sessionStorage
   // marker before returning through the shared customer-navigation contract. This

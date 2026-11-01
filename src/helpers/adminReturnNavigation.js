@@ -50,9 +50,11 @@ export const goToAdminReturn = (navigate, location, fallback, options) => {
   navigate(getAdminReturnTarget(location, fallback), options);
 };
 
-export default {
+const adminReturnNavigation = {
   adminReturnState,
   getAdminPath,
   getAdminReturnTarget,
   goToAdminReturn,
 };
+
+export default adminReturnNavigation;

@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useResource } from '../hooks/useResource';
+import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import SummaryApi from '../common';
 import DashboardLayout from '../components/DashboardLayout';
@@ -20,24 +21,18 @@ export default function MyOffers() {
   const user = useSelector(state => state?.user?.user);
   const [list, setList] = useState(null);
   const rows = list?.userId === user?._id ? list.items : null;
-  const [error, setError] = useState('');
+
   const [clock, setClock] = useState(null);
   const [tick, setTick] = useState(0);
-  const refresh = useCallback(async () => {
-    try {
-      const response = await fetch(SummaryApi.offerReservations.url, { credentials: 'include', cache: 'no-store' });
-      const result = await response.json();
-      if (!response.ok || !result.success) throw new Error(result.message || 'Could not load your offers');
-      setList({ userId: user?._id, items: result.data.reservations }); setClock({ server: Date.parse(result.data.serverNow), client: performance.now() }); setError('');
-    } catch (err) { setError(err.message || 'Could not load your offers'); }
-  }, [user?._id]);
+  const { error, refresh } = useResource(SummaryApi.offerReservations.url, next => {
+    setList({ userId: user?._id, items: next.reservations });
+    setClock({ server: Date.parse(next.serverNow), client: performance.now() });
+  });
   useEffect(() => {
-    void refresh(); const timer = setInterval(() => void refresh(), 60000);
-    const tickTimer = setInterval(() => setTick(value => value + 1), 1000);
-    const visible = () => { if (!document.hidden) void refresh(); };
-    document.addEventListener('visibilitychange', visible);
-    return () => { clearInterval(timer); clearInterval(tickTimer); document.removeEventListener('visibilitychange', visible); };
-  }, [refresh]);
+    // Display clock only. Server changes/reconnect are handled by the resource feed.
+    const timer = setInterval(() => setTick(value => value + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
   const now = clock ? clock.server + performance.now() - clock.client : 0;
   // DashboardLayout already owns the customer's main landmark.
   const ContentTag = user?.role === 'customer' ? 'section' : 'main';

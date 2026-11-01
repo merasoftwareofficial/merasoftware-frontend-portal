@@ -1,3 +1,4 @@
+import { useResource } from '../hooks/useResource';
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import AdminLayout from '../components/AdminLayout';
@@ -7,12 +8,6 @@ import StorageService from '../utils/storageService';
 import CookieManager from '../utils/cookieManager';
 
 const endpoint = `${process.env.REACT_APP_BACKEND_URL}/api/admin/my-settings`;
-async function readSettings() {
-  const response = await fetch(endpoint, { credentials: 'include' });
-  const result = await response.json();
-  if (!response.ok || !result.success) throw new Error(result.message || 'Could not load settings');
-  return result.data;
-}
 export default function AdminSettingsPage() {
   const user = useSelector(state => state?.user?.user);
   const [data, setData] = useState(null);
@@ -26,14 +21,8 @@ export default function AdminSettingsPage() {
       StorageService.clearUserData(); CookieManager.clearAll(); window.location.assign('/');
     } catch (err) { setError(err.message); }
   }
-  async function load() {
-    try { setData(await readSettings()); } catch (err) { setError(err.message || 'Could not load settings'); }
-  }
-  useEffect(() => {
-    let active = true;
-    readSettings().then(value => { if (active) setData(value); }).catch(err => { if (active) setError(err.message || 'Could not load settings'); });
-    return () => { active = false; };
-  }, []);
+  const { error: loadError, refresh: load } = useResource(endpoint, (next, initial) => { if (initial) setData(next); });
+  useEffect(() => { if (loadError) setError(loadError); }, [loadError]);
   async function save(event) {
     event.preventDefault(); setBusy(true); setError('');
     try {

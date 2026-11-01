@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useContext } from 'react';
+import { useListState } from '../hooks/useListState';
+import { useResource } from '../hooks/useResource';
+import React, { useState } from 'react';
 // import { format } from 'date-fns';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { customerReturnState } from '../helpers/customerReturnNavigation';
 import { Ticket, Plus, ArrowRight, Filter } from 'lucide-react';
-import { toast } from 'sonner';
 import SummaryApi from '../common';
-import Context from '../context';
 import CreateTicket from './CreateTicket';
 import TriangleMazeLoader from '../components/TriangleMazeLoader';
 import { useSelector } from 'react-redux';
@@ -15,58 +15,26 @@ import GlassButton from './GlassButton';
 
 const TicketsList = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [tickets, setTickets] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
+
+
+  const [{ currentPage, statusFilter }, updateList] = useListState({ currentPage: 1, statusFilter: '' });
+  const setCurrentPage = value => updateList({ currentPage: value });
+  const setStatusFilter = value => updateList({ statusFilter: value });
+  // currentPage is URL navigation state.
   const [totalPages, setTotalPages] = useState(1);
-  const [statusFilter, setStatusFilter] = useState('');
+  // statusFilter is URL navigation state.
   const [showCreateForm, setShowCreateForm] = useState(false);
   // const { userDetails } = useContext(Context);
   const userDetails = useSelector((state) => state.user.user);
   const isInitialized = useSelector((state) => state.user.initialized);
   
-  // Fetch tickets from API
-  const fetchTickets = async () => {
-    if (!userDetails?._id) {
-      // console.log("No user ID available, skipping fetch");
-      return;
-    }
-    
-    setLoading(true);
-    try {
-      let url = `${SummaryApi.getUserTickets.url}?page=${currentPage}`;
-      if (statusFilter) {
-        url += `&status=${statusFilter}`;
-      }
-      
-      // console.log("Fetching tickets with URL:", url);
+  const ticketUrl = isInitialized && userDetails?._id ? `${SummaryApi.getUserTickets.url}?${new URLSearchParams({ page: currentPage, ...(statusFilter ? { status: statusFilter } : {}) })}` : null;
+  const { loading, error, refresh: fetchTickets } = useResource(ticketUrl, next => {
+    setTickets(next.tickets || []); setTotalPages(next.pagination.pages);
+  });
 
-      const response = await fetch(url, {
-        method: SummaryApi.getUserTickets.method,
-        headers: { "Content-Type": "application/json" },
-        credentials: 'include'
-      });
-      
-      const result = await response.json();
-      // console.log("API Response:", result);
-      
-      if (result.success) {
-        // console.log("Setting tickets:", result.data.tickets);
-        setTickets(result.data.tickets);
-        setTotalPages(result.data.pagination.pages);
-      } else {
-        setError('Failed to load tickets');
-        toast.error(result.message || 'Failed to load tickets');
-      }
-    } catch (err) {
-      console.error('Error fetching tickets:', err);
-      setError('Failed to load tickets. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-  
   // Status pill. These were opaque `-100/-800` pairs — `bg-yellow-100
   // text-yellow-800`, `bg-blue-100 text-blue-800` — which are light patches
   // that ignore the theme entirely: on the dark page they read as lit slabs,
@@ -173,13 +141,6 @@ const TicketsList = () => {
   };
   
   // Effect to load tickets on component mount and when dependencies change
-  useEffect(() => {
-    if (isInitialized && userDetails?._id) {
-      // console.log("Fetching tickets for user:", userDetails._id);
-      fetchTickets();
-    }
-  }, [currentPage, statusFilter, userDetails, isInitialized]);
-  
   return (
     <Surface radius="panel" className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-[var(--glass-sheen)] to-transparent" />
@@ -270,7 +231,7 @@ const TicketsList = () => {
                   <tr
                     key={ticket.ticketId}
                     onClick={() => navigate(`/support-tickets/${ticket.ticketId}`, {
-                      state: customerReturnState('/support'),
+                      state: customerReturnState(`${location.pathname}${location.search}`),
                     })}
                     className="cursor-pointer hover:bg-[var(--glass-bg-subtle)]"
                   >

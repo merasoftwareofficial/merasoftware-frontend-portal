@@ -45,7 +45,7 @@ const shots = process.env.LEAD_TEST_SHOTS;
   app.use('/api', requestMiddleware);
   app.use('/api/email-control', load('routes/emailControl'));
   const admin_ = (req, res, next) => { req.userId = String(admin._id); req.userRole = 'admin'; next(); };
-  app.get('/api/admin/lead-updates', load('middleware/authToken'), load('routes/leadUpdates'));
+  app.get('/api/portal-updates', load('middleware/authToken'), load('routes/leadUpdates').portal);
   app.get('/api/admin/final-message/count', (req,res) => res.json({success:true,data:{count:0}}));
   app.get('/api/admin/leads', admin_, load('controller/lead/getLeads'));
   app.get('/api/admin/leads/:leadId', admin_, load('controller/lead/getLeadDetail'));

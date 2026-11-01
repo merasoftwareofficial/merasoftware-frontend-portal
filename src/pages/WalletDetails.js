@@ -1,4 +1,5 @@
-import React, { useContext, useEffect, useState } from 'react';
+import { useListState } from '../hooks/useListState';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import {
   AlertCircle,
@@ -15,6 +16,7 @@ import {
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'sonner';
 import Context from '../context';
+import { useResource } from '../hooks/useResource';
 import SummaryApi from '../common';
 import displayINRCurrency from '../helpers/displayCurrency';
 import TriangleMazeLoader from '../components/TriangleMazeLoader';
@@ -28,7 +30,7 @@ import { getPaymentMethodText, getInstallmentPartText } from '../helpers/invoice
 
 const WalletDetails = () => {
   const [walletHistory, setWalletHistory] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [amount, setAmount] = useState('');
   const [showQR, setShowQR] = useState(false);
   const [transactionId, setTransactionId] = useState('');
@@ -38,9 +40,13 @@ const WalletDetails = () => {
   const [upiTransactionId, setUpiTransactionId] = useState('');
   const [activeProject, setActiveProject] = useState(null);
   const [showRechargePanel, setShowRechargePanel] = useState(false);
-  const [historyFilter, setHistoryFilter] = useState('all');
-  const [historySearch, setHistorySearch] = useState('');
-  const [showAllHistory, setShowAllHistory] = useState(false);
+  const [{ historyFilter, historySearch, showAllHistory }, updateList] = useListState({ historyFilter: 'all', historySearch: '', showAllHistory: false });
+  const setHistoryFilter = value => updateList({ historyFilter: value });
+  const setHistorySearch = value => updateList({ historySearch: value });
+  const setShowAllHistory = value => updateList({ showAllHistory: value });
+  // historyFilter is URL navigation state.
+  // historySearch is URL navigation state.
+  // showAllHistory is URL navigation state.
   const user = useSelector(state => state?.user?.user);
   const context = useContext(Context);
 
@@ -56,55 +62,16 @@ const WalletDetails = () => {
     .filter(transaction => transaction.status === 'pending')
     .reduce((total, transaction) => total + Math.abs(Number(transaction.amount) || 0), 0);
 
-  const fetchWalletHistory = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(SummaryApi.wallet.history.url, {
-        method: SummaryApi.wallet.history.method,
-        credentials: 'include',
-        headers: { 'content-type': 'application/json' },
-      });
-      const responseText = await response.text();
-      let responseData;
-      try {
-        responseData = JSON.parse(responseText);
-      } catch {
-        throw new Error(`Wallet history returned an invalid response (${response.status})`);
-      }
-      if (!response.ok) throw new Error(responseData?.message || `Wallet history request failed (${response.status})`);
-      if (responseData.success) setWalletHistory(Array.isArray(responseData.data) ? responseData.data : []);
-      else throw new Error(responseData.message || 'Wallet history request failed');
-    } catch (error) {
-      console.error('Error fetching wallet history:', error);
-      toast.error('Failed to fetch transaction history');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchActiveProject = async () => {
-    try {
-      const response = await fetch(SummaryApi.ordersList.url, {
-        method: SummaryApi.ordersList.method,
-        credentials: 'include',
-      });
-      const data = await response.json();
-      if (data.success) {
-        // "Is a project" is the shared orderType.js rule (any admin-created category counts), and
-        // "is live work" the shared orderPresentation.js rule, so a cancelled project never shows.
-        const activeProj = (data.data || []).find(order => isProjectItem(order) && isActiveWorkItem(order));
-        setActiveProject(activeProj || null);
-      }
-    } catch (error) {
-      console.error('Error fetching active project:', error);
-    }
-  };
-
-  useEffect(() => {
-    fetchWalletHistory();
-    fetchActiveProject();
-    if (context?.fetchWalletBalance) context.fetchWalletBalance();
-  }, [context]);
+  const history = useResource(SummaryApi.wallet.history.url, next => setWalletHistory(Array.isArray(next) ? next : []));
+  useResource(SummaryApi.ordersList.url, next => {
+    setActiveProject((next || []).find(order => isProjectItem(order) && isActiveWorkItem(order)) || null);
+  });
+  const loading = submitting || history.loading;
+  const fetchWalletHistory = history.refresh;
+  const balanceLoader = useRef(context?.fetchWalletBalance);
+  balanceLoader.current = context?.fetchWalletBalance;
+  useEffect(() => { void balanceLoader.current?.(); }, [user?._id, user?.role]);
+  useEffect(() => { if (history.error) toast.error(history.error); }, [history.error]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -222,7 +189,7 @@ const WalletDetails = () => {
       setVerificationStatus('That does not look like a valid payment reference');
       return;
     }
-    setLoading(true);
+    setSubmitting(true);
     setVerificationStatus('Checking your payment...');
     try {
       const response = await fetch(SummaryApi.wallet.verifyPayment.url, {
@@ -240,7 +207,7 @@ const WalletDetails = () => {
       console.error('Error verifying payment:', error);
       setVerificationStatus('Something went wrong. Please try again in a moment.');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 

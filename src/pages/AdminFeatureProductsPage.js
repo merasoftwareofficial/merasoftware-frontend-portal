@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState } from "react";
+import { useResource } from '../hooks/useResource';
+import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -308,33 +309,14 @@ const AdminFeatureProductsPage = () => {
   const navigate = useNavigate();
 
   const [features, setFeatures] = useState([]);
-  const [loading, setLoading] = useState(true);
+
   const [editingFeature, setEditingFeature] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const { categories } = useProjectCategories("admin");
   const categoryLabel = (key) => categories.find((entry) => entry.category === key)?.label || key;
 
-  const fetchFeatures = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(SummaryApi.adminFeatureProducts.url, {
-        method: SummaryApi.adminFeatureProducts.method.toUpperCase(),
-        credentials: "include",
-      });
-      const result = await response.json();
-      if (!result.success) throw new Error(result.message || "Failed to load features");
-      setFeatures(Array.isArray(result.data) ? result.data : []);
-    } catch (error) {
-      console.error("Error fetching feature products:", error);
-      toast.error(error.message || "Failed to load features");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchFeatures();
-  }, [fetchFeatures]);
+  const { loading, error, refresh: fetchFeatures } = useResource(SummaryApi.adminFeatureProducts.url, next => setFeatures(Array.isArray(next) ? next : []));
+  useEffect(() => { if (error) toast.error(error); }, [error]);
 
   const handleAddFeature = () => {
     setEditingFeature(null);

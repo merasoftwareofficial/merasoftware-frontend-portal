@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
 import SummaryApi from '../common';
 import imageTobase64 from '../helpers/imageTobase64';
 import { toast } from 'sonner';
@@ -10,11 +9,9 @@ import {
   ArrowRight,
   ArrowLeft,
   User,
-  CreditCard,
   FileText,
   MapPin,
   Upload,
-  Trash2,
   Camera,
   Sparkles
 } from 'lucide-react';
@@ -22,7 +19,6 @@ import {
 const CompleteProfile = ({ user, onKycComplete, onCancel, initialData }) => {
   const reduxUser = useSelector((state) => state?.user?.user);
   const currentUser = user || reduxUser;
-  const navigate = useNavigate();
    const [showConfirmationPopup, setShowConfirmationPopup] = useState(false);
 
   // ====== Step State ======

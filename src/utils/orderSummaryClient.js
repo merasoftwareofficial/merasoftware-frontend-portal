@@ -1,28 +1,10 @@
-import SummaryApi from "../common";
+import SummaryApi from '../common';
+import { cancelResourceReads, readResource } from './resourceClient';
 
-let cache = null;
-let cacheAt = 0;
-let request = null;
-const CACHE_MS = 30 * 1000;
-
-export const getOrderSummary = async ({ force = false } = {}) => {
-  if (!force && cache && Date.now() - cacheAt < CACHE_MS) return cache;
-  if (!force && request) return request;
-
-  request = fetch(SummaryApi.ordersList.url, {
-    method: SummaryApi.ordersList.method,
-    credentials: "include",
-  })
-    .then(async (response) => {
-      const data = await response.json();
-      if (!response.ok || !data.success) throw new Error(data.message || "Failed to load orders");
-      cache = Array.isArray(data.data) ? data.data : [];
-      cacheAt = Date.now();
-      return cache;
-    })
-    .finally(() => { request = null; });
-
-  return request;
+// Every completed read is fresh next time. Legacy force callers still share
+// pending requests: no completed-response cache remains.
+export const getOrderSummary = async ({ signal } = {}) => {
+  const data = await readResource(SummaryApi.ordersList.url, { signal });
+  return Array.isArray(data) ? data : [];
 };
-
-export const clearOrderSummary = () => { cache = null; cacheAt = 0; };
+export const clearOrderSummary = cancelResourceReads;

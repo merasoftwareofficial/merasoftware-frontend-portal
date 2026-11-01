@@ -6,7 +6,7 @@ import { PlanCategoryPicker } from "./PlanCategoryPicker";
 import { readAdminPlanCatalogue, sendAdminPlan } from "../../helpers/adminPlanApi";
 const send = sendAdminPlan;
 const message = (cause, fallback) => cause instanceof Error ? cause.message : fallback;
-export function PlansManager({ initial, startCreating = false }) {
+export function PlansManager({ initial, onReload, startCreating = false }) {
     const [catalogue, setCatalogue] = useState(initial);
     const [form, setForm] = useState(() => startCreating ? blankPlanForm(initial.categories.find(c => !c.legacy && c.status === "active")?.key || "") : null);
     const [baseline, setBaseline] = useState(() => JSON.stringify(startCreating ? blankPlanForm(initial.categories.find(c => !c.legacy && c.status === "active")?.key || "") : null));
@@ -29,8 +29,10 @@ export function PlansManager({ initial, startCreating = false }) {
         window.addEventListener("beforeunload", warn);
         return () => window.removeEventListener("beforeunload", warn);
     }, [dirty]);
+    useEffect(() => { setCatalogue(initial); }, [initial]);
     async function reload() {
-        setCatalogue(await readAdminPlanCatalogue());
+        if (onReload) await onReload();
+        else setCatalogue(await readAdminPlanCatalogue());
     }
     function open(next) {
         if ((dirty) && !window.confirm("Discard unsaved plan changes?"))

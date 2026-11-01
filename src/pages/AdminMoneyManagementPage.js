@@ -1,3 +1,4 @@
+import { useResource } from '../hooks/useResource';
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -16,7 +17,7 @@ const AdminMoneyManagementPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { isOnline } = useOnlineStatus();
-  const [loading, setLoading] = useState(true);
+
   const [saving, setSaving] = useState(false);
   const [rewardAmount, setRewardAmount] = useState("");
 
@@ -40,30 +41,10 @@ const AdminMoneyManagementPage = () => {
     }
   };
 
-  const fetchSettings = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(SummaryApi.getAdminSettings.url, {
-        method: SummaryApi.getAdminSettings.method,
-        credentials: "include",
-      });
-      const result = await response.json();
-      if (!result.success) {
-        toast.error(result.message || "Failed to load settings");
-        return;
-      }
-      setRewardAmount(String(result.data?.leadReferralRewardAmount ?? 0));
-    } catch (error) {
-      console.error("Error fetching admin settings:", error);
-      toast.error("Error loading settings");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchSettings();
-  }, []);
+  const { loading, error } = useResource(SummaryApi.getAdminSettings.url, (next, initial) => {
+    if (initial) setRewardAmount(String(next?.leadReferralRewardAmount ?? 0));
+  });
+  useEffect(() => { if (error) toast.error(error); }, [error]);
 
   const handleSave = async (event) => {
     event.preventDefault();

@@ -1,3 +1,4 @@
+import { usePortalUpdates } from '../hooks/usePortalUpdates';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -62,6 +63,9 @@ const ServicePlanDetailScreen = () => {
   const [loaded, setLoaded] = useState(false);
   const [categoryLabel, setCategoryLabel] = useState('More plans');
   const [loadError, setLoadError] = useState('');
+  const [loadRevision, setLoadRevision] = useState(0);
+  usePortalUpdates(() => setLoadRevision(value => value + 1), ['catalog']);
+  const retryLoad = () => { setLoaded(false); setLoadError(''); setLoadRevision(value => value + 1); };
 
   // What the builder chose + the backend quote for it. Paying happens on the checkout page
   // (pages/PlanCheckout.js), which this page opens with the same choice.
@@ -79,7 +83,7 @@ const ServicePlanDetailScreen = () => {
       if (!controller.signal.aborted) setLoadError(error.message || 'Could not load this service.');
     }).finally(() => { if (!controller.signal.aborted) setLoaded(true); });
     return () => controller.abort();
-  }, [planId]);
+  }, [planId, loadRevision]);
 
   const handleBack = () => goToCustomerReturn(navigate, location, '/start-new-project/services?tab=services');
 
@@ -102,7 +106,7 @@ const ServicePlanDetailScreen = () => {
   if (!plan) {
     return page(
       <CustomerPageHeader title="Plan not available" onBack={handleBack} />,
-      <GlassPageState type="error" message={loadError || 'This service could not be found.'} onRetry={() => window.location.reload()} />,
+      <GlassPageState type="error" message={loadError || 'This service could not be found.'} onRetry={retryLoad} />,
     );
   }
 
