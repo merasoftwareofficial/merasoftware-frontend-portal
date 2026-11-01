@@ -2,7 +2,7 @@ import { ScrollRestoration } from 'react-router-dom';
 
 // Tabs and list filters change how a screen is viewed, not which screen it is, so they
 // share its scroll position. Any other query value still counts as a new screen.
-const VIEW_PARAMS = ['tab', 'q', 'sort', 'source', 'status', 'proposal', 'searchTerm', 'sortBy', 'currentPage', 'statusFilter', 'activeTab', 'view', 'filter', 'historyFilter', 'historySearch', 'showAllHistory'];
+const VIEW_PARAMS = ['tab', 'q', 'sort', 'source', 'status', 'behaviour', 'proposal', 'searchTerm', 'sortBy', 'currentPage', 'statusFilter', 'activeTab', 'view', 'filter', 'historyFilter', 'historySearch', 'showAllHistory'];
 const scrollKey = location => {
   const params = new URLSearchParams(location.search);
   VIEW_PARAMS.forEach(name => params.delete(name));

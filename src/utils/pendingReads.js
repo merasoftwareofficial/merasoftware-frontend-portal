@@ -1,4 +1,4 @@
-// Shares only unfinished reads. No completed response is retained.
+// Shares only unfinished reads. Screens that keep finished answers opt in through resourceCache.js.
 export function createPendingReads() {
   const pending = new Map();
   let scope;

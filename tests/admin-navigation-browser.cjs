@@ -103,7 +103,7 @@ async function sidebarNavigation(browser, origin) {
   await page.waitForSelector('aside');
   await page.waitForTimeout(2500);
   await page.evaluate(() => { window.__sidebar = document.querySelector('aside'); });
-  for (const [label, expectedReads] of [['Leads', 2], ['Clients', 1], ['Trash', 1], ['Dashboard', 1], ['Leads', 2], ['Clients', 1]]) {
+  for (const [label, expectedReads] of [['Leads', 0], ['Clients', 0], ['Trash', 1], ['Dashboard', 1], ['Leads', 0], ['Clients', 0]]) {
     const before = reads.length;
     const clickedAt = Date.now();
     const from = await page.evaluate(() => { document.querySelector('aside').scrollTop = 120; return { at: performance.now(), feeds: window.__feeds.length }; });
@@ -125,7 +125,8 @@ async function sidebarNavigation(browser, origin) {
     check(`${label}: sidebar keeps its scroll`, seen.sidebarScroll === 120, seen);
     check(`${label}: data loads once`, made.length === expectedReads, made.map(read => read.path));
     check(`${label}: no new live connection`, seen.newConnections === from.feeds, seen);
-    check(`${label}: read starts right after the click`, made[0] && made[0].at - clickedAt < 150, made[0] && made[0].at - clickedAt);
+    // Leads and Clients are preloaded and unchanged here, so they make no read at all.
+    check(`${label}: read starts right after the click`, !expectedReads || (made[0] && made[0].at - clickedAt < 150), made[0] && made[0].at - clickedAt);
   }
   check('sidebar navigation: no page errors', errors.length === 0, errors);
   await context.close();
@@ -330,7 +331,7 @@ async function phone(browser, origin) {
   await page.goto(`${origin}/admin-panel/dashboard`);
   await page.waitForFunction(() => document.querySelector('h1,h2'));
   await page.waitForTimeout(2500);
-  for (const [label, expectedReads] of [['Clients', 1], ['Dashboard', 1], ['Leads', 2]]) {
+  for (const [label, expectedReads] of [['Clients', 0], ['Dashboard', 1], ['Leads', 0]]) {
     const before = reads.length;
     const from = await page.evaluate(() => performance.now());
     await domClick(page, 'a', label);

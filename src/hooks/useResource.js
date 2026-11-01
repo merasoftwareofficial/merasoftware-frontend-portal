@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { resourceDomains, usePortalUpdates } from './usePortalUpdates';
 import { getResourceScope, readResource, subscribeResourceScope } from '../utils/resourceClient';
+import { MAX_AGE_MS, beginCacheRead, cacheAge, cacheKey, endCacheRead, isFeedConnected, readCache, removeCache, storeCache } from '../utils/resourceCache';
 
 function cursorUrl(url, cursor) {
   const [path, query = ''] = url.split('?');
@@ -18,9 +19,11 @@ function mergeItems(...pages) {
   });
 }
 
-// Background invalidations preserve visible data and coalesce into one trailing
-// read. Completed data belongs to mounted UI, never to a response cache.
-export function useResource(url, onData, { revision, paginated = false, eventId } = {}) {
+// Background invalidations preserve visible data and coalesce into one trailing read.
+// With `cache` (a policy from resourceCache.js, not for paginated reads) the last answer shows at
+// once and is re-read only if it may be out of date. `confirmed` is true once the data on screen
+// is known current: anything that decides an action waits for it. Without `cache` nothing is kept.
+export function useResource(url, onData, { revision, paginated = false, eventId, cache } = {}) {
   const scope = useSyncExternalStore(subscribeResourceScope, getResourceScope);
   const callback = useRef(onData); callback.current = onData;
   const state = useRef(null);
@@ -33,7 +36,9 @@ export function useResource(url, onData, { revision, paginated = false, eventId 
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
-  const key = JSON.stringify([scope, url, paginated]);
+  const [confirmed, setConfirmed] = useState(false);
+  const [expired, setExpired] = useState(false);
+  const key = cacheKey(scope, url, paginated);
   const request = useCallback((background = true, append = false) => {
     const current = state.current;
     if (!current || current.key !== key || !url) return Promise.resolve();
@@ -41,10 +46,11 @@ export function useResource(url, onData, { revision, paginated = false, eventId 
     if (append && (!paginated || !current.result?.nextCursor)) return Promise.resolve();
     const run = async () => {
       if (!background && !current.loaded) setLoading(true);
-      setRefreshing(current.loaded && !append); setLoadingMore(append);
+      setRefreshing((current.loaded || current.cached) && !append); setLoadingMore(append);
       try {
         do {
           current.again = false;
+          const cacheRead = cache ? beginCacheRead(cache) : null;
           try {
             let data, depth = 1;
             if (!paginated) data = await readResource(url, { signal: current.controller.signal });
@@ -67,18 +73,23 @@ export function useResource(url, onData, { revision, paginated = false, eventId 
               data = { ...pages[pages.length - 1], items: mergeItems(...pages) };
             }
             if (state.current !== current || current.controller.signal.aborted || getResourceScope() !== scope) return;
+            if (cache) storeCache(key, data, cache, cacheRead);
             callback.current?.(data, !current.loaded);
-            setSnapshot({ key, data });
+            setSnapshot({ key, data }); setConfirmed(true); setExpired(false);
             current.result = data; current.depth = depth;
             if (paginated) paginationWindow.current = { key, depth };
             current.loaded = true; setError(''); setLoading(false);
             append = false; setLoadingMore(false); setRefreshing(current.again);
           } catch (failure) {
             if (state.current !== current || current.controller.signal.aborted || failure.name === 'AbortError') return;
+            // It no longer exists: the kept answer must not stand in for it.
+            if (cache && failure.status === 404) { removeCache(key); setConfirmed(false); callback.current?.(null, true); setSnapshot({ key, data: undefined }); }
             setError(failure.message || 'Could not refresh data.');
             // Honor an actual invalidation received during a failed page read.
             // No automatic network retry without that explicit pending signal.
             append = false; setLoadingMore(false); setRefreshing(current.again && current.loaded);
+          } finally {
+            if (cacheRead) endCacheRead(cacheRead);
           }
         } while (current.again && state.current === current);
       } finally {
@@ -87,21 +98,42 @@ export function useResource(url, onData, { revision, paginated = false, eventId 
     };
     current.pending = run();
     return current.pending;
-  }, [key, url, scope, paginated]);
+  }, [key, url, scope, paginated, cache]);
   const refresh = useCallback((background = true) => request(background), [request]);
   const loadMore = useCallback(() => request(true, true), [request]);
-  useEffect(() => {
+  // A layout effect, so kept data is on screen before the first paint: no flash of an empty list.
+  useLayoutEffect(() => {
     const depth = paginated && paginationWindow.current?.key === key ? paginationWindow.current.depth : 1;
     const current = { key, controller: new AbortController(), pending: null, loaded: false, again: false, depth, result: null };
-    state.current = current; setError(''); setLoading(Boolean(url)); setRefreshing(false); setLoadingMore(false);
-    if (url) void refresh(false);
+    state.current = current; setError(''); setLoading(Boolean(url)); setRefreshing(false); setLoadingMore(false); setConfirmed(false); setExpired(false);
+    const kept = cache && url ? readCache(key) : null;
+    if (kept) {
+      callback.current?.(kept.data, true);
+      setSnapshot({ key, data: kept.data }); setLoading(false); setConfirmed(kept.fresh);
+      current.result = kept.data;
+      if (kept.fresh) current.loaded = true;
+      else { current.cached = true; void refresh(true); }
+    } else if (url) void refresh(false);
     return () => { state.current = null; current.controller.abort(); };
-  }, [key, url, refresh, paginated]);
+  }, [key, url, refresh, paginated, cache]);
   useEffect(() => {
     if (previousRevision.current === revision) return;
     previousRevision.current = revision;
     void refresh();
   }, [revision, refresh]);
+  // A screen left open: data past the limit is hidden until the new read, and a dead feed can't be trusted.
+  useEffect(() => {
+    if (!cache) return undefined;
+    const check = () => {
+      if (document.visibilityState !== 'visible') return;
+      const age = cacheAge(key);
+      if (age === null) return;
+      if (age >= MAX_AGE_MS) { setExpired(true); void refresh(); } else if (!isFeedConnected()) void refresh();
+    };
+    document.addEventListener('visibilitychange', check);
+    window.addEventListener('focus', check);
+    return () => { document.removeEventListener('visibilitychange', check); window.removeEventListener('focus', check); };
+  }, [cache, key, refresh]);
   const liveStatus = usePortalUpdates(refresh, resourceDomains(url), eventId);
-  return { liveStatus, data: snapshot.key === key ? snapshot.data : undefined, refresh, loadMore, loading, refreshing, loadingMore, error };
+  return { liveStatus, data: snapshot.key === key ? snapshot.data : undefined, refresh, loadMore, loading: loading || (expired && !error), refreshing, loadingMore, error, confirmed, expired };
 }

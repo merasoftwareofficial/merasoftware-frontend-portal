@@ -1,31 +1,35 @@
 import { useLeadResource } from '../hooks/useLeadResource';
-import { useListScroll } from '../hooks/useListScroll';
+import { openedRow, rememberOpenedRow, useListReturn } from '../hooks/useListReturn';
+import { LEAD_CACHE } from '../utils/resourceCache';
 import { useLeadUpdates } from '../hooks/useLeadUpdates';
 import { emailApi, reviewEmail } from '../helpers/emailReview';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowUpDown, Loader2, Plus, RefreshCw, Search, Send, Trash2, UserPlus, X } from "lucide-react";
+import { Loader2, Plus, RefreshCw, Search, Send, Trash2, UserPlus, X } from "lucide-react";
 import SummaryApi from "../common";
 import AdminWorkspaceShell, { AdminWorkspaceHeader } from "../components/admin/AdminWorkspaceShell";
 import AdminWorkspaceList from "../components/admin/AdminWorkspaceList";
 import AdminDateTime from "../components/admin/AdminDateTime";
-import AdminFilterDropdown from "../components/admin/AdminFilterDropdown";
 import KeyboardSelect from "../components/KeyboardSelect";
 import KeyboardHint from "../components/KeyboardHint";
 import { adminReturnState } from "../helpers/adminReturnNavigation";
 import leadSourceOptions from "../helpers/leadSourceOptions";
-import { CLIENT_BEHAVIOUR_OPTIONS, DEFAULT_CLIENT_BEHAVIOUR, LEAD_STATUSES, PROPOSAL_SENT, leadStatusLabel, leadStatusStyle } from "../helpers/leadStatuses";
+import { DEFAULT_SORT, nextSort, parseSort, sortRows, timeValue } from "../helpers/adminListSort";
+import { CLIENT_BEHAVIOUR_OPTIONS, DEFAULT_CLIENT_BEHAVIOUR, DEFAULT_LEAD_STATUS, LEAD_STATUSES, PROPOSAL_SENT, leadStatusLabel, leadStatusStyle } from "../helpers/leadStatuses";
 import ProposalSentBadge from "../components/admin/ProposalSentBadge";
 
-const sortOptions = [
-  { value: "lastUpdatedDesc", label: "Last Updated: Newest" },
-  { value: "lastUpdatedAsc", label: "Last Updated: Oldest" },
-  { value: "nameAsc", label: "Name: A-Z" },
-  { value: "nameDesc", label: "Name: Z-A" },
-];
-
 const getLeadLastUpdated = (lead) => lead?.updatedAt || lead?.createdAt || null;
+
+const sortColumns = [
+  { key: "name", first: "Asc", value: (lead) => lead.name || lead.phone || "" },
+  { key: "contact", first: "Asc", value: (lead) => lead.email || "" },
+  // The same order as the status filter above the list, not alphabetical.
+  { key: "status", first: "Asc", value: (lead) => { const rank = LEAD_STATUSES.indexOf(lead.status || DEFAULT_LEAD_STATUS); return rank < 0 ? null : rank; } },
+  { key: "source", first: "Asc", value: (lead) => lead.source || "" },
+  { key: "added", first: "Desc", value: (lead) => timeValue(lead.createdAt) },
+  { key: "lastUpdated", first: "Desc", value: (lead) => timeValue(getLeadLastUpdated(lead)) },
+];
 
 const emptyForm = { name: "", phone: "", email: "", source: "", notes: "", referredByUserId: "" };
 
@@ -43,12 +47,13 @@ const AdminLeadsPage = () => {
   }, { replace: true, preventScrollReset: true });
   const searchTerm = searchParams.get("q") || "";
   const setSearchTerm = value => setFilter("q", value);
-  const sortBy = searchParams.get("sort") || "lastUpdatedDesc";
-  const setSortBy = value => setFilter("sort", value, "lastUpdatedDesc");
+  const sort = parseSort(searchParams.get("sort"), sortColumns);
+  const sortByColumn = key => setFilter("sort", nextSort(sort, sortColumns.find(column => column.key === key)), DEFAULT_SORT);
   const sourceFilter = searchParams.get("source") || "all";
   const setSourceFilter = value => setFilter("source", value, "all");
   const statusFilter = searchParams.get("status") || "all";
-  const [behaviourFilter, setBehaviourFilter] = useState("all");
+  const behaviourFilter = searchParams.get("behaviour") || "all";
+  const setBehaviourFilter = value => setFilter("behaviour", value, "all");
   const setStatusFilter = value => setFilter("status", value, "all");
   const proposalSentOnly = searchParams.get("proposal") === "1";
   const setProposalSentOnly = value => setFilter("proposal", (typeof value === 'function' ? value(proposalSentOnly) : value) ? "1" : "");
@@ -74,9 +79,9 @@ const AdminLeadsPage = () => {
   const notesFieldRef = useRef(null);
   const submitButtonRef = useRef(null);
 
-  const { refresh: fetchLeads, loading, error: refreshError } = useLeadResource(SummaryApi.adminLeads.url, data => setLeads(data || []));
-  useListScroll(!loading);
-  const { refresh: fetchFinalMessageCount, error: countError } = useLeadResource(SummaryApi.finalMessageCount.url, data => setFinalMessageCount(data.count));
+  const { refresh: fetchLeads, loading, refreshing: updating, error: refreshError, expired } = useLeadResource(SummaryApi.adminLeads.url, data => setLeads(data || []), { cache: LEAD_CACHE });
+  useListReturn(!loading);
+  const { refresh: fetchFinalMessageCount, error: countError } = useLeadResource(SummaryApi.finalMessageCount.url, data => setFinalMessageCount(data.count), { cache: LEAD_CACHE });
   const liveStatus = useLeadUpdates(() => { void fetchLeads(); void fetchFinalMessageCount(); });
 
   // The popup opens once per lead, one after another: this request resolves when the last is decided.
@@ -101,6 +106,7 @@ const AdminLeadsPage = () => {
   // matching how the clients list opens the client workspace.
   const openLead = (lead) => {
     if (!lead?._id) return;
+    rememberOpenedRow("/admin-panel/leads", lead._id);
     navigate(`/admin-panel/leads/${lead._id}`, {
       state: {
         ...adminReturnState(`/admin-panel/leads${searchParams.size ? `?${searchParams}` : ""}`),
@@ -376,27 +382,9 @@ const AdminLeadsPage = () => {
       });
     }
 
-    result = [...result].sort((left, right) => {
-      const leftName = (left.name || "").toLowerCase();
-      const rightName = (right.name || "").toLowerCase();
-      const leftUpdated = new Date(getLeadLastUpdated(left) || 0).getTime();
-      const rightUpdated = new Date(getLeadLastUpdated(right) || 0).getTime();
-
-      switch (sortBy) {
-        case "lastUpdatedAsc":
-          return leftUpdated - rightUpdated || leftName.localeCompare(rightName, "en", { sensitivity: "base" });
-        case "nameAsc":
-          return leftName.localeCompare(rightName, "en", { sensitivity: "base" });
-        case "nameDesc":
-          return rightName.localeCompare(leftName, "en", { sensitivity: "base" });
-        case "lastUpdatedDesc":
-        default:
-          return rightUpdated - leftUpdated || leftName.localeCompare(rightName, "en", { sensitivity: "base" });
-      }
-    });
-
-    return result;
-  }, [behaviourFilter, leads, proposalSentOnly, searchTerm, sortBy, sourceFilter, statusFilter]);
+    return sortRows(result, sort, sortColumns);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `sort` is rebuilt from these two strings each render.
+  }, [behaviourFilter, leads, proposalSentOnly, searchTerm, sort.key, sort.direction, sourceFilter, statusFilter]);
 
   const sourceFilterOptions = [
     { value: "all", label: "All" },
@@ -419,15 +407,6 @@ const AdminLeadsPage = () => {
           subtitle="Prospects before they become customers. Manually added here; converted to clients later."
           actions={
             <div className="flex w-full flex-col gap-3 sm:flex-row lg:min-w-[28rem] lg:justify-end">
-              <AdminFilterDropdown
-                icon={ArrowUpDown}
-                label="Sort"
-                value={sortBy}
-                options={sortOptions}
-                onChange={setSortBy}
-                ariaLabel="Sort leads"
-              />
-
               <button
                 type="button"
                 onClick={handleRefresh}
@@ -554,18 +533,22 @@ const AdminLeadsPage = () => {
         <div className="p-5 sm:p-6">
           <AdminWorkspaceList
             columns={[
-              { label: "Lead", className: "col-span-12 lg:col-span-2" },
-              { label: "Contact", className: "col-span-6 lg:col-span-2" },
-              { label: "Status", className: "col-span-6 lg:col-span-2" },
-              { label: "Source", className: "col-span-6 lg:col-span-1" },
-              { label: "Added", className: "col-span-6 lg:col-span-2" },
-              { label: "Modified", className: "col-span-6 lg:col-span-2" },
+              { label: "Lead", sortKey: "name", className: "col-span-12 lg:col-span-2" },
+              { label: "Contact", sortKey: "contact", className: "col-span-6 lg:col-span-2" },
+              { label: "Status", sortKey: "status", className: "col-span-6 lg:col-span-2" },
+              { label: "Source", sortKey: "source", className: "col-span-6 lg:col-span-1" },
+              { label: "Added", sortKey: "added", className: "col-span-6 lg:col-span-2" },
+              { label: "Modified", sortKey: "lastUpdated", className: "col-span-6 lg:col-span-2" },
               { label: "Action", className: "col-span-6 text-right lg:col-span-1" },
             ]}
             loading={loading}
-            emptyText="No leads yet. Use Add Lead to create one."
-            items={displayedLeads}
-            footer={`Showing ${displayedLeads.length} of ${leads.length} leads`}
+            updating={updating}
+            sort={sort}
+            onSort={sortByColumn}
+            focusId={openedRow("/admin-panel/leads")}
+            emptyText={expired ? refreshError : "No leads yet. Use Add Lead to create one."}
+            items={expired ? [] : displayedLeads}
+            footer={expired ? null : `Showing ${displayedLeads.length} of ${leads.length} leads`}
             renderRow={(lead, index) => (
               <div
                 key={lead._id}

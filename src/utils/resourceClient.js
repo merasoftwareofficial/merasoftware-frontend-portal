@@ -24,7 +24,7 @@ export function readResource(url, { signal, method = 'GET', headers, ...options 
   return reads.read(key, async transportSignal => {
     const response = await fetch(url, { credentials: 'include', ...options, method: 'GET', headers, signal: transportSignal });
     const result = await response.json();
-    if (!response.ok || !result.success) throw new Error(result.message || `Could not load data (${response.status})`);
+    if (!response.ok || !result.success) throw Object.assign(new Error(result.message || `Could not load data (${response.status})`), { status: response.status });
     return result.data;
   }, { signal });
 }

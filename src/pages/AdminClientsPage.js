@@ -1,24 +1,26 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowUpDown, RefreshCw, Search, Users2 } from "lucide-react";
+import { RefreshCw, Search, Users2 } from "lucide-react";
 import { useResource } from '../hooks/useResource';
-import { useListScroll } from '../hooks/useListScroll';
+import { openedRow, rememberOpenedRow, useListReturn } from '../hooks/useListReturn';
+import { CLIENT_CACHE } from '../utils/resourceCache';
 import SummaryApi from "../common";
 import AdminWorkspaceShell, { AdminWorkspaceHeader } from "../components/admin/AdminWorkspaceShell";
 import { adminReturnState, getAdminPath } from "../helpers/adminReturnNavigation";
 import AdminWorkspaceList from "../components/admin/AdminWorkspaceList";
 import AdminDateTime from "../components/admin/AdminDateTime";
-import AdminFilterDropdown from "../components/admin/AdminFilterDropdown";
-
-const sortOptions = [
-  { value: "lastUpdatedDesc", label: "Last Updated: Newest" },
-  { value: "lastUpdatedAsc", label: "Last Updated: Oldest" },
-  { value: "nameAsc", label: "Name: A-Z" },
-  { value: "nameDesc", label: "Name: Z-A" },
-];
+import { DEFAULT_SORT, nextSort, parseSort, sortRows, timeValue } from "../helpers/adminListSort";
 
 const getClientLastUpdated = (client) => client?.latestActivityAt || client?.createdAt || null;
+
+const sortColumns = [
+  { key: "name", first: "Asc", value: (client) => client.name || "" },
+  { key: "contact", first: "Asc", value: (client) => client.email || "" },
+  { key: "status", first: "Asc", value: (client) => client.status || "Active" },
+  { key: "added", first: "Desc", value: (client) => timeValue(client.createdAt) },
+  { key: "lastUpdated", first: "Desc", value: (client) => timeValue(getClientLastUpdated(client)) },
+];
 
 const AdminClientsPage = () => {
   const navigate = useNavigate();
@@ -26,17 +28,20 @@ const AdminClientsPage = () => {
   const location = useLocation();
   const [params, setParams] = useSearchParams();
   const searchTerm = params.get('q') || '';
-  const sortBy = sortOptions.some(option => option.value === params.get('sort')) ? params.get('sort') : 'lastUpdatedDesc';
+  const sort = parseSort(params.get('sort'), sortColumns);
   const updateParam = (name, value) => setParams(previous => {
     const next = new URLSearchParams(previous);
     if (value) next.set(name, value); else next.delete(name);
     return next;
   }, { replace: true, preventScrollReset: true });
   const setSearchTerm = value => updateParam('q', value);
-  const setSortBy = value => updateParam('sort', value === 'lastUpdatedDesc' ? '' : value);
+  const sortByColumn = key => {
+    const next = nextSort(sort, sortColumns.find(column => column.key === key));
+    updateParam('sort', next === DEFAULT_SORT ? '' : next);
+  };
 
-  const { loading, refreshing, error, refresh: handleRefresh } = useResource(SummaryApi.adminClients.url, next => setClients(Array.isArray(next) ? next : []));
-  useListScroll(!loading);
+  const { loading, refreshing, error, expired, refresh: handleRefresh } = useResource(SummaryApi.adminClients.url, next => setClients(Array.isArray(next) ? next : []), { cache: CLIENT_CACHE });
+  useListReturn(!loading);
   useEffect(() => { if (error) toast.error(error); }, [error]);
 
   // The workspace is reachable from here and from the dashboard, so it is told where
@@ -44,6 +49,7 @@ const AdminClientsPage = () => {
   // `client` stays as the workspace's fallback display data — unrelated to navigation.
   const handleClientOpen = (client) => {
     if (!client?._id) return;
+    rememberOpenedRow("/admin-panel/clients", client._id);
     navigate(`/admin-panel/clients/${client._id}`, {
       state: { client, ...adminReturnState(getAdminPath(location)) },
     });
@@ -63,27 +69,9 @@ const AdminClientsPage = () => {
       });
     }
 
-    result = [...result].sort((left, right) => {
-      const leftName = (left.name || "").toLowerCase();
-      const rightName = (right.name || "").toLowerCase();
-      const leftUpdated = new Date(getClientLastUpdated(left) || 0).getTime();
-      const rightUpdated = new Date(getClientLastUpdated(right) || 0).getTime();
-
-      switch (sortBy) {
-        case "lastUpdatedAsc":
-          return leftUpdated - rightUpdated || leftName.localeCompare(rightName, "en", { sensitivity: "base" });
-        case "nameAsc":
-          return leftName.localeCompare(rightName, "en", { sensitivity: "base" });
-        case "nameDesc":
-          return rightName.localeCompare(leftName, "en", { sensitivity: "base" });
-        case "lastUpdatedDesc":
-        default:
-          return rightUpdated - leftUpdated || leftName.localeCompare(rightName, "en", { sensitivity: "base" });
-      }
-    });
-
-    return result;
-  }, [clients, searchTerm, sortBy]);
+    return sortRows(result, sort, sortColumns);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `sort` is rebuilt from these two strings each render.
+  }, [clients, searchTerm, sort.key, sort.direction]);
 
   return (
     <>
@@ -94,15 +82,6 @@ const AdminClientsPage = () => {
           subtitle="Customer list ordered by the latest verified client activity."
           actions={
             <div className="flex w-full flex-col gap-3 sm:flex-row lg:min-w-[23rem] lg:justify-end">
-              <AdminFilterDropdown
-                icon={ArrowUpDown}
-                label="Sort"
-                value={sortBy}
-                options={sortOptions}
-                onChange={setSortBy}
-                ariaLabel="Sort clients"
-              />
-
               <button
                 type="button"
                 onClick={handleRefresh}
@@ -132,17 +111,21 @@ const AdminClientsPage = () => {
         <div className="p-5 sm:p-6">
           <AdminWorkspaceList
             columns={[
-              { label: "Client", className: "col-span-12 lg:col-span-3" },
-              { label: "Contact", className: "col-span-6 lg:col-span-2" },
-              { label: "Status", className: "col-span-6 lg:col-span-2" },
-              { label: "Joined", className: "col-span-6 lg:col-span-2" },
-              { label: "Updated", className: "col-span-6 lg:col-span-2" },
+              { label: "Client", sortKey: "name", className: "col-span-12 lg:col-span-3" },
+              { label: "Contact", sortKey: "contact", className: "col-span-6 lg:col-span-2" },
+              { label: "Status", sortKey: "status", className: "col-span-6 lg:col-span-2" },
+              { label: "Joined", sortKey: "added", className: "col-span-6 lg:col-span-2" },
+              { label: "Updated", sortKey: "lastUpdated", className: "col-span-6 lg:col-span-2" },
               { label: "Open", className: "col-span-6 text-right lg:col-span-1" },
             ]}
             loading={loading}
-            emptyText="No clients found."
-            items={displayedClients}
-            footer={`Showing ${displayedClients.length} of ${clients.length} clients`}
+            updating={refreshing}
+            sort={sort}
+            onSort={sortByColumn}
+            focusId={openedRow("/admin-panel/clients")}
+            emptyText={expired ? error : "No clients found."}
+            items={expired ? [] : displayedClients}
+            footer={expired ? null : `Showing ${displayedClients.length} of ${clients.length} clients`}
             renderRow={(client, index) => (
               <button
                 key={client._id}

@@ -6,6 +6,7 @@ import { resourceDomains } from './usePortalUpdates';
 const inventory = [
   ['Dashboard', SummaryApi.adminDashboard.url, 'clients'],
   ['Clients', SummaryApi.adminClients.url, 'users'],
+  ['Clients hear tickets', SummaryApi.adminClients.url, 'tickets'],
   ['Admin plans', SummaryApi.adminPlanCatalogue.url, 'catalog'],
   ['Features', SummaryApi.adminFeatureProducts.url, 'catalog'],
   ['Money', SummaryApi.getAdminSettings.url, 'settings'],

@@ -1,4 +1,6 @@
 import React, { useEffect, useRef } from "react";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import UpdatingSign from "./UpdatingSign";
 
 /**
  * Renders each row via `renderRow(item, index)` and adds shared row-to-row
@@ -11,8 +13,11 @@ import React, { useEffect, useRef } from "react";
  * `onKeyDown` — only the page knows which action applies to which row
  * (e.g. a converted lead has no Delete). This component only owns moving
  * focus between rows, nothing about what a row does.
+ *
+ * `focusId` focuses that row instead of the first, for a list returned to. A column with
+ * `sortKey` has a clickable heading: `sort` is the current { key, direction }, `onSort` gets the key.
  */
-const AdminWorkspaceList = ({ columns, loading, emptyText, items, renderRow, footer }) => {
+const AdminWorkspaceList = ({ columns, loading, emptyText, items, renderRow, footer, focusId, updating, sort, onSort }) => {
   const rowRefs = useRef([]);
   const hasAutoFocused = useRef(false);
 
@@ -24,8 +29,10 @@ const AdminWorkspaceList = ({ columns, loading, emptyText, items, renderRow, foo
     if (hasAutoFocused.current) return;
     if (items.length === 0) return;
     hasAutoFocused.current = true;
-    rowRefs.current[0]?.focus();
-  }, [loading, items]);
+    const wanted = focusId ? items.findIndex((item) => String(item._id) === String(focusId)) : -1;
+    // preventScroll: the list decides its own position, and focus must not move it.
+    rowRefs.current[Math.max(wanted, 0)]?.focus({ preventScroll: true });
+  }, [loading, items, focusId]);
 
   const handleContainerKeyDown = (event) => {
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
@@ -49,12 +56,29 @@ const AdminWorkspaceList = ({ columns, loading, emptyText, items, renderRow, foo
     nextRow.focus();
   };
 
+  const sortIcon = (key) => {
+    if (sort?.key !== key) return <ArrowUpDown size={12} className="opacity-40" />;
+    return sort.direction === "Asc" ? <ArrowUp size={12} /> : <ArrowDown size={12} />;
+  };
+
   return (
     <div className="overflow-hidden rounded-[1.5rem] border border-slate-200">
+      <UpdatingSign show={updating && !loading} />
       <div className="grid grid-cols-12 gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:px-6">
         {columns.map((column) => (
           <div key={column.label} className={column.className}>
-            {column.label}
+            {column.sortKey ? (
+              <button
+                type="button"
+                onClick={() => onSort(column.sortKey)}
+                aria-label={`Sort by ${column.label}`}
+                aria-pressed={sort?.key === column.sortKey}
+                className={["inline-flex items-center gap-1 rounded uppercase tracking-[0.2em] outline-none transition hover:text-slate-900 focus:ring-2 focus:ring-emerald-300", sort?.key === column.sortKey ? "text-slate-900" : ""].join(" ")}
+              >
+                {column.label}
+                {sortIcon(column.sortKey)}
+              </button>
+            ) : column.label}
           </div>
         ))}
       </div>

@@ -11,6 +11,8 @@ import EditLeadModal from "../components/admin/EditLeadModal";
 import KeyboardSelect from "../components/KeyboardSelect";
 import KeyboardHint from "../components/KeyboardHint";
 import { goToAdminReturn } from "../helpers/adminReturnNavigation";
+import { LEAD_CACHE, patchCachedRow } from "../utils/resourceCache";
+import UpdatingSign from "../components/admin/UpdatingSign";
 import isAccountEmail from "../helpers/accountEmail";
 import { CLIENT_BEHAVIOUR_OPTIONS, DEFAULT_CLIENT_BEHAVIOUR, DEFAULT_LEAD_STATUS, leadStatusLabel, leadStatusOptions, leadStatusStyle, offerStageOptions } from "../helpers/leadStatuses";
 import LeadProposals from "../components/admin/LeadProposals";
@@ -67,14 +69,23 @@ const AdminLeadDetailPage = () => {
   // Shown in the header only until the full lead arrives. It never goes into `lead`:
   // the actions below must stay closed until the contact block and final message are known.
   const leadPreview = location.state?.leadPreview?._id === leadId ? location.state.leadPreview : null;
-  const shownLead = lead || leadPreview;
+  const badgeChosen = useRef(false);
+  const focusedOnce = useRef(false);
 
-  const { refresh: fetchLead, loading, error: refreshError } = useLeadResource(
+  const { refresh: fetchLead, loading, refreshing: updating, error: refreshError, confirmed, expired } = useLeadResource(
     `${SummaryApi.leadDetail.url}/${leadId}`, (data, initial) => {
       setLead(data);
-      // Live reads must not overwrite an in-progress follow-up selection.
-      if (initial) setFollowUpBadge(data?.status || DEFAULT_LEAD_STATUS);
-    });
+      if (data) {
+        const { name, phone, email, source, status, updatedAt, proposalSentAt, clientBehaviour, convertedToUserId } = data;
+        patchCachedRow(SummaryApi.adminLeads.url, data._id, { name, phone, email, source, status, updatedAt, proposalSentAt, clientBehaviour, convertedToUserId });
+      }
+      // Live reads must not overwrite an in-progress follow-up selection. "Initial" is also the first
+      // current answer after kept data, which corrects the kept stage unless the admin already chose one.
+      if (initial && !badgeChosen.current) setFollowUpBadge(data?.status || DEFAULT_LEAD_STATUS);
+    }, { cache: LEAD_CACHE });
+  const shownLead = expired ? null : lead || leadPreview;
+  // Kept data can be read at once, but nothing is acted on until it is confirmed current.
+  const actionsOpen = Boolean(lead) && confirmed && !expired;
   const liveStatus = useLeadUpdates(() => { void fetchLead(); }, leadId);
 
   const isConverted = Boolean(lead?.convertedToUserId);
@@ -86,6 +97,7 @@ const AdminLeadDetailPage = () => {
 
   // Choosing an offer means the stage below is that offer's. General goes back to the lead's own.
   const chooseFollowUpOffer = (slug) => {
+    badgeChosen.current = true;
     setFollowUpOffer(slug);
     setFollowUpBadge(targetFor(slug)?.stage || lead?.status || DEFAULT_LEAD_STATUS);
   };
@@ -116,7 +128,7 @@ const AdminLeadDetailPage = () => {
 
   const finalMessage = lead?.finalMessage;
   // Only a Negative lead whose message hasn't gone: none yet, Don't Send, expired or failed, or a decision still open.
-  const canSendFinalMessage = !isConverted && lead?.status === "Negative" && !lead?.requestedByUserId && (!finalMessage || ["not-sent", "review"].includes(finalMessage.status));
+  const canSendFinalMessage = actionsOpen && !isConverted && lead?.status === "Negative" && !lead?.requestedByUserId && (!finalMessage || ["not-sent", "review"].includes(finalMessage.status));
   const finalMessageLine = !finalMessage ? "" : {
     review: "Final message: waiting for your decision.",
     queued: "Final message: waiting in the WhatsApp queue.",
@@ -216,7 +228,9 @@ const AdminLeadDetailPage = () => {
   // Follow-up entry is this page's main keyboard task, so focus lands there as
   // soon as the lead (and its default Stage selection) has loaded.
   useEffect(() => {
-    if (!loading && lead && !isConverted) {
+    if (!loading && lead && !isConverted && !focusedOnce.current) {
+      // Once per opening: a background refresh must not pull focus from a note being typed.
+      focusedOnce.current = true;
       followUpBadgeRef.current?.focus();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -276,7 +290,7 @@ const AdminLeadDetailPage = () => {
   const isReadyToConvert = (target) => Boolean(target?.name?.trim()) && Boolean(target?.phone?.trim()) && isAccountEmail(target?.email || "");
 
   const requestConvert = () => {
-    if (!lead || converting || isConverted) return;
+    if (!actionsOpen || converting || isConverted) return;
     if (!isReadyToConvert(lead)) {
       setEditLeadMode("convert");
       return;
@@ -302,7 +316,7 @@ const AdminLeadDetailPage = () => {
   // upgradeExisting: the admin confirmed turning an existing blog-only website
   // account with this email into the client account (backend code EXISTING_MEMBER).
   const handleConvert = async (upgradeExisting = false) => {
-    if (!lead || converting) return;
+    if (!actionsOpen || converting) return;
 
     try {
       setConverting(true);
@@ -344,6 +358,7 @@ const AdminLeadDetailPage = () => {
   return (
     <>
       <AdminWorkspaceShell>
+        <UpdatingSign show={updating && !loading} />
         {(refreshError || liveStatus === 'unavailable') && <p role="status" className="px-5 py-2 text-sm">{refreshError || 'Live updates temporarily unavailable.'} <button type="button" onClick={() => void fetchLead()}>Refresh</button></p>}
         <AdminWorkspaceHeader
           icon={UserPlus}
@@ -368,7 +383,7 @@ const AdminLeadDetailPage = () => {
             </>
           }
           actions={
-            lead && !isConverted ? (
+            actionsOpen && !isConverted ? (
               <button
                 type="button"
                 onClick={() => setEditLeadMode("edit")}
@@ -382,7 +397,8 @@ const AdminLeadDetailPage = () => {
           loadingText={loading ? "Loading lead..." : ""}
         />
 
-        <div className="grid grid-cols-1 gap-6 p-5 sm:p-6 lg:grid-cols-3">
+        {/* Hidden, not removed: a note being typed survives while too-old data is replaced. */}
+        <div hidden={expired} data-lead-body="1" className={expired ? "" : "grid grid-cols-1 gap-6 p-5 sm:p-6 lg:grid-cols-3"}>
           {/* Left: lead info + pipeline */}
           <div className="space-y-6 lg:col-span-1">
             <div className="rounded-3xl border border-slate-200 bg-white p-5">
@@ -427,7 +443,7 @@ const AdminLeadDetailPage = () => {
                     <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Client behaviour</label>
                     <KeyboardSelect
                       value={lead.clientBehaviour || DEFAULT_CLIENT_BEHAVIOUR}
-                      onChange={(value) => { if (!behaviourSaving) saveBehaviour(value); }}
+                      onChange={(value) => { if (!behaviourSaving && actionsOpen) saveBehaviour(value); }}
                       options={CLIENT_BEHAVIOUR_OPTIONS}
                       className={["font-semibold", leadStatusStyle(lead.clientBehaviour || DEFAULT_CLIENT_BEHAVIOUR)].join(" ")}
                     />
@@ -481,7 +497,7 @@ const AdminLeadDetailPage = () => {
               <button
                 type="button"
                 onClick={sendMessage}
-                disabled={messageBusy || !lead || Boolean(lead?.contactBlock)}
+                disabled={messageBusy || !actionsOpen || Boolean(lead?.contactBlock)}
                 className="mt-3 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Send message
@@ -502,7 +518,7 @@ const AdminLeadDetailPage = () => {
               </div>
             ) : null}
 
-            <LeadProposals lead={lead} readOnly={isConverted} onChanged={fetchLead} />
+            <LeadProposals lead={lead} readOnly={isConverted} actionsOpen={actionsOpen} onChanged={fetchLead} />
 
             {!isConverted ? (
               <div className="rounded-3xl border border-slate-200 bg-white p-5">
@@ -513,7 +529,7 @@ const AdminLeadDetailPage = () => {
                 <button
                   type="button"
                   onClick={requestConvert}
-                  disabled={converting || !lead}
+                  disabled={converting || !actionsOpen}
                   className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <UserCheck size={16} />
@@ -558,7 +574,7 @@ const AdminLeadDetailPage = () => {
                       <KeyboardSelect
                         ref={followUpBadgeRef}
                         value={chosenTarget ? followUpBadge : isMatured ? "Won" : followUpBadge}
-                        onChange={(value) => setFollowUpBadge(value)}
+                        onChange={(value) => { badgeChosen.current = true; setFollowUpBadge(value); }}
                         options={chosenTarget ? offerStageOptions(chosenTarget.stage) : isMatured ? [{ value: "Won", label: "Matured" }] : leadStatusOptions(lead?.status)}
                         onConfirm={() => followUpFileRef.current?.focus()}
                         className={["font-semibold", leadStatusStyle(followUpBadge)].join(" ")}
@@ -604,7 +620,7 @@ const AdminLeadDetailPage = () => {
                     <button
                       ref={followUpSubmitRef}
                       type="submit"
-                      disabled={followUpSaving}
+                      disabled={followUpSaving || !actionsOpen}
                       className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 focus:animate-pulse focus:outline-none focus:ring-4 focus:ring-emerald-300 disabled:opacity-60"
                     >
                       <MessageSquarePlus size={16} />
@@ -707,7 +723,7 @@ const AdminLeadDetailPage = () => {
                                 </span>
                               ) : null}
                             </div>
-                            {lead && !item.messageDraftId ? (
+                            {actionsOpen && !item.messageDraftId ? (
                               <button
                                 type="button"
                                 onClick={() => startEditFollowUp(item)}

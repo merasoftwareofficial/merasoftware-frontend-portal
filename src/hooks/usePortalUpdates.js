@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { subscribeResourceScope } from '../utils/resourceClient';
+import { markAllStale, noteChanges, setFeedConnected } from '../utils/resourceCache';
 
 // One transport per visible tab for every migrated domain. Queues hold only
 // invalidation identifiers and are cleared on identity changes/disconnect.
@@ -9,11 +10,13 @@ const resources = new Map();
 let connectionStatus = 'connecting';
 function status(value) { connectionStatus = value; for (const listener of subscribers) listener.status(value); }
 function reset() {
+  setFeedConnected(false);
   source?.close(); source = null;
   clearTimeout(timer); timer = null; clearTimeout(reconnectTimer); reconnectTimer = null;
   resources.clear(); reconcile = false;
 }
 function schedule(message) {
+  if (message.type === 'ready' || message.type === 'resync') markAllStale(); else noteChanges(message.resources);
   reconcile ||= message.type === 'ready' || message.type === 'resync';
   for (const entry of message.resources || (message.type === 'changed' ? [{ domain: 'leads', ids: message.ids || [], all: message.all }] : [])) {
     const previous = resources.get(entry.domain) || { ids: new Set(), all: false };
@@ -43,12 +46,13 @@ function connect() {
     let message; try { message = JSON.parse(event.data); } catch { return; }
     if (message.type === 'denied') { reset(); status('unavailable'); window.dispatchEvent(new Event('portal-session-check')); return; }
     if (message.type === 'unavailable') { retry(); return; }
-    if (message.type === 'ready') status('connected');
+    if (message.type === 'ready') { setFeedConnected(true); status('connected'); }
     schedule(message);
   };
   current.onerror = () => { if (source === current) retry(); };
 }
 function retry() {
+  setFeedConnected(false);
   source?.close(); source = null; status('unavailable');
   if (!reconnectTimer && subscribers.size) reconnectTimer = setTimeout(() => { reconnectTimer = null; connect(); }, 5000);
 }
@@ -82,7 +86,8 @@ export function usePortalUpdates(onUpdate, domains = [], id) {
 export function resourceDomains(url) {
   const path = String(url || '').split('?')[0];
   if (/\/admin\/clients\/[^/]+\/upload-links$/.test(path)) return ['upload-links', 'users', 'orders'];
-  if (/\/(admin\/clients|admin\/dashboard-summary)$/.test(path)) return ['clients', 'users', 'leads'];
+  if (/\/admin\/clients$/.test(path)) return ['clients', 'users', 'leads', 'tickets'];
+  if (/\/admin\/dashboard-summary$/.test(path)) return ['clients', 'users', 'leads'];
   if (/\/user-details$/.test(path)) return ['users'];
   if (/\/payment-records\//.test(path)) return ['invoices', 'payments', 'orders'];
   if (/\/credentials$/.test(path)) return ['users'];
