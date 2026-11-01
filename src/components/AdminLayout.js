@@ -19,8 +19,6 @@ import PortalHeader from "./PortalHeader";
 import useSidebarFocusZones from "../hooks/useSidebarFocusZones";
 
 export const adminSidebarModules = [
-  { id: 'settings', label: 'Settings', icon: Settings2, live: true, to: '/admin-panel/settings' },
-  { id: "email-control", label: "Email Control", icon: Settings2, live: true, to: "/admin-panel/email-control" },
   { id: "dashboard", label: "Dashboard", icon: BarChart3, live: true, to: "/admin-panel/dashboard" },
   { id: "leads", label: "Leads", icon: UserPlus, live: true, to: "/admin-panel/leads" },
   { id: "clients", label: "Clients", icon: Users2, live: true, to: "/admin-panel/clients" },
@@ -47,6 +45,7 @@ export const adminSidebarModules = [
   { id: "money-management", label: "Money Management", icon: IndianRupee, live: true, to: "/admin-panel/money-management" },
   { id: "upcoming-orders", label: "Upcoming Orders", icon: Layers3, soon: true },
   { id: "upcoming-reports", label: "Upcoming Reports", icon: BarChart3, soon: true },
+  { id: 'settings', label: 'Settings', icon: Settings2, live: true, to: '/admin-panel/settings' },
 ];
 
 const AdminLayout = ({

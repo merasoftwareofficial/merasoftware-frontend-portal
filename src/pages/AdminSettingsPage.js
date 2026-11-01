@@ -1,5 +1,6 @@
 import { useResource } from '../hooks/useResource';
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
 const endpoint = `${process.env.REACT_APP_BACKEND_URL}/api/admin/my-settings`;
@@ -23,6 +24,7 @@ export default function AdminSettingsPage() {
   return <><main className="mx-auto w-full max-w-3xl p-4 sm:p-8">
     <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
     <p className="mt-2 text-sm text-slate-600">Manage your profile and contact information.</p>
+    <Link to="/admin-panel/email-control" className="mt-4 inline-flex rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">Email Control</Link>
     {error && <p role="alert" className="my-4 rounded-lg bg-red-50 p-3 text-red-800">{error} {!data && <button onClick={() => { setError(''); load(); }} className="underline">Retry</button>}</p>}
     {!data ? !error && <p role="status" className="mt-6">Loading settings...</p> :
       <form onSubmit={save} className="mt-6 space-y-5 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">

@@ -290,6 +290,21 @@ async function logoutAndGuards(browser, origin) {
   }
 }
 
+async function sidebarOrder(browser, origin) {
+  const { context, page } = await open(browser, origin);
+  await page.goto(`${origin}/admin-panel/settings`);
+  await page.waitForSelector('aside');
+  await page.waitForTimeout(800);
+  const seen = await page.evaluate(() => ({
+    links: [...document.querySelectorAll('aside a')].map(node => node.getAttribute('href')),
+    emailButton: [...document.querySelectorAll('main a')].find(node => node.textContent.trim() === 'Email Control')?.getAttribute('href'),
+    headerEmail: [...document.querySelectorAll('header a')].some(node => node.textContent.includes('Email Control')),
+  }));
+  check('sidebar: Dashboard first, Settings last', seen.links[0] === '/admin-panel/dashboard' && seen.links.at(-1) === '/admin-panel/settings', seen.links);
+  check('Email Control only inside Settings', !seen.links.includes('/admin-panel/email-control') && !seen.headerEmail && seen.emailButton === '/admin-panel/email-control', seen);
+  await context.close();
+}
+
 async function keyboard(browser, origin) {
   const { context, page } = await open(browser, origin);
   // Trash, then Down to Money Management: a screen with no list of its own to take focus.
@@ -345,7 +360,7 @@ async function customer(browser, origin) {
   const origin = `http://127.0.0.1:${server.address().port}`;
   const browser = await chromium.launch({ headless: true });
   try {
-    for (const run of [sidebarNavigation, liveUpdateAfterNavigation, scrolling, leadPreview, slowFile, missingFile, everyRoute, logoutAndGuards, keyboard, phone, customer]) await run(browser, origin);
+    for (const run of [sidebarNavigation, liveUpdateAfterNavigation, scrolling, leadPreview, slowFile, missingFile, everyRoute, logoutAndGuards, sidebarOrder, keyboard, phone, customer]) await run(browser, origin);
   } finally {
     await browser.close();
     server.close();
