@@ -1306,11 +1306,11 @@ const AdminClientWorkspace = () => {
   // (AdminPaymentRecordDetail) are migrated to the param here rather than being special-cased
   // everywhere downstream.
   useEffect(() => {
-    if (activeTab === null && !dataLoading) {
+    if (activeTab === null) {
       setWorkspaceParams({ tab: location.state?.activeTab || tabs[0].id }, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataLoading, activeTab]);
+  }, [activeTab]);
 
   const cards = useMemo(() => {
     const activeOrders = projectOrders.filter(isActiveOrder);
