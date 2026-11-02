@@ -114,6 +114,7 @@ const AdminLeadDetailPage = () => {
       });
       const result = await response.json();
       if (!result.success) toast.error(result.message || "Behaviour could not be saved");
+      else if (["client-ineligible", "unavailable"].includes(result.finalMessage)) toast.info("Behaviour saved. The final message is unavailable; check the client account and message settings.");
       await fetchLead();
     } catch (error) {
       console.error("Error saving client behaviour:", error);
@@ -129,11 +130,12 @@ const AdminLeadDetailPage = () => {
 
   const finalMessage = lead?.finalMessage;
   // Only a Negative lead whose message hasn't gone: none yet, Don't Send, expired or failed, or a decision still open.
-  const canSendFinalMessage = actionsOpen && !isConverted && lead?.status === "Negative" && !lead?.requestedByUserId && (!finalMessage || ["not-sent", "review"].includes(finalMessage.status));
+  const canStartNewFinalMessage = isConverted && finalMessage?.subjectKind === "client" && (["dead", "stopped", "email-only"].includes(finalMessage.status) || (finalMessage.status === "replied" && finalMessage.decision));
+  const canSendFinalMessage = actionsOpen && (isConverted ? lead?.clientBehaviour === "Negative" : lead?.status === "Negative" && !lead?.requestedByUserId) && (!finalMessage || ["not-sent", "review"].includes(finalMessage.status) || (isConverted && finalMessage.subjectKind !== "client") || canStartNewFinalMessage);
   const finalMessageLine = !finalMessage ? "" : {
     review: "Final message: waiting for your decision.",
     queued: "Final message: waiting in the WhatsApp queue.",
-    waiting: `Final message sent. No reply yet; the lead goes Dead after ${finalMessage.deadlineAt ? new Date(finalMessage.deadlineAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) : "the wait"}.`,
+    waiting: `Final message sent. No reply yet; ${isConverted ? "client behaviour" : "the lead"} goes Dead after ${finalMessage.deadlineAt ? new Date(finalMessage.deadlineAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) : "the wait"}.`,
     replied: `Final message replied: ${finalMessage.lastReplyText || "Message"}.${finalMessage.decision ? "" : " This reply needs your decision in Communication → Final Message."}`,
     dead: "Final message: no reply in time.",
     "not-sent": "Final message: not sent.",
@@ -160,7 +162,7 @@ const AdminLeadDetailPage = () => {
   const sendFinalMessage = async () => {
     try {
       setFinalMessageBusy(true);
-      const response = await fetch(`${SummaryApi.updateLead.url}/${leadId}/final-message`, { method: "post", credentials: "include" });
+      const response = await fetch(`${SummaryApi.updateLead.url}/${leadId}/final-message${canStartNewFinalMessage ? "?new=1" : ""}`, { method: "post", credentials: "include" });
       const result = await response.json();
       if (!result.success) toast.error(result.message || "The final message could not be prepared");
       await fetchLead();
@@ -457,6 +459,8 @@ const AdminLeadDetailPage = () => {
                     <UserCheck size={16} />
                     View Client
                   </button> : <p className="text-xs text-slate-500">Linked client is unavailable.</p>}
+                  {finalMessageLine ? <p className="text-xs font-medium text-slate-700">{finalMessageLine}</p> : null}
+                  {canSendFinalMessage ? <button type="button" onClick={sendFinalMessage} disabled={finalMessageBusy} className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60">{canStartNewFinalMessage ? "Start new final message" : "Send final message"}</button> : null}
                 </div>
               ) : (
                 <div className="mt-3 space-y-2">

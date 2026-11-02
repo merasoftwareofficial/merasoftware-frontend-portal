@@ -63,6 +63,8 @@ const AdminLeadsPage = () => {
   const [deletingId, setDeletingId] = useState(null);
   const [leadToDelete, setLeadToDelete] = useState(null);
   const [finalMessageCount, setFinalMessageCount] = useState(0);
+  const [clientFinalMessageCount, setClientFinalMessageCount] = useState(0);
+  const [finalMessageScope, setFinalMessageScope] = useState("lead");
   const [finalMessageConfirm, setFinalMessageConfirm] = useState(false);
   const [finalMessageBusy, setFinalMessageBusy] = useState(false);
   const [referenceQuery, setReferenceQuery] = useState("");
@@ -81,14 +83,14 @@ const AdminLeadsPage = () => {
 
   const { refresh: fetchLeads, loading, refreshing: updating, error: refreshError, expired } = useLeadResource(SummaryApi.adminLeads.url, data => setLeads(data || []), { cache: LEAD_CACHE });
   useListReturn(!loading);
-  const { refresh: fetchFinalMessageCount, error: countError } = useLeadResource(SummaryApi.finalMessageCount.url, data => setFinalMessageCount(data.count), { cache: LEAD_CACHE });
+  const { refresh: fetchFinalMessageCount, error: countError } = useLeadResource(SummaryApi.finalMessageCount.url, data => { setFinalMessageCount(data.count); setClientFinalMessageCount(data.clientCount || 0); }, { cache: LEAD_CACHE });
   const liveStatus = useLeadUpdates(() => { void fetchLeads(); void fetchFinalMessageCount(); });
 
   // The popup opens once per lead, one after another: this request resolves when the last is decided.
   const prepareFinalMessages = async () => {
     try {
       setFinalMessageBusy(true);
-      const response = await fetch(SummaryApi.prepareFinalMessages.url, { method: SummaryApi.prepareFinalMessages.method, credentials: "include" });
+      const response = await fetch(`${SummaryApi.prepareFinalMessages.url}${finalMessageScope === "client" ? "?scope=client" : ""}`, { method: SummaryApi.prepareFinalMessages.method, credentials: "include" });
       const result = await response.json();
       setFinalMessageConfirm(false);
       if (!result.success) toast.error(result.message || "The final messages could not be prepared");
@@ -420,13 +422,15 @@ const AdminLeadsPage = () => {
               {finalMessageCount > 0 ? (
                 <button
                   type="button"
-                  onClick={() => setFinalMessageConfirm(true)}
+                  onClick={() => { setFinalMessageScope("lead"); setFinalMessageConfirm(true); }}
                   className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
                 >
                   <Send size={16} />
                   Final message ({finalMessageCount})
                 </button>
               ) : null}
+
+              {clientFinalMessageCount > 0 ? <button type="button" onClick={() => { setFinalMessageScope("client"); setFinalMessageConfirm(true); }} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15"><Send size={16} />Client final message ({clientFinalMessageCount})</button> : null}
 
               <button
                 type="button"
@@ -812,7 +816,7 @@ const AdminLeadsPage = () => {
           <div role="dialog" aria-labelledby="final-message-title" className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
             <h2 id="final-message-title" className="text-center text-lg font-bold text-slate-900">Send the final message?</h2>
             <p className="mt-2 text-center text-sm text-slate-600">
-              {finalMessageCount} Negative {finalMessageCount === 1 ? "lead is" : "leads are"} waiting for it. The message opens for each lead, one after another, and you choose Send or Don't Send every time.
+              {finalMessageScope === "client" ? clientFinalMessageCount : finalMessageCount} Negative {finalMessageScope === "client" ? "clients" : "leads"} are waiting for it. The message opens for each person, one after another, and you choose Send or Don't Send every time.
             </p>
             <div className="mt-6 flex justify-center gap-3">
               <button
