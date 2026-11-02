@@ -147,6 +147,7 @@ const shots = process.env.LEAD_TEST_SHOTS;
   const shot = name => (shots ? page.screenshot({ path: path.join(shots, `${name}.png`), fullPage: true }) : null);
   let failed = false;
   const step = async (name, run) => {
+    if (process.env.CLIENT_FINAL_ONLY === 'true' && !/Matured client opens the tracked/.test(name)) return;
     if (process.env.TIMESTAMPS_ONLY === 'true' && !/timestamp columns/.test(name)) return;
     if (process.env.MATURED_ONLY === 'true' && !/unconverted Won|converted lead keeps|client and lead links/.test(name)) return;
     try { await run(); console.log('PASS', name); }
@@ -376,8 +377,13 @@ const shots = process.env.LEAD_TEST_SHOTS;
       return (await response.json()).data;
     };
     assert.equal(String((await workspace()).customer.leadId), String(won._id));
+    assert.equal((await workspace()).customer.clientBehaviour, 'Contacted');
+    await leadModel.updateOne({ _id: won._id }, { $set: { clientBehaviour: 'Negative' } });
+    assert.equal((await workspace()).customer.clientBehaviour, 'Negative');
     await page.goto(`${origin}/?lead=${won._id}`);
     await page.getByRole('button', { name: 'View Client', exact: true }).click();
+    await page.getByText('Behaviour', { exact: true }).waitFor();
+    await page.getByText('Negative', { exact: true }).waitFor();
     await page.getByRole('button', { name: 'View Lead', exact: true }).click();
     await page.getByRole('button', { name: 'View Client', exact: true }).waitFor();
     await leadModel.updateOne({ _id: won._id }, { $set: { deletedAt: new Date() } });
@@ -390,6 +396,24 @@ const shots = process.env.LEAD_TEST_SHOTS;
   });
 
   assert.deepEqual(errors, [], 'no page errors');
+  await step('a Matured client opens the tracked final-message review from behaviour', async () => {
+    process.env.CLIENT_FINAL_MESSAGE_ENABLED = 'true';
+    try {
+      const client = await userModel.create({ name: 'Client final', email: 'client-final@example.test', phone: '9876500031', roles: ['customer'] });
+      const won = await leadModel.create({ name: 'Client final', phone: client.phone, status: 'Won', convertedToUserId: client._id });
+      await page.goto(`${origin}/?lead=${won._id}`);
+      await page.getByText('Client behaviour', { exact: true }).waitFor();
+      const card = page.locator('div.rounded-3xl').filter({ hasText: 'Client behaviour' }).first();
+      await card.locator('button[aria-haspopup="listbox"]').click();
+      await page.getByRole('option', { name: 'Negative', exact: true }).click();
+      const review = page.getByRole('dialog', { name: 'Review message' });
+      await review.waitFor();
+      await review.getByRole('button', { name: /Don.t Send/ }).click();
+      assert.equal((await fresh(won._id)).status, 'Won');
+      assert.equal((await fresh(won._id)).clientBehaviour, 'Negative');
+      assert.equal(await Queue.countDocuments({ to: '919876500031' }), 0);
+    } finally { delete process.env.CLIENT_FINAL_MESSAGE_ENABLED; }
+  });
   await step('marking Negative opens the final message; Don\'t Send can be sent later from the lead page', async () => {
     const lead = await leadModel.create({ name: 'Final Lead', phone: '9876500001', status: 'Contacted' });
     await open(lead);

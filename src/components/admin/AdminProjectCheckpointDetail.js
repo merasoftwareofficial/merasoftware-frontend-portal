@@ -64,6 +64,7 @@ const AdminProjectCheckpointDetail = ({
       Number.isFinite(enteredPercentage) &&
       enteredPercentage >= minimumNextPercentage &&
       enteredPercentage <= maximumNextPercentage;
+  const validRange = `${minimumNextPercentage.toFixed(1)}–${maximumNextPercentage.toFixed(1)}`;
   const canSubmitNode = Boolean(newNodeTitle.trim() && isNewPercentageValid) && !isSubmitting && !locked;
 
   if (updateMode) {
@@ -80,6 +81,7 @@ const AdminProjectCheckpointDetail = ({
           <input type="number" min={minimumNextPercentage} max={maximumNextPercentage} step="0.1"
             disabled={isStartingNodeEdit || isSubmitting || locked} value={isStartingNodeEdit ? "0" : newNodePercentage}
             onChange={event => setNewNodePercentage(event.target.value)}
+            placeholder={locked ? "..." : `Min ${minimumNextPercentage.toFixed(1)}`}
             className="mt-1 w-full rounded-lg border border-slate-300 p-2" />
         </label>
         <label className="text-sm font-medium">Node title
@@ -87,7 +89,11 @@ const AdminProjectCheckpointDetail = ({
             className="mt-1 w-full rounded-lg border border-slate-300 p-2" />
         </label>
       </div>
-      <p className="mt-2 text-xs text-slate-500">{locked ? "Loading current progress..." : isStartingNodeEdit ? "Starting node stays at 0%." : `Valid range: ${minimumNextPercentage.toFixed(1)}%–${maximumNextPercentage.toFixed(1)}%.`}</p>
+      {/* The minimum is the field's placeholder. Here only what a placeholder cannot say: an edit's
+          field is already filled, and a typed number can fall outside the range. */}
+      {isStartingNodeEdit ? <p className="mt-2 text-xs text-slate-500">Starting node stays at 0%.</p> : null}
+      {editingNode && !isStartingNodeEdit ? <p className="mt-2 text-xs text-slate-500">Allowed: {validRange}%</p> : null}
+      {!locked && !editingNode && newNodePercentage !== "" && !isNewPercentageValid ? <p role="alert" className="mt-2 text-xs text-rose-700">{enteredPercentage > maximumNextPercentage ? `Cannot be more than ${maximumNextPercentage.toFixed(1)}.` : `Enter at least ${minimumNextPercentage.toFixed(1)}.`}</p> : null}
       {!editingNode && <p className="mt-3 text-sm text-slate-600">Save this node, then review the customer message in the communication popup.</p>}
       <div className="mt-4 flex gap-3">
         {editingNode && <button type="button" disabled={isSubmitting} onClick={onCancelEdit} className="rounded-lg border px-4 py-2">Cancel Edit</button>}

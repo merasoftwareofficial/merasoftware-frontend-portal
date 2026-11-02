@@ -89,7 +89,7 @@ async function run(browser, origin) {
     }));
     check('opens with name and spinner within 100ms on a 2s API', ms < 100, ms);
     check('status and progress come from the list row at once', await has(page, 'In Progress') && await has(page, '40% complete') && await has(page, 'Development'), await text(page));
-    check('Add Node form shows but is closed', await disabled(page, 'Add Node') === true && await has(page, 'Loading current progress'), await text(page));
+    check('Add Node form shows but is closed', await disabled(page, 'Add Node') === true && await page.evaluate(() => document.querySelector('main input[type=number]').disabled), await text(page));
     check('More is closed until the full record', await disabled(page, 'More actions') === true, null);
     await waitText(page, 'Checkpoint 11');
     check('More opens after the full record', await disabled(page, 'More actions') === false, null);
@@ -152,8 +152,16 @@ async function run(browser, origin) {
     await clickText(page, 'Checkpoint 11');
     await waitText(page, 'Selected Node');
     await clickText(page, 'Add Node');
-    await waitText(page, 'Valid range');
+    await page.waitForSelector('main input[type=number]');
     check('Add Node returns from a node', !(await has(page, 'Selected Node')), null);
+    check('the placeholder gives the minimum, with no line below', await page.evaluate(() => document.querySelector('main input[type=number]').placeholder) === 'Min 40.1' && !(await has(page, 'Valid range')), null);
+    await page.fill('main input[type=number]', '10');
+    check('a number below the minimum says so', await has(page, 'Enter at least 40.1'), await text(page));
+    await page.fill('main input[type=number]', '101');
+    check('a number above 100 says so', await has(page, 'Cannot be more than 100.0'), await text(page));
+    await page.fill('main input[type=number]', '50');
+    check('a number inside the range says nothing', !(await has(page, 'Enter at least')) && !(await has(page, 'Cannot be more')), await text(page));
+    await page.fill('main input[type=number]', '');
     if (shots) await page.screenshot({ path: path.join(shots, 'project-main.png'), fullPage: true });
 
     await page.evaluate(() => document.querySelector('[aria-label="More actions"]').click());

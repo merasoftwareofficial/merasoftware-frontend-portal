@@ -47,6 +47,7 @@ import StorageService from "../utils/storageService";
 import AdminInfoPill from "../components/admin/AdminInfoPill";
 import AdminWorkspaceList from "../components/admin/AdminWorkspaceList";
 import AdminWorkspaceShell, { AdminWorkspaceHeader } from "../components/admin/AdminWorkspaceShell";
+import { leadStatusLabel } from "../helpers/leadStatuses";
 import AdminWorkspaceTabs from "../components/admin/AdminWorkspaceTabs";
 import AdminProjectCheckpointDetail from "../components/admin/AdminProjectCheckpointDetail";
 import PortfolioSourceSettings from "../components/admin/PortfolioSourceSettings";
@@ -1482,6 +1483,7 @@ const AdminClientWorkspace = () => {
           meta={
             <>
               <AdminInfoPill label="Status" value={dataLoading && !client ? "..." : clientStatus} variant="dark" />
+              {customer?.leadId && customer.clientBehaviour ? <AdminInfoPill label="Behaviour" value={leadStatusLabel(customer.clientBehaviour)} variant="dark" /> : null}
               {customer?.leadId ? (
                 <button type="button" onClick={() => navigate(`/admin-panel/leads/${customer.leadId}`)} className="rounded-xl border border-white/20 px-3 py-2 text-sm font-semibold text-white hover:bg-white/10">View Lead</button>
               ) : null}
