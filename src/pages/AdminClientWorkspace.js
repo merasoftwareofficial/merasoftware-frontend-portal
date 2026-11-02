@@ -3,7 +3,7 @@ import { useResource } from '../hooks/useResource';
 import { useListScroll } from '../hooks/useListScroll';
 import { buildInstallmentPreview } from '../helpers/projectInstallments';
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useBlocker, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -32,6 +32,11 @@ import {
   Download,
   Share2,
   Ban,
+  CreditCard,
+  Globe,
+  Info,
+  MoreHorizontal,
+  Plus,
 } from "lucide-react";
 import SummaryApi from "../common";
 import displayINRCurrency from "../helpers/displayCurrency";
@@ -281,6 +286,9 @@ const getNodeBadgeClass = (node) => {
   return "bg-slate-100 text-slate-700";
 };
 
+// What opens over an open project, by the URL's `view`. Anything else means the project itself.
+const PROJECT_VIEWS = ["website", "uploads", "payments"];
+
 const AdminClientWorkspace = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -296,6 +304,8 @@ const AdminClientWorkspace = () => {
   const activeTab = searchParams.get("tab") || null;
   const activeProjectId = searchParams.get("project") || null;
   const activePlanId = searchParams.get("plan") || null;
+  const requestedProjectView = searchParams.get("view");
+  const activeProjectView = activeProjectId && PROJECT_VIEWS.includes(requestedProjectView) ? requestedProjectView : null;
   const activePaymentGroupId = searchParams.get("group") || null;
 
   // Single writer for every param above. The four subpage layers reset each other, so this
@@ -309,6 +319,7 @@ const AdminClientWorkspace = () => {
     if (next.project) params.set("project", next.project);
     if (next.plan) params.set("plan", next.plan);
     if (next.group) params.set("group", next.group);
+    if (next.view) params.set("view", next.view);
     setSearchParams(params, { replace, state: location.state, preventScrollReset: !next.project && !next.plan && !next.group });
   };
 
@@ -534,6 +545,15 @@ const AdminClientWorkspace = () => {
   // URL, so nothing must be able to reach it again — not Alt+Right, not Alt+Left.
   const closeDeletedProject = () => {
     setWorkspaceParams({ tab: "projects" }, { replace: true });
+  };
+
+  const handleOpenProjectView = (view) => {
+    setWorkspaceParams({ tab: "projects", project: activeProjectId, view });
+  };
+
+  const handleCloseProjectView = () => {
+    if (canStepBackInHistory()) navigate(-1);
+    else setWorkspaceParams({ tab: "projects", project: activeProjectId }, { replace: true });
   };
 
   const handleSoftRefreshActiveProject = () => {
@@ -1080,7 +1100,9 @@ const AdminClientWorkspace = () => {
     }
   };
 
-  const openOrderId = activeProjectId || activePlanId;
+  // A project reads its uploads only when Uploaded Data opens: its button's count arrives with the
+  // project's own record.
+  const openOrderId = activePlanId || (activeProjectView === "uploads" ? activeProjectId : null);
   const { loading: submissionsLoading, error: submissionsError } = useResource(openOrderId ? `${SummaryApi.orderUploads.url}/${openOrderId}/uploads` : null, next => setSubmissions(next || []), { revision: uploadsRefreshKey });
   useEffect(() => { setSubmissions([]); }, [openOrderId]);
 
@@ -1404,7 +1426,19 @@ const AdminClientWorkspace = () => {
   // actually was — instead of navigate(-1), which pointed at whatever happened to be
   // previous in history. A direct URL or refresh has no return target and falls back to
   // the clients list. See helpers/adminReturnNavigation.js.
+  // A project opens at once: the row already read from the list fills the header until its full
+  // record arrives. A refresh of this URL has no row yet, so the header waits with the id alone.
+  const projectReady = isSameId(activeProject?._id, activeProjectId);
+  const projectItem = projectReady
+    ? activeProject
+    : projectOrders.find((order) => isSameId(order?._id, activeProjectId)) || { _id: activeProjectId };
+
   const handleBack = () => {
+    if (activeProjectView) {
+      handleCloseProjectView();
+      return;
+    }
+
     if (activeProjectId) {
       handleBackToProjects();
       return;
@@ -1514,9 +1548,12 @@ const AdminClientWorkspace = () => {
 
         {activeTab === "projects" && (
           <section className="space-y-5">
-            {activeProject ? (
+            {activeProjectId ? (
               <WorkspaceDetailSubpage
-                item={activeProject}
+                item={projectItem}
+                ready={projectReady}
+                workspaceLoading={dataLoading}
+                onRetry={() => projectResource.refresh(false)}
                 loading={activeProjectLoading}
                 error={activeProjectError}
                 onBack={handleBackToProjects}
@@ -1529,7 +1566,9 @@ const AdminClientWorkspace = () => {
                 formatDateTime={formatDateTime}
                 backLabel="Back to Projects"
                 detailLabel="Project"
-                summaryTitle="Project progress snapshot"
+                view={activeProjectView}
+                onOpenView={handleOpenProjectView}
+                onCloseView={handleCloseProjectView}
                 selectedCheckpointId={selectedProjectCheckpointId}
                 onSelectCheckpoint={setSelectedProjectCheckpointId}
                 onSoftRefresh={handleSoftRefreshActiveProject}
@@ -1541,7 +1580,10 @@ const AdminClientWorkspace = () => {
                 onSetUploadStatus={handleUploadStatus}
                 onRetryDelivery={handleRetryDelivery}
                 uploadStatusBusyId={uploadStatusBusyId}
-                onUploadsChanged={() => setUploadsRefreshKey((current) => current + 1)}
+                onUploadsChanged={() => {
+                  setUploadsRefreshKey((current) => current + 1);
+                  handleSoftRefreshActiveProject();
+                }}
               />
             ) : (
               <>
@@ -1607,7 +1649,6 @@ const AdminClientWorkspace = () => {
                 formatDateTime={formatDateTime}
                 backLabel="Back to Plans"
                 detailLabel="Plan"
-                summaryTitle="Plan activity snapshot"
                 onSoftRefresh={() => setActivePlanRefreshKey((current) => current + 1)}
                 allInvoices={allData.invoices}
                 allTransactions={allData.transactions}
@@ -4656,6 +4697,11 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
 
 const WorkspaceDetailSubpage = ({
   item,
+  // False until this record's own full read has arrived: what shows is the list row, so nothing
+  // that acts on the record opens. Payment facts also need the workspace read (workspaceLoading).
+  ready = true,
+  workspaceLoading = false,
+  onRetry,
   loading,
   error,
   onBack,
@@ -4668,7 +4714,9 @@ const WorkspaceDetailSubpage = ({
   formatDateTime,
   backLabel,
   detailLabel,
-  summaryTitle,
+  view = null,
+  onOpenView,
+  onCloseView,
   selectedCheckpointId,
   onSelectCheckpoint,
   onSoftRefresh,
@@ -4706,8 +4754,9 @@ const WorkspaceDetailSubpage = ({
         `uploaded-data-${attempt.id}.zip`,
       );
       toast.success("Download started");
-      // Downloading a pending plan upload marks it In progress on the server.
-      if (attempt.isPlanUpload && attempt.status === "pending") onUploadsChanged?.();
+      // Downloading a pending plan upload marks it In progress on the server, and the first
+      // admin download of any upload clears it from the Uploaded Data count.
+      if (attempt.isNew || (attempt.isPlanUpload && attempt.status === "pending")) onUploadsChanged?.();
     } catch (error) {
       toast.error(error.message || "Failed to download files");
     } finally {
@@ -4733,7 +4782,10 @@ const WorkspaceDetailSubpage = ({
   const [selectionAnchorKey, setSelectionAnchorKey] = useState(null);
   const [focusedNodeKey, setFocusedNodeKey] = useState(null);
   const nodeRowRefs = useRef({});
-  const [hideDeletedNodesForClient, setHideDeletedNodesForClient] = useState(false);
+  const [previewState, setPreviewState] = useState(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [popup, setPopup] = useState(null); // null | "portfolio" | "info"
+  const moreRef = useRef(null);
   const [resetPreviewOpen, setResetPreviewOpen] = useState(false);
   const [resetStartingTitle, setResetStartingTitle] = useState("");
   const [nodeActionNotice, setNodeActionNotice] = useState("");
@@ -4803,7 +4855,8 @@ const WorkspaceDetailSubpage = ({
     setSelectedNodeKeys([]);
     setSelectionAnchorKey(null);
     setFocusedNodeKey(null);
-    setHideDeletedNodesForClient(false);
+    setMoreOpen(false);
+    setPopup(null);
     setResetPreviewOpen(false);
     setResetStartingTitle("");
     setNodeActionNotice("");
@@ -4813,6 +4866,36 @@ const WorkspaceDetailSubpage = ({
     setApprovalNotes("");
     setApprovalRejectReason("");
   }, [item?._id]);
+
+  // The preview panel stays mounted across this project's own views, so only leaving the project
+  // would cancel a running upload.
+  const previewUploading = Boolean(previewState?.uploading);
+  const leaveBlocker = useBlocker(({ currentLocation, nextLocation }) => previewUploading && !(
+    nextLocation.pathname === currentLocation.pathname
+    && new URLSearchParams(nextLocation.search).get("project") === String(item?._id)
+  ));
+  useEffect(() => {
+    if (leaveBlocker.state !== "blocked") return;
+    if (window.confirm("A website upload is running. Leaving this project will cancel it. Leave anyway?")) leaveBlocker.proceed();
+    else leaveBlocker.reset();
+  }, [leaveBlocker]);
+  useEffect(() => {
+    if (!previewUploading) return undefined;
+    const warn = (event) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [previewUploading]);
+  useEffect(() => {
+    if (!moreOpen && !popup) return undefined;
+    const closeOnOutside = (event) => { if (!moreRef.current?.contains(event.target)) setMoreOpen(false); };
+    const closeOnEscape = (event) => { if (event.key === "Escape") { setMoreOpen(false); setPopup(null); } };
+    document.addEventListener("mousedown", closeOnOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [moreOpen, popup]);
 
   const getNodeSelectionRange = (selectionKey) => {
     const anchorIndex = displayedNodeKeys.indexOf(selectionAnchorKey);
@@ -5031,7 +5114,6 @@ const WorkspaceDetailSubpage = ({
   );
   const hasSelectedActiveNodes = selectedNodeStates.some((node) => node.status === "active");
   const hasSelectedInactiveNodes = selectedNodeStates.some((node) => node.status === "deleted");
-  const hasInactiveNodes = runNodes.some((node) => node.status === "deleted");
   const selectedNodesAreHiddenForClient = selectedNodeStates.length > 0 && selectedNodeStates.every(
     (node) => node.visibleToClient === false
   );
@@ -5059,25 +5141,83 @@ const WorkspaceDetailSubpage = ({
   // Submissions subpage takes over the whole detail area, the same way this detail
   // subpage takes over the client workspace tab. Rendered for both projects and plans —
   // one component, both tabs.
-  if (submissionsOpen) {
-    return (
-      <ClientSubmissionsPanel
-        submissions={submissions}
-        loading={submissionsLoading}
-        error={submissionsError}
-        onBack={() => setSubmissionsOpen(false)}
-        recordLabel={detailLabel}
-        onDownload={handleUploadDownload}
-        downloadingId={downloadingUploadId}
-        onSetStatus={onSetUploadStatus}
-        statusBusyId={uploadStatusBusyId}
-        onRetryDelivery={onRetryDelivery}
-      />
-    );
-  }
+  const submissionsPanel = (
+    <ClientSubmissionsPanel
+      submissions={submissions}
+      loading={submissionsLoading}
+      error={submissionsError}
+      onBack={isProjectDetail ? onCloseView : () => setSubmissionsOpen(false)}
+      recordLabel={detailLabel}
+      onDownload={handleUploadDownload}
+      downloadingId={downloadingUploadId}
+      onSetStatus={onSetUploadStatus}
+      statusBusyId={uploadStatusBusyId}
+      onRetryDelivery={onRetryDelivery}
+      newCount={isProjectDetail ? Number(item?.newUploadsCount || 0) : null}
+    />
+  );
 
-  return (
-    <div>
+  // Submissions subpage takes over the whole detail area, the same way this detail
+  // subpage takes over the client workspace tab.
+  if (!isProjectDetail && submissionsOpen) return submissionsPanel;
+
+  const paymentsCard = (
+            <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Payments</h3>
+                  <p className="mt-1 text-sm text-slate-500">This {detailLabel.toLowerCase()}'s own payment and invoice history.</p>
+                </div>
+              </div>
+
+              {orderLedgerItems.length === 0 ? (
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-5 text-center text-sm text-slate-500">
+                  No payment or invoice records for this {detailLabel.toLowerCase()} yet.
+                </div>
+              ) : (
+                <div className="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200">
+                  {orderLedgerItems.map((led) => {
+                    const isTxn = led.kind === "transaction";
+                    return (
+                      <div key={led.id} className="px-4 py-3">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold uppercase text-slate-500">
+                                {isTxn ? "Payment" : "Invoice"}
+                              </span>
+                              <span className="font-semibold text-slate-900">{led.title}</span>
+                              <span className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${getBadgeClassName(getLedgerStatusLabel(led.status))}`}>
+                                {getLedgerStatusLabel(led.status)}
+                              </span>
+                            </div>
+                            <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                              <span>{led.method}</span>
+                              <span>{formatDateTime(led.date)}</span>
+                            </div>
+                            {isTxn && led.raw?.rejectionReason ? (
+                              <div className="mt-2 rounded-xl border border-rose-100 bg-rose-50 px-3 py-1.5 text-xs text-rose-700">
+                                Reason: {led.raw.rejectionReason}
+                              </div>
+                            ) : null}
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-slate-500">Amount</p>
+                            <p className="text-base font-bold text-slate-900">{led.kind === "invoice" && isFreeInvoice(led.raw) ? "FREE" : formatCurrency(led.amount)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+  );
+
+  if (!isProjectDetail) {
+    return (
+      <div>
       <div className="mb-5 flex flex-wrap items-center gap-4 xl:flex-nowrap">
         <button
           type="button"
@@ -5090,14 +5230,14 @@ const WorkspaceDetailSubpage = ({
 
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-2xl font-bold text-slate-900">
-            {getWorkspaceItemName(item) || `${detailLabel} Details`}
+            {!ready && !item?.orderState ? "..." : getWorkspaceItemName(item) || `${detailLabel} Details`}
           </h2>
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-2 border-l border-slate-200 pl-4 text-xs text-slate-500 xl:flex-nowrap">
           <span className="whitespace-nowrap">
             <span className="mr-1 font-semibold uppercase tracking-wide text-slate-400">Starting Date</span>
-            <span className="font-semibold text-slate-700">{formatDateTime(item?.createdAt)}</span>
+            <span className="font-semibold text-slate-700">{item?.createdAt ? formatDateTime(item.createdAt) : "..."}</span>
           </span>
         </div>
 
@@ -5123,7 +5263,7 @@ const WorkspaceDetailSubpage = ({
           <button
             type="button"
             onClick={() => onCancel(item)}
-            disabled={cancellingOrderId === item?._id}
+            disabled={!ready || cancellingOrderId === item?._id}
             className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-70"
             aria-label={`Cancel ${detailLabel.toLowerCase()}`}
             title={`Cancel ${detailLabel.toLowerCase()}`}
@@ -5139,7 +5279,7 @@ const WorkspaceDetailSubpage = ({
         <button
           type="button"
           onClick={() => onDelete(item)}
-          disabled={deletingOrderId === item?._id}
+          disabled={!ready || deletingOrderId === item?._id}
           className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-70"
           aria-label={`Delete ${detailLabel.toLowerCase()}`}
           title={`Delete ${detailLabel.toLowerCase()}`}
@@ -5153,9 +5293,164 @@ const WorkspaceDetailSubpage = ({
       </div>
 
       <PortfolioSourceSettings key={item._id} item={item} onSaved={onSoftRefresh} />
-      {isProjectDetail && <WebsitePreviewPanel key={`preview-${item._id}`} projectId={item._id} admin />}
 
-      {isProjectDetail && item?.orderVisibility === "pending-approval" && hasPendingTransaction ? (
+      {loading ? (
+        <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+          Loading project details...
+        </div>
+      ) : error ? (
+        <div className="rounded-[1.5rem] border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+          {error}
+        </div>
+      ) : (
+        <div className="space-y-5">
+          <PlanOverviewPanel item={item} onChanged={onSoftRefresh} />
+          {paymentsCard}
+        </div>
+      )}
+      </div>
+    );
+  }
+
+  const projectActionClassName = "inline-flex h-10 shrink-0 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50";
+  const moreItemClassName = "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40";
+  const knownRow = ready || Boolean(item?.orderState);
+  const progress = Math.max(0, Math.min(100, Number(item?.projectProgress) || 0));
+  const newUploadsCount = ready ? Number(item?.newUploadsCount || 0) : 0;
+  const pendingPaymentsCount = workspaceLoading ? 0 : orderTransactions.filter((txn) => txn.status === "pending").length;
+  const websiteStatus = previewState?.failed ? "" : !previewState?.loaded ? ": ..." : previewState.visible ? ": Visible" : ": Hidden";
+  const closeMoreThen = (action) => { setMoreOpen(false); action(); };
+
+  const viewHeader = (title) => (
+    <div className="mb-5 flex flex-wrap items-center gap-4">
+      <button type="button" onClick={onCloseView} className={projectActionClassName}>
+        <ArrowLeft size={16} />
+        Back to Project
+      </button>
+      <h2 className="min-w-0 flex-1 truncate text-2xl font-bold text-slate-900">{title}</h2>
+    </div>
+  );
+
+  return (
+    <div>
+      {/* Stays mounted while it is hidden: a running upload must survive this project's own views. */}
+      <div hidden={view !== "website"}>
+        {viewHeader("Website Preview")}
+        <WebsitePreviewPanel key={`preview-${item._id}`} projectId={item._id} admin onState={setPreviewState} />
+      </div>
+
+      {view === "uploads" ? submissionsPanel : null}
+
+      {view === "payments" ? (
+        <div>
+          {viewHeader("Payments")}
+          {workspaceLoading ? <DataSpinner /> : paymentsCard}
+        </div>
+      ) : null}
+
+      {!view ? (
+        <div>
+          <div className="mb-5 rounded-[1.5rem] border border-slate-200 bg-white p-5">
+            <div className="flex flex-wrap items-center gap-3">
+              <button type="button" onClick={onBack} className="inline-flex shrink-0 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100">
+                <ArrowLeft size={16} />
+                {backLabel}
+              </button>
+              <h2 className="min-w-[12rem] flex-1 truncate text-2xl font-bold text-slate-900">
+                {knownRow ? getWorkspaceItemName(item) || "Project Details" : "..."}
+              </h2>
+              <span className={`inline-flex shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${getBadgeClassName(itemStatus)}`}>
+                {knownRow ? itemStatus : "..."}
+              </span>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+              <div className="min-w-[14rem] flex-1">
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="font-semibold text-slate-900">{knownRow ? `${progress}% complete` : "..."}</span>
+                  <span className="text-slate-500">{knownRow ? getProjectPhaseLabel(item) : "..."}</span>
+                </div>
+                <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full bg-emerald-500" style={{ width: `${progress}%` }} />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" onClick={() => onOpenView("website")} className={projectActionClassName}>
+                  <Globe size={16} />
+                  Website{websiteStatus}
+                </button>
+                <button type="button" onClick={() => onOpenView("uploads")} className={projectActionClassName} title="View and download the data this client uploaded">
+                  <Inbox size={16} />
+                  Uploaded Data
+                  {newUploadsCount > 0 ? (
+                    <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-white" aria-label={`${newUploadsCount} not downloaded yet`}>
+                      {newUploadsCount}
+                    </span>
+                  ) : null}
+                </button>
+                <button type="button" onClick={() => onOpenView("payments")} className={projectActionClassName}>
+                  <CreditCard size={16} />
+                  Payments
+                  {pendingPaymentsCount > 0 ? (
+                    <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-white" aria-label={`${pendingPaymentsCount} waiting for approval`}>
+                      {pendingPaymentsCount}
+                    </span>
+                  ) : null}
+                </button>
+
+                <div className="relative" ref={moreRef}>
+                  <button
+                    type="button"
+                    onClick={() => setMoreOpen((current) => !current)}
+                    disabled={!ready}
+                    className={projectActionClassName}
+                    aria-label="More actions"
+                    aria-expanded={moreOpen}
+                    title="More actions"
+                  >
+                    <MoreHorizontal size={18} />
+                  </button>
+                  {moreOpen ? (
+                    <div role="menu" className="absolute right-0 z-30 mt-2 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+                      <button type="button" role="menuitem" onClick={() => closeMoreThen(() => setPopup("info"))} className={`${moreItemClassName} text-slate-700 hover:bg-slate-100`}>
+                        <Info size={16} />
+                        Project Info
+                      </button>
+                      <button type="button" role="menuitem" onClick={() => closeMoreThen(() => setPopup("portfolio"))} className={`${moreItemClassName} text-slate-700 hover:bg-slate-100`}>
+                        <Globe size={16} />
+                        Portfolio Website
+                      </button>
+                      <div className="my-1 border-t border-slate-100" />
+                      <button
+                        type="button"
+                        role="menuitem"
+                        disabled={runNodes.length === 0 || isNodeActionSubmitting}
+                        onClick={() => closeMoreThen(() => setResetPreviewOpen(true))}
+                        title="Archive current nodes and restart active progress at 0%"
+                        className={`${moreItemClassName} text-rose-700 hover:bg-rose-50`}
+                      >
+                        <RotateCcw size={16} />
+                        Reset History
+                      </button>
+                      {onCancel && item?.orderVisibility !== "cancelled" ? (
+                        <button type="button" role="menuitem" disabled={cancellingOrderId === item?._id} onClick={() => closeMoreThen(() => onCancel(item))} className={`${moreItemClassName} text-amber-700 hover:bg-amber-50`}>
+                          <Ban size={16} />
+                          Cancel Project
+                        </button>
+                      ) : null}
+                      <button type="button" role="menuitem" disabled={deletingOrderId === item?._id} onClick={() => closeMoreThen(() => onDelete(item))} className={`${moreItemClassName} text-rose-700 hover:bg-rose-50`}>
+                        <Trash2 size={16} />
+                        Delete Project
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+
+      {isProjectDetail && ready && !workspaceLoading && item?.orderVisibility === "pending-approval" && hasPendingTransaction ? (
         <div className="mb-5 rounded-[1.5rem] border border-sky-200 bg-sky-50 p-5">
           <div className="flex items-start gap-3">
             <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700">
@@ -5171,7 +5466,7 @@ const WorkspaceDetailSubpage = ({
         </div>
       ) : null}
 
-      {isProjectDetail && isPendingApproval ? (
+      {isProjectDetail && ready && !workspaceLoading && isPendingApproval ? (
         <div className="mb-5 rounded-[1.5rem] border border-amber-200 bg-amber-50 p-5">
           <div className="flex items-start gap-3">
             <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700">
@@ -5269,73 +5564,19 @@ const WorkspaceDetailSubpage = ({
         </div>
       ) : null}
 
-      {loading ? (
-        <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-          Loading project details...
-        </div>
-      ) : error ? (
-        <div className="rounded-[1.5rem] border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-          {error}
-        </div>
-      ) : (
-        <div className="space-y-5">
-          {!isProjectDetail ? <PlanOverviewPanel item={item} onChanged={onSoftRefresh} /> : null}
+          {ready && error ? (
+            <p role="alert" className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">Could not refresh: {error}. Showing the last data.</p>
+          ) : null}
 
-          {/* One ledger for projects and plans: the client's invoices (monthly bills included) and
-              payments filtered to this order. */}
-            <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900">Payments</h3>
-                  <p className="mt-1 text-sm text-slate-500">This {detailLabel.toLowerCase()}'s own payment and invoice history.</p>
-                </div>
-              </div>
-
-              {orderLedgerItems.length === 0 ? (
-                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-5 text-center text-sm text-slate-500">
-                  No payment or invoice records for this {detailLabel.toLowerCase()} yet.
-                </div>
-              ) : (
-                <div className="mt-4 divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200">
-                  {orderLedgerItems.map((led) => {
-                    const isTxn = led.kind === "transaction";
-                    return (
-                      <div key={led.id} className="px-4 py-3">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold uppercase text-slate-500">
-                                {isTxn ? "Payment" : "Invoice"}
-                              </span>
-                              <span className="font-semibold text-slate-900">{led.title}</span>
-                              <span className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${getBadgeClassName(getLedgerStatusLabel(led.status))}`}>
-                                {getLedgerStatusLabel(led.status)}
-                              </span>
-                            </div>
-                            <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                              <span>{led.method}</span>
-                              <span>{formatDateTime(led.date)}</span>
-                            </div>
-                            {isTxn && led.raw?.rejectionReason ? (
-                              <div className="mt-2 rounded-xl border border-rose-100 bg-rose-50 px-3 py-1.5 text-xs text-rose-700">
-                                Reason: {led.raw.rejectionReason}
-                              </div>
-                            ) : null}
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs text-slate-500">Amount</p>
-                            <p className="text-base font-bold text-slate-900">{led.kind === "invoice" && isFreeInvoice(led.raw) ? "FREE" : formatCurrency(led.amount)}</p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+          {!ready && error && !loading ? (
+            <div role="alert" className="rounded-[1.5rem] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+              <p className="font-semibold">Could not open this project.</p>
+              <p className="mt-1">{error}</p>
+              <button type="button" onClick={onRetry} className="mt-3 rounded-xl border border-rose-300 bg-white px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100">
+                Try again
+              </button>
             </div>
-
-          {isProjectDetail ? (
-            <div className="space-y-5">
+          ) : (
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.15fr_0.85fr]">
                 <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
                   <div className="flex items-center justify-between gap-3">
@@ -5345,23 +5586,26 @@ const WorkspaceDetailSubpage = ({
                     </div>
                     <div className="flex flex-wrap items-center justify-end gap-2">
                       <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-500">
-                        {runNodes.length} nodes
+                        {ready ? runNodes.length : "..."} nodes
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => setResetPreviewOpen((current) => !current)}
-                        disabled={runNodes.length === 0 || isNodeActionSubmitting}
-                        className="inline-flex h-10 items-center justify-center gap-1.5 rounded-full border border-rose-300 bg-rose-100 px-3 text-xs font-semibold text-rose-800 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-40"
-                        aria-label="Reset history"
-                        title={resetPreviewOpen ? "Close reset history" : "Reset history: archive current nodes and restart active progress at 0%"}
-                      >
-                        <RotateCcw size={19} />
-                        <span>Reset history</span>
-                      </button>
+                      {!updateMode ? (
+                        <button
+                          type="button"
+                          onClick={() => { setUpdateMode(true); setEditingNodeKey(null); }}
+                          className="inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-emerald-600 px-3 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                        >
+                          <Plus size={16} />
+                          {allNodesCompleted ? "Review update message" : "Add Node"}
+                        </button>
+                      ) : null}
                     </div>
                   </div>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2">
+                  <div className="mt-3 flex min-h-[3.75rem] flex-wrap items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2">
+                    {selectedNodeKeys.length === 0 ? (
+                      <span className="text-xs text-slate-500">Tick a node to edit, delete, restore or hide it.</span>
+                    ) : (
+                    <>
                     <span className="mr-1 text-xs font-semibold text-slate-600">{selectedNodeKeys.length} selected</span>
                     <button
                       type="button"
@@ -5403,19 +5647,11 @@ const WorkspaceDetailSubpage = ({
                     >
                       {selectedNodesAreHiddenForClient ? <Eye size={19} /> : <EyeOff size={19} />}
                     </button>
-                    <label className="ml-auto inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={hideDeletedNodesForClient}
-                        onChange={(event) => setHideDeletedNodesForClient(event.target.checked)}
-                        disabled={!hasInactiveNodes}
-                        className="h-4 w-4 rounded border-slate-300"
-                      />
-                      Always hide deleted nodes from client
-                    </label>
+                    </>
+                    )}
                   </div>
 
-                  {messageRetryNodeId && <button type="button" disabled={isNodeActionSubmitting} onClick={() => retryNodeMessage()} className="rounded-lg border border-blue-300 px-3 py-2 text-sm text-blue-700">Retry customer message</button>}
+                  {messageRetryNodeId && <button type="button" disabled={isNodeActionSubmitting} onClick={() => retryNodeMessage()} className="mt-3 rounded-lg border border-emerald-300 px-3 py-2 text-sm text-emerald-700 transition hover:bg-emerald-50">Retry customer message</button>}
                   {nodeActionNotice ? (
                     <p className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
                       {nodeActionNotice}
@@ -5449,47 +5685,18 @@ const WorkspaceDetailSubpage = ({
                   ) : null}
 
                   <div className="mt-4 max-h-[25rem] space-y-2 overflow-y-auto pr-1">
-                    {runNodes.length === 0 ? (
+                    {!ready ? (
+                      <DataSpinner />
+                    ) : runNodes.length === 0 ? (
                       <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
                         No node history available for this project.
                       </div>
                     ) : (
                       <>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setUpdateMode(true);
-                            setEditingNodeKey(null);
-                          }}
-                          className={[
-                            "flex w-full items-start gap-4 rounded-2xl border px-4 py-3 text-left transition",
-                            updateMode
-                              ? "border-slate-500 bg-slate-200 shadow-sm"
-                              : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
-                          ].join(" ")}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="truncate font-semibold text-slate-900">
-                                {allNodesCompleted ? "Review update message" : "Add Node"}
-                              </p>
-                              <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-                                Action
-                              </span>
-                            </div>
-                            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                              <span>{allNodesCompleted ? "Project update" : "Add a new progress node"}</span>
-                              <span>Click to open</span>
-                            </div>
-                          </div>
-                        </button>
-
                         {displayedNodes.map((node) => {
                         const selectionKey = getNodeSelectionKey(node);
                         const isSelected = selectionKey === selectedCheckpointId;
-                        const isInactive = node.status === "deleted";
-                        const isVisibleToClient = node.visibleToClient !== false;
-                        const isHiddenFromClient = !isVisibleToClient || (isInactive && hideDeletedNodesForClient);
+                        const isHiddenFromClient = node.visibleToClient === false;
                         const isFocusedForSelection = focusedNodeKey === selectionKey;
 
                         return (
@@ -5578,65 +5785,39 @@ const WorkspaceDetailSubpage = ({
                   onPrepareMessage={retryNodeMessage}
                   latestNodeId={activeNodes.find(node => Number(node.cumulativeProgress) === Number(currentProjectProgress))?.nodeId}
                   isSubmitting={isNodeActionSubmitting}
+                  locked={!ready}
                   editingNode={editingNodeForDetail}
                   editBounds={editBounds}
                   onSaveCorrection={handleSaveCorrection}
                   onCancelEdit={handleCancelEditNode}
                 />
               </div>
+          )}
+        </div>
+      ) : null}
 
+      {popup ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setPopup(null); }}>
+          <div role="dialog" aria-modal="true" aria-label={popup === "info" ? "Project Info" : "Portfolio Website"} className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[1.5rem] bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-lg font-bold text-slate-900">{popup === "info" ? "Project Info" : "Portfolio Website & Screenshots"}</h3>
+              <button type="button" onClick={() => setPopup(null)} aria-label="Close" className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700">
+                <X size={16} />
+              </button>
             </div>
-          ) : null}
-
-          {/* Project progress; a plan shows PlanOverviewPanel above instead. */}
-          {isProjectDetail ? (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5 lg:col-span-2">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium text-slate-500">Timeline</p>
-                  <h3 className="mt-1 text-lg font-semibold text-slate-900">{summaryTitle}</h3>
-                </div>
-                <span
-                  className={[
-                    "inline-flex rounded-full px-3 py-1 text-xs font-semibold",
-                    getBadgeClassName(itemStatus),
-                  ].join(" ")}
-                >
-                  {itemStatus}
-                </span>
-              </div>
-
-              <div className="mt-4 rounded-[1.25rem] border border-slate-200 bg-white p-4">
-                <p className="text-sm text-slate-500">
-                  Last updated: {formatDateTime(item?.updatedAt || item?.createdAt)}
-                </p>
-                <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className="h-full rounded-full bg-emerald-500"
-                    style={{ width: `${Math.max(0, Math.min(100, item?.projectProgress || 0))}%` }}
-                  />
-                </div>
-                <p className="mt-2 text-sm font-semibold text-slate-900">
-                  {item?.projectProgress || 0}% complete
-                </p>
-              </div>
-            </div>
-
-            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
-              <p className="text-sm font-medium text-slate-500">{detailLabel} Info</p>
+            {popup === "info" ? (
               <div className="mt-4 space-y-4 text-sm text-slate-700">
                 <InfoLine label="Category" value={getCategoryLabel(item)} />
                 <InfoLine label="Current Phase" value={getProjectPhaseLabel(item)} />
-                <InfoLine label="Created" value={formatDateTime(item?.createdAt)} />
-                <InfoLine label="Updated" value={formatDateTime(item?.updatedAt || item?.createdAt)} />
+                <InfoLine label="Started" value={formatDateTime(item?.createdAt)} />
+                <InfoLine label="Last updated" value={formatDateTime(item?.updatedAt || item?.createdAt)} />
               </div>
-            </div>
+            ) : (
+              <PortfolioSourceSettings key={item._id} item={item} onSaved={onSoftRefresh} inline />
+            )}
           </div>
-          ) : null}
-
         </div>
-      )}
+      ) : null}
     </div>
   );
 };

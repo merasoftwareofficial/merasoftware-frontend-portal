@@ -39,6 +39,8 @@ const UploadedDataList = ({
   showStatusHistory = false,
   onSetStatus,
   statusBusyId = '',
+  // Admin project page: a "New" tag, and no status on a project's own uploads, which keep none.
+  showNew = false,
   onRetryDelivery,
 }) => {
   const isGlass = theme === 'glass';
@@ -80,9 +82,14 @@ const UploadedDataList = ({
                   hour: '2-digit', minute: '2-digit',
                 }) : ''}
               </span>
-              <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${meta.tone}`}>
-                {meta.label}
-              </span>
+              {showNew && attempt.isNew ? (
+                <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-white">New</span>
+              ) : null}
+              {!showNew || attempt.isPlanUpload ? (
+                <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${meta.tone}`}>
+                  {meta.label}
+                </span>
+              ) : null}
             </div>
 
             {notes.length > 0 ? (

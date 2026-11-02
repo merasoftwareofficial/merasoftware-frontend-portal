@@ -29,6 +29,8 @@ const ClientSubmissionsPanel = ({
   onSetStatus,
   statusBusyId = "",
   onRetryDelivery,
+  // A project page: uploads not downloaded yet, in place of the status count it does not keep.
+  newCount = null,
 }) => {
   const pendingCount = (submissions || []).filter((item) => item?.status === "pending").length;
 
@@ -49,7 +51,13 @@ const ClientSubmissionsPanel = ({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          {pendingCount > 0 ? (
+          {newCount !== null ? (
+            newCount > 0 ? (
+              <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                {newCount} new
+              </span>
+            ) : null
+          ) : pendingCount > 0 ? (
             <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
               {pendingCount} pending
             </span>
@@ -83,6 +91,7 @@ const ClientSubmissionsPanel = ({
             onSetStatus={onSetStatus}
             statusBusyId={statusBusyId}
             onRetryDelivery={onRetryDelivery}
+            showNew={newCount !== null}
           />
         </div>
       </div>

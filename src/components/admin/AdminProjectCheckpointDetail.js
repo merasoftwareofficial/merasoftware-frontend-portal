@@ -25,6 +25,8 @@ const AdminProjectCheckpointDetail = ({
   onPrepareMessage,
   latestNodeId,
   isSubmitting = false,
+  // The record is still loading: the form shows, closed, because the valid range needs current data.
+  locked = false,
   editingNode = null,
   editBounds = null,
   onSaveCorrection,
@@ -62,34 +64,34 @@ const AdminProjectCheckpointDetail = ({
       Number.isFinite(enteredPercentage) &&
       enteredPercentage >= minimumNextPercentage &&
       enteredPercentage <= maximumNextPercentage;
-  const canSubmitNode = Boolean(newNodeTitle.trim() && isNewPercentageValid) && !isSubmitting;
+  const canSubmitNode = Boolean(newNodeTitle.trim() && isNewPercentageValid) && !isSubmitting && !locked;
 
   if (updateMode) {
-    if (!editingNode && Number(currentProjectProgress) >= 100) return <div className="rounded-2xl border border-slate-300 bg-white p-4">
+    if (!locked && !editingNode && Number(currentProjectProgress) >= 100) return <div className="rounded-2xl border border-slate-300 bg-white p-4">
       <h3 className="text-lg font-semibold">Project complete — 100%</h3>
       <p className="mt-2 text-sm text-slate-600">Review the saved completion update in Communication.</p>
-      <button type="button" disabled={isSubmitting || !latestNodeId} onClick={() => onPrepareMessage?.(latestNodeId)} className="mt-4 rounded-lg bg-blue-700 px-4 py-2 text-white disabled:opacity-50">Review customer message</button>
+      <button type="button" disabled={isSubmitting || !latestNodeId} onClick={() => onPrepareMessage?.(latestNodeId)} className="mt-4 rounded-lg bg-emerald-600 px-4 py-2 text-white transition hover:bg-emerald-700 disabled:opacity-50">Review customer message</button>
     </div>;
     return <div className="rounded-2xl border border-slate-300 bg-white p-4">
       <h3 className="text-lg font-semibold">{editingNode ? "Edit Node" : updateModeLabel}</h3>
-      <p className="mt-2 text-sm text-slate-600">Current progress: {Number(currentProjectProgress || 0)}%</p>
+      <p className="mt-2 text-sm text-slate-600">Current progress: {locked ? "..." : `${Number(currentProjectProgress || 0)}%`}</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-[9rem_1fr]">
         <label className="text-sm font-medium">New progress %
           <input type="number" min={minimumNextPercentage} max={maximumNextPercentage} step="0.1"
-            disabled={isStartingNodeEdit || isSubmitting} value={isStartingNodeEdit ? "0" : newNodePercentage}
+            disabled={isStartingNodeEdit || isSubmitting || locked} value={isStartingNodeEdit ? "0" : newNodePercentage}
             onChange={event => setNewNodePercentage(event.target.value)}
             className="mt-1 w-full rounded-lg border border-slate-300 p-2" />
         </label>
         <label className="text-sm font-medium">Node title
-          <input value={newNodeTitle} disabled={isSubmitting} onChange={event => setNewNodeTitle(event.target.value)}
+          <input value={newNodeTitle} disabled={isSubmitting || locked} onChange={event => setNewNodeTitle(event.target.value)}
             className="mt-1 w-full rounded-lg border border-slate-300 p-2" />
         </label>
       </div>
-      <p className="mt-2 text-xs text-slate-500">{isStartingNodeEdit ? "Starting node stays at 0%." : `Valid range: ${minimumNextPercentage.toFixed(1)}%–${maximumNextPercentage.toFixed(1)}%.`}</p>
+      <p className="mt-2 text-xs text-slate-500">{locked ? "Loading current progress..." : isStartingNodeEdit ? "Starting node stays at 0%." : `Valid range: ${minimumNextPercentage.toFixed(1)}%–${maximumNextPercentage.toFixed(1)}%.`}</p>
       {!editingNode && <p className="mt-3 text-sm text-slate-600">Save this node, then review the customer message in the communication popup.</p>}
       <div className="mt-4 flex gap-3">
         {editingNode && <button type="button" disabled={isSubmitting} onClick={onCancelEdit} className="rounded-lg border px-4 py-2">Cancel Edit</button>}
-        <button type="button" disabled={!canSubmitNode} className="rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white disabled:opacity-50"
+        <button type="button" disabled={!canSubmitNode} className="rounded-lg bg-emerald-600 px-4 py-2 font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
           onClick={async () => {
             if (editingNode) await onSaveCorrection?.(editingNode, newNodeTitle.trim(), enteredPercentage, "");
             else if (await onAddNode?.(newNodeTitle.trim(), enteredPercentage, "")) { setNewNodeTitle(""); setNewNodePercentage(""); }
@@ -123,7 +125,7 @@ const AdminProjectCheckpointDetail = ({
       </div>
 
       {node.status === "active" && node.visibleToClient !== false && Number(node.cumulativeProgress) > 0 && !node.editedAt &&
-        <button type="button" disabled={isSubmitting} onClick={() => onPrepareMessage?.(node.nodeId)} className="mt-4 rounded-lg border border-blue-300 px-3 py-2 text-sm font-medium text-blue-700">Review customer message</button>}
+        <button type="button" disabled={isSubmitting} onClick={() => onPrepareMessage?.(node.nodeId)} className="mt-4 rounded-lg border border-emerald-300 px-3 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50">Review customer message</button>}
       <div className="mt-4 grid grid-cols-2 gap-3">
         <AdminInfoPill label="Cumulative Progress" value={`${node.cumulativeProgress || 0}%`} />
         <AdminInfoPill label="Visible To Client" value={node.visibleToClient === false ? "No" : "Yes"} />

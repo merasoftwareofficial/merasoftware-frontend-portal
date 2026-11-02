@@ -3,13 +3,15 @@ import { put } from '@vercel/blob/client';
 import { previewRequest, previewServiceRequest } from '../helpers/websitePreviewApi';
 import WebsitePreviewViewer from './WebsitePreviewViewer';
 
-export default function WebsitePreviewPanel({ projectId, admin = false }) {
+export default function WebsitePreviewPanel({ projectId, admin = false, onState }) {
   const [data, setData] = useState(null), [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [host, setHost] = useState(''), [busy, setBusy] = useState(false), [progress, setProgress] = useState(''), [open, setOpen] = useState(false);
   const worker = useRef(null), abort = useRef(null), alive = useRef(true), fileInput = useRef(null);
   const load = useCallback(async () => { const value = await previewRequest(projectId); if (alive.current) { setData(value); setHost(value.host || ''); } }, [projectId]);
   useEffect(() => { alive.current = true; setData(null); setOpen(false); load().catch(e => { if (alive.current) setError(e.message); });
     return () => { alive.current = false; worker.current?.terminate(); abort.current?.abort(); }; }, [load]);
+  // The parent's button shows this status, and the parent warns before leaving during an upload.
+  useEffect(() => { onState?.({ loaded: Boolean(data), failed: Boolean(error && !data), visible: Boolean(data?.visible), uploading: busy && Boolean(progress) }); }, [onState, data, error, busy, progress]);
   async function mutate(body) { setBusy(true); setError(''); try { await previewRequest(projectId, '', { method: 'PATCH', body: JSON.stringify(body) }); await load(); } catch (e) { setError(e.message); } finally { if (alive.current) setBusy(false); } }
   async function upload(file) {
     if (!file || !data) return;
