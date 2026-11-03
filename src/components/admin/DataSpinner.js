@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react";
 // Inline, it stands where a list's rows will be. `floating`, it sits over a whole screen whose
 // sections are already showing, and never blocks them: clicks pass through and nothing moves.
 const DataSpinner = ({ floating = false }) => (floating ? (
-  <div role="status" data-spinner="1" className="pointer-events-none fixed left-1/2 top-1/2 z-40 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 rounded-2xl bg-white px-6 py-4 text-sm text-slate-500 shadow-xl ring-1 ring-slate-200 lg:left-[calc(50%+9rem)]">
+  <div role="status" data-spinner="1" className="pointer-events-none fixed left-1/2 top-1/2 z-40 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-sm font-semibold text-slate-500 lg:left-[calc(50%+9rem)]">
     <Loader2 size={32} className="animate-spin text-emerald-600" />
     Loading...
   </div>
