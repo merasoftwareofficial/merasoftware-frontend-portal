@@ -31,7 +31,9 @@ const LeadProposals = ({ lead, loading = false, readOnly, actionsOpen = true, on
   };
 
   const sendWhatsapp = async (version, preview) => {
-    const decision = await reviewEmail(preview, "The proposal is saved. Choose whether to send this WhatsApp message.");
+    // A name guessed from WhatsApp is left out of the message (helpers/leadProposalMessage.js).
+    const nameNote = lead?.nameFromWhatsapp ? " The name came from WhatsApp and is not confirmed, so the message goes without a name." : "";
+    const decision = await reviewEmail(preview, `The proposal is saved. Choose whether to send this WhatsApp message.${nameNote}`);
     if (decision.choice !== "send") return;
     const response = await fetch(`${url}/${version}/whatsapp`, {
       method: SummaryApi.uploadProposal.method,

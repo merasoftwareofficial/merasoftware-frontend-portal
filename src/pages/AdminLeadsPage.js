@@ -18,6 +18,9 @@ import leadSourceOptions from "../helpers/leadSourceOptions";
 import { DEFAULT_SORT, nextSort, parseSort, sortRows, timeValue } from "../helpers/adminListSort";
 import { CLIENT_BEHAVIOUR_OPTIONS, DEFAULT_CLIENT_BEHAVIOUR, DEFAULT_LEAD_STATUS, LEAD_STATUSES, PROPOSAL_SENT, leadStatusLabel, leadStatusStyle } from "../helpers/leadStatuses";
 import ProposalSentBadge from "../components/admin/ProposalSentBadge";
+import isAccountEmail from "../helpers/accountEmail";
+import { matchesSearch } from "../helpers/searchText";
+import { whatsappChatHref } from "../helpers/whatsappChat";
 
 const getLeadLastUpdated = (lead) => lead?.updatedAt || lead?.createdAt || null;
 
@@ -31,7 +34,7 @@ const sortColumns = [
   { key: "lastUpdated", first: "Desc", value: (lead) => timeValue(getLeadLastUpdated(lead)) },
 ];
 
-const emptyForm = { name: "", phone: "", email: "", source: "", notes: "", referredByUserId: "" };
+const emptyForm = { name: "", businessName: "", phone: "", altPhone: "", email: "", source: "", notes: "", referredByUserId: "" };
 
 const AdminLeadsPage = () => {
   const navigate = useNavigate();
@@ -74,7 +77,9 @@ const AdminLeadsPage = () => {
   const [referenceHighlightIndex, setReferenceHighlightIndex] = useState(-1);
 
   const nameFieldRef = useRef(null);
+  const businessFieldRef = useRef(null);
   const phoneFieldRef = useRef(null);
+  const altPhoneFieldRef = useRef(null);
   const emailFieldRef = useRef(null);
   const sourceFieldRef = useRef(null);
   const referenceFieldRef = useRef(null);
@@ -267,6 +272,10 @@ const AdminLeadsPage = () => {
       toast.error("Please provide a phone number");
       return;
     }
+    if (form.email.trim() && !isAccountEmail(form.email.trim())) {
+      toast.error("Please provide a valid email address");
+      return;
+    }
 
     try {
       setSaving(true);
@@ -375,13 +384,10 @@ const AdminLeadsPage = () => {
     }
 
     if (query) {
-      result = result.filter((lead) => {
-        return (
-          lead.name?.toLowerCase().includes(query) ||
-          lead.email?.toLowerCase().includes(query) ||
-          lead.phone?.toLowerCase().includes(query)
-        );
-      });
+      result = result.filter((lead) => matchesSearch(query, {
+        texts: [lead.name, lead.businessName, lead.email],
+        phones: [lead.phone, lead.altPhone],
+      }));
     }
 
     return sortRows(result, sort, sortColumns);
@@ -451,7 +457,7 @@ const AdminLeadsPage = () => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search leads by name, email, or phone"
+              placeholder="Search leads by name, business, email, or phone"
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
             />
           </div>
@@ -579,7 +585,8 @@ const AdminLeadsPage = () => {
                 ].join(" ")}
               >
                 <div className="col-span-12 lg:col-span-2">
-                  <p className="truncate text-base font-bold text-slate-950">{index + 1}. {lead.name || lead.phone || "N/A"}</p>
+                  <p className="truncate text-base font-bold text-slate-950">{index + 1}. {lead.name || lead.businessName || lead.phone || "N/A"}</p>
+                  {lead.name && lead.businessName ? <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">{lead.businessName}</p> : null}
                 </div>
                 <div className="col-span-6 lg:col-span-2 lg:flex lg:items-center">
                   <div className="min-w-0">
@@ -661,18 +668,33 @@ const AdminLeadsPage = () => {
             </div>
 
             <form onSubmit={handleCreateLead} className="space-y-4 px-6 py-5">
-              <div>
-                <label className="mb-1 block text-sm font-semibold text-slate-700">Name<span className="text-red-500"> *</span></label>
-                <input
-                  ref={nameFieldRef}
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => handleFormChange("name", e.target.value)}
-                  onKeyDown={focusNextField(phoneFieldRef)}
-                  placeholder="Lead full name"
-                  className="peer w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
-                />
-                <KeyboardHint id="hint-lead-name" hint="Press Enter to go to next field" />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-slate-700">Name<span className="text-red-500"> *</span></label>
+                  <input
+                    ref={nameFieldRef}
+                    type="text"
+                    value={form.name}
+                    onChange={(e) => handleFormChange("name", e.target.value)}
+                    onKeyDown={focusNextField(businessFieldRef)}
+                    placeholder="Lead full name"
+                    className="peer w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  />
+                  <KeyboardHint id="hint-lead-name" hint="Press Enter to go to next field" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-slate-700">Business name</label>
+                  <input
+                    ref={businessFieldRef}
+                    type="text"
+                    value={form.businessName}
+                    onChange={(e) => handleFormChange("businessName", e.target.value)}
+                    onKeyDown={focusNextField(phoneFieldRef)}
+                    placeholder="Optional"
+                    className="peer w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  />
+                  <KeyboardHint id="hint-lead-business" hint="Press Enter to go to next field" />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -683,13 +705,29 @@ const AdminLeadsPage = () => {
                     type="text"
                     value={form.phone}
                     onChange={(e) => handleFormChange("phone", e.target.value)}
-                    onKeyDown={focusNextField(emailFieldRef)}
+                    onKeyDown={focusNextField(altPhoneFieldRef)}
                     placeholder="Phone number"
                     className="peer w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                   />
                   <KeyboardHint id="hint-lead-phone" hint="Press Enter to go to next field" />
                 </div>
                 <div>
+                  <label className="mb-1 block text-sm font-semibold text-slate-700">Alternate number</label>
+                  <input
+                    ref={altPhoneFieldRef}
+                    type="text"
+                    value={form.altPhone}
+                    onChange={(e) => handleFormChange("altPhone", e.target.value)}
+                    onKeyDown={focusNextField(emailFieldRef)}
+                    placeholder="Optional"
+                    className="peer w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  />
+                  {form.altPhone.trim() && !whatsappChatHref(form.altPhone) ? <p className="mt-1 text-xs text-amber-700">This doesn't look like a WhatsApp number, so no chat button will show. Add the country code if it is from outside India.</p> : null}
+                  <KeyboardHint id="hint-lead-alt-phone" hint="Press Enter to go to next field" />
+                </div>
+              </div>
+
+              <div>
                   <label className="mb-1 block text-sm font-semibold text-slate-700">Email</label>
                   <input
                     ref={emailFieldRef}
@@ -705,7 +743,6 @@ const AdminLeadsPage = () => {
                     className="peer w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                   />
                   <KeyboardHint id="hint-lead-email" hint="Press Enter to go to next field" />
-                </div>
               </div>
 
               <p className="text-xs text-slate-500">Phone is required. Email is needed later to convert this lead into a client.</p>

@@ -11,6 +11,7 @@ import { adminReturnState, getAdminPath } from "../helpers/adminReturnNavigation
 import AdminWorkspaceList from "../components/admin/AdminWorkspaceList";
 import AdminDateTime from "../components/admin/AdminDateTime";
 import { DEFAULT_SORT, nextSort, parseSort, sortRows, timeValue } from "../helpers/adminListSort";
+import { matchesSearch } from "../helpers/searchText";
 
 const getClientLastUpdated = (client) => client?.latestActivityAt || client?.createdAt || null;
 
@@ -60,13 +61,11 @@ const AdminClientsPage = () => {
     let result = clients;
 
     if (query) {
-      result = result.filter((client) => {
-        return (
-          client.name?.toLowerCase().includes(query) ||
-          client.email?.toLowerCase().includes(query) ||
-          client.phone?.toLowerCase().includes(query)
-        );
-      });
+      // Business name and alternate number come from the client's lead (getAdminClients.js).
+      result = result.filter((client) => matchesSearch(query, {
+        texts: [client.name, client.businessName, client.email],
+        phones: [client.phone, client.altPhone],
+      }));
     }
 
     return sortRows(result, sort, sortColumns);
@@ -102,7 +101,7 @@ const AdminClientsPage = () => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search clients by name, email, or phone"
+              placeholder="Search clients by name, business, email, or phone"
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
             />
           </div>
@@ -138,6 +137,7 @@ const AdminClientsPage = () => {
               >
                 <div className="col-span-12 lg:col-span-3">
                   <p className="truncate text-base font-bold text-slate-950">{index + 1}. {client.name || "N/A"}</p>
+                  {client.businessName ? <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">{client.businessName}</p> : null}
                 </div>
                 <div className="col-span-6 lg:col-span-2 lg:flex lg:items-center">
                   <div className="min-w-0">

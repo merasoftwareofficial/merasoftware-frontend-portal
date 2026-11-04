@@ -117,7 +117,8 @@ const AdminGlobalSearch = ({ onNavigate }) => {
                 className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-slate-800"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-white">{item.name || "Unnamed"}</p>
+                  <p className="truncate text-sm font-semibold text-white">{item.name || item.businessName || "Unnamed"}</p>
+                  {item.name && item.businessName ? <p className="truncate text-xs font-medium text-slate-300">{item.businessName}</p> : null}
                   <p className="truncate text-xs text-slate-400">{item.email || item.phone || "—"}</p>
                 </div>
                 <span

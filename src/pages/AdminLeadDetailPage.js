@@ -3,7 +3,7 @@ import { useLeadUpdates } from '../hooks/useLeadUpdates';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, Download, Loader2, Mail, MessageSquarePlus, Pencil, Phone, UserCheck, UserPlus, X } from "lucide-react";
+import { ArrowLeft, Building2, Download, Loader2, Mail, MessageSquarePlus, Pencil, Phone, UserCheck, UserPlus, X } from "lucide-react";
 import SummaryApi from "../common";
 import AdminWorkspaceShell, { AdminWorkspaceHeader } from "../components/admin/AdminWorkspaceShell";
 import AdminInfoPill from "../components/admin/AdminInfoPill";
@@ -32,6 +32,9 @@ const AdminLeadDetailPage = () => {
 
   const [lead, setLead] = useState(null);
   const [finalMessageBusy, setFinalMessageBusy] = useState(false);
+  const [showStopCountdown, setShowStopCountdown] = useState(false);
+  const [stopReason, setStopReason] = useState("");
+  const [stoppingCountdown, setStoppingCountdown] = useState(false);
   const [finalCountdown, setFinalCountdown] = useState("");
   const [messageBusy, setMessageBusy] = useState(false);
   const [pendingBehaviour, setPendingBehaviour] = useState(null);
@@ -80,8 +83,8 @@ const AdminLeadDetailPage = () => {
     `${SummaryApi.leadDetail.url}/${leadId}`, (data, initial) => {
       setLead(data);
       if (data) {
-        const { name, phone, email, source, status, updatedAt, proposalSentAt, clientBehaviour, convertedToUserId } = data;
-        patchCachedRow(SummaryApi.adminLeads.url, data._id, { name, phone, email, source, status, updatedAt, proposalSentAt, clientBehaviour, convertedToUserId });
+        const { name, nameFromWhatsapp, businessName, phone, altPhone, email, source, status, updatedAt, proposalSentAt, clientBehaviour, convertedToUserId } = data;
+        patchCachedRow(SummaryApi.adminLeads.url, data._id, { name, nameFromWhatsapp, businessName, phone, altPhone, email, source, status, updatedAt, proposalSentAt, clientBehaviour, convertedToUserId });
       }
       // Live reads must not overwrite an in-progress follow-up selection. "Initial" is also the first
       // current answer after kept data, which corrects the kept stage unless the admin already chose one.
@@ -90,7 +93,11 @@ const AdminLeadDetailPage = () => {
   const shownLead = expired ? null : lead || leadPreview;
   // Kept data can be read at once, but nothing is acted on until it is confirmed current.
   const actionsOpen = Boolean(lead) && confirmed && !expired;
-  const chatHref = actionsOpen ? whatsappChatHref(lead?.phone) : null;
+  // A client's phone and email are their account's (getLeadDetail.js sends lead.client); the lead holds a copy.
+  const contactPhone = lead?.client?.phone || lead?.phone;
+  const contactEmail = lead?.client?.email || lead?.email;
+  const chatHref = actionsOpen ? whatsappChatHref(contactPhone) : null;
+  const altChatHref = actionsOpen ? whatsappChatHref(lead?.altPhone) : null;
   const liveStatus = useLeadUpdates(() => { void fetchLead(); }, leadId);
 
   const isConverted = Boolean(lead?.convertedToUserId);
@@ -150,7 +157,7 @@ const AdminLeadDetailPage = () => {
     return () => clearInterval(timer);
   }, [finalMessage?.status, finalMessage?.deadlineAt, lead?.serverNow]);
   // Only a Negative lead whose message hasn't gone: none yet, Don't Send, expired or failed, or a decision still open.
-  const canStartNewFinalMessage = isConverted && finalMessage && (finalMessage.subjectKind !== "client" || ["dead", "stopped", "email-only"].includes(finalMessage.status) || (finalMessage.status === "replied" && finalMessage.decision));
+  const canStartNewFinalMessage = (finalMessage?.status === "stopped" && Boolean(finalMessage.stopSource)) || (isConverted && finalMessage && (finalMessage.subjectKind !== "client" || ["dead", "stopped", "email-only"].includes(finalMessage.status) || (finalMessage.status === "replied" && finalMessage.decision)));
   const canSendFinalMessage = actionsOpen && (isConverted ? lead?.clientBehaviour === "Negative" : lead?.status === "Negative" && !lead?.requestedByUserId) && (!finalMessage || ["not-sent", "review"].includes(finalMessage.status) || (isConverted && finalMessage.subjectKind !== "client") || canStartNewFinalMessage);
   const finalMessageLine = !finalMessage ? "" : {
     review: "Final message: waiting for your decision. Countdown not started.",
@@ -160,7 +167,7 @@ const AdminLeadDetailPage = () => {
     dead: "Final message: no reply in time.",
     "not-sent": "Final message: not sent.",
     "email-only": "Final message: sent by email only, so it is not followed.",
-    stopped: "Final message: stage changed by hand before the wait ended.",
+    stopped: finalMessage?.stopReason ? `Countdown stopped: ${finalMessage.stopReason}` : "Final message: stage changed by hand before the wait ended.",
   }[finalMessage.status] || "";
 
   // The popup opens from this response (helpers/emailReview.js), and the timeline shows the line once it closes.
@@ -192,6 +199,21 @@ const AdminLeadDetailPage = () => {
     } finally {
       setFinalMessageBusy(false);
     }
+  };
+
+  const stopCountdown = async (event) => {
+    event.preventDefault();
+    if (!stopReason.trim()) return;
+    setStoppingCountdown(true);
+    try {
+      const response = await fetch(`${SummaryApi.updateLead.url}/${leadId}/final-message/stop`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ draftId: finalMessage.draftId, reason: stopReason.trim() }) });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.message || 'Countdown could not be stopped.');
+      setShowStopCountdown(false); setStopReason('');
+      toast.success('Countdown stopped. Current status is unchanged.');
+      await fetchLead();
+    } catch (error) { toast.error(error.message); }
+    finally { setStoppingCountdown(false); }
   };
 
   const handleAddFollowUp = async (event) => {
@@ -308,9 +330,9 @@ const AdminLeadDetailPage = () => {
     }
   };
 
-  // A client account needs a phone and a valid email; when either is missing,
-  // Convert opens Edit Lead first and continues to the confirm step on save.
-  const isReadyToConvert = (target) => Boolean(target?.name?.trim()) && Boolean(target?.phone?.trim()) && isAccountEmail(target?.email || "");
+  // A client account needs a confirmed name (not one guessed from WhatsApp), a phone and a valid
+  // email; when any is missing, Convert opens Edit Lead first and continues to the confirm step on save.
+  const isReadyToConvert = (target) => Boolean(target?.name?.trim()) && !target?.nameFromWhatsapp && Boolean(target?.phone?.trim()) && isAccountEmail(target?.email || "");
 
   const requestConvert = () => {
     if (!actionsOpen || converting || isConverted) return;
@@ -378,6 +400,15 @@ const AdminLeadDetailPage = () => {
     return [...list].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   }, [lead, timelineTab]);
 
+  const stopCountdownControl = actionsOpen && finalMessage && ['review', 'queued', 'waiting', 'dead'].includes(finalMessage.status) ? <div className="mt-3">
+    {showStopCountdown ? <form onSubmit={stopCountdown} className="space-y-2">
+      <label className="block text-sm font-semibold">Reason for stopping<textarea aria-label="Reason for stopping" maxLength={500} required value={stopReason} onChange={event => setStopReason(event.target.value)} placeholder="For example: client asked us to stop closure during a phone call" className="mt-1 w-full rounded-xl border border-slate-300 p-2" /></label>
+      <p className="text-xs text-slate-500">Stops this cycle and cancels unsent closure messages. Current status stays the same.</p>
+      <button type="submit" disabled={stoppingCountdown || !stopReason.trim()} className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 disabled:opacity-50">{stoppingCountdown ? 'Stopping…' : 'Confirm stop'}</button>
+      <button type="button" disabled={stoppingCountdown} onClick={() => setShowStopCountdown(false)} className="ml-2 px-3 py-2 text-sm">Cancel</button>
+    </form> : <button type="button" onClick={() => setShowStopCountdown(true)} className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-700">Stop countdown</button>}
+  </div> : null;
+
   return (
     <>
       <AdminWorkspaceShell>
@@ -386,8 +417,8 @@ const AdminLeadDetailPage = () => {
         <AdminWorkspaceHeader
           icon={isConverted ? UserCheck : UserPlus}
           eyebrow={isConverted ? "Client" : "Lead"}
-          title={shownLead?.name || shownLead?.phone || (loading ? "Loading..." : "Lead")}
-          subtitle={shownLead?.email || shownLead?.phone || ""}
+          title={shownLead?.name || shownLead?.businessName || shownLead?.phone || (loading ? "Loading..." : "Lead")}
+          subtitle={[shownLead?.name ? shownLead?.businessName : "", shownLead?.email || shownLead?.phone].filter(Boolean).join(" · ")}
           leadingAction={
             <button
               type="button"
@@ -406,14 +437,14 @@ const AdminLeadDetailPage = () => {
             </>
           }
           actions={
-            actionsOpen && !isConverted ? (
+            actionsOpen ? (
               <button
                 type="button"
                 onClick={() => setEditLeadMode("edit")}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15 lg:w-auto"
               >
                 <Pencil size={16} />
-                Edit Lead
+                {isConverted ? "Edit Details" : "Edit Lead"}
               </button>
             ) : null
           }
@@ -427,13 +458,22 @@ const AdminLeadDetailPage = () => {
             <div className="rounded-3xl border border-slate-200 bg-white p-5">
               <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Contact</h3>
               <div className="mt-3 space-y-3">
+                {lead?.nameFromWhatsapp ? (
+                  <p className="text-xs font-medium text-amber-700">Name taken from WhatsApp, not confirmed. Save it in Edit Lead to confirm.</p>
+                ) : null}
+                {lead?.businessName ? (
+                  <div className="flex items-center gap-3 text-sm text-slate-800">
+                    <Building2 size={16} className="text-slate-400" />
+                    <span className="truncate">{lead.businessName}</span>
+                  </div>
+                ) : null}
                 <div className="flex items-center gap-3 text-sm text-slate-800">
                   <Mail size={16} className="text-slate-400" />
-                  <span className="truncate">{lead?.email || (loading ? "..." : "N/A")}</span>
+                  <span className="truncate">{contactEmail || (loading ? "..." : "N/A")}</span>
                 </div>
                 <div className="flex items-center gap-3 text-sm text-slate-800">
                   <Phone size={16} className="text-slate-400" />
-                  <span className="truncate">{lead?.phone || (loading ? "..." : "N/A")}</span>
+                  <span className="truncate">{contactPhone || (loading ? "..." : "N/A")}</span>
                 </div>
                 {chatHref ? (
                   <a
@@ -447,6 +487,26 @@ const AdminLeadDetailPage = () => {
                   </a>
                 ) : actionsOpen ? (
                   <p className="text-xs text-slate-500">Add a valid phone number with country code to open WhatsApp chat.</p>
+                ) : null}
+                {lead?.altPhone ? (
+                  <>
+                    <div className="flex items-center gap-3 text-sm text-slate-800">
+                      <Phone size={16} className="text-slate-400" />
+                      <span className="truncate">{lead.altPhone}</span>
+                      <span className="text-xs text-slate-500">Alternate</span>
+                    </div>
+                    {altChatHref ? (
+                      <a
+                        href={altChatHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200"
+                      >
+                        <MessageSquarePlus size={16} />
+                        Open WhatsApp chat
+                      </a>
+                    ) : null}
+                  </>
                 ) : null}
               </div>
               {lead?.inquiry ? (
@@ -495,6 +555,7 @@ const AdminLeadDetailPage = () => {
                   </button> : <p className="text-xs text-slate-500">Linked client is unavailable.</p>}
                   {finalMessageLine ? <p className="text-xs font-medium text-slate-700">{finalMessageLine}</p> : null}
                   {finalCountdown ? <p className="text-sm font-semibold tabular-nums" aria-label="Final message countdown">{finalCountdown}</p> : null}
+                  {stopCountdownControl}
                   {lead.clientBehaviour === "Negative" && !finalMessage ? <p className="text-xs font-medium text-amber-800">Final message not started. No countdown is running.</p> : null}
                   {lead.finalMessageReadiness?.ready === false ? <p role="status" className="text-xs font-medium text-amber-800">{lead.finalMessageReadiness.message}</p> : null}
                   {canSendFinalMessage ? <button type="button" onClick={sendFinalMessage} disabled={finalMessageBusy || lead.finalMessageReadiness?.ready === false} className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60">{canStartNewFinalMessage ? "Start new final message" : !finalMessage || finalMessage.status === "not-sent" ? "Retry final message" : "Review final message"}</button> : null}
@@ -512,6 +573,7 @@ const AdminLeadDetailPage = () => {
                   <p className="text-xs text-slate-500">
                     Change the stage on a follow-up. Adding a proposal never changes it.
                   </p>
+                  {stopCountdownControl}
                   {finalMessageLine ? <p className="text-xs font-medium text-slate-700">{finalMessageLine}</p> : null}
                   {canSendFinalMessage ? (
                     <button
@@ -520,7 +582,7 @@ const AdminLeadDetailPage = () => {
                       disabled={finalMessageBusy}
                       className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
                     >
-                      Send final message
+                      {canStartNewFinalMessage ? "Start new final message" : "Send final message"}
                     </button>
                   ) : null}
                 </div>
@@ -544,6 +606,7 @@ const AdminLeadDetailPage = () => {
               >
                 Send message
               </button>
+              {lead?.nameFromWhatsapp ? <p className="mt-2 text-xs font-medium text-amber-700">Name not confirmed: messages go without a name until you save it in Edit Lead.</p> : null}
             </div>
 
             {offerTargets.length ? (
@@ -579,9 +642,13 @@ const AdminLeadDetailPage = () => {
                 </button>
                 {lead && !isReadyToConvert(lead) ? (
                   <p className="mt-2 text-xs text-amber-600">
-                    {!lead.phone?.trim()
-                      ? "Phone missing — Convert will ask for it."
-                      : "Valid email missing — Convert will ask for it."}
+                    {!lead.name?.trim()
+                      ? "Name missing — Convert will ask for it."
+                      : lead.nameFromWhatsapp
+                        ? "Name is from WhatsApp — Convert will ask you to confirm it."
+                        : !lead.phone?.trim()
+                          ? "Phone missing — Convert will ask for it."
+                          : "Valid email missing — Convert will ask for it."}
                   </p>
                 ) : null}
               </div>

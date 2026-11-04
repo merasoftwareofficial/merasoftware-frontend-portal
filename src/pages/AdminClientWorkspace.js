@@ -20,6 +20,9 @@ import {
   Eye,
   EyeOff,
   Pencil,
+  Phone,
+  Building2,
+  MessageSquarePlus,
   RotateCcw,
   Save,
   Trash2,
@@ -45,6 +48,8 @@ import useProjectCategories from "../hooks/useProjectCategories";
 import { downloadAuthenticatedFile } from "../helpers/downloadFile";
 import StorageService from "../utils/storageService";
 import AdminInfoPill from "../components/admin/AdminInfoPill";
+import EditLeadModal from "../components/admin/EditLeadModal";
+import { whatsappChatHref } from "../helpers/whatsappChat";
 import AdminWorkspaceList from "../components/admin/AdminWorkspaceList";
 import AdminWorkspaceShell, { AdminWorkspaceHeader } from "../components/admin/AdminWorkspaceShell";
 import { leadStatusLabel } from "../helpers/leadStatuses";
@@ -397,6 +402,10 @@ const AdminClientWorkspace = () => {
   const cancelPendingServiceAdvanceIndex = useRef(null);
   const [showCreateProjectForm, setShowCreateProjectForm] = useState(false);
   const [workspaceRefreshKey, setWorkspaceRefreshKey] = useState(0);
+  // Edit Details: the client's lead, loaded when the button is pressed (EditLeadModal edits the lead
+  // and the backend writes a new name or phone to this account too).
+  const [editingLead, setEditingLead] = useState(null);
+  const [editLeadLoading, setEditLeadLoading] = useState(false);
   const [activeProject, setActiveProject] = useState(null);
 
 
@@ -1265,6 +1274,30 @@ const AdminClientWorkspace = () => {
   }, { revision: workspaceRefreshKey });
   const dataLoading = workspaceResource.loading;
   useListScroll(!dataLoading);
+
+  const openEditDetails = async () => {
+    if (!customer?.leadId || editLeadLoading) return;
+    try {
+      setEditLeadLoading(true);
+      const response = await fetch(`${SummaryApi.leadDetail.url}/${customer.leadId}`, { credentials: "include" });
+      const result = await response.json();
+      if (!result.success || !result.data) {
+        toast.error(result.message || "Could not open this client's details");
+        return;
+      }
+      setEditingLead(result.data);
+    } catch (error) {
+      console.error("Error loading client lead:", error);
+      toast.error("Could not open this client's details");
+    } finally {
+      setEditLeadLoading(false);
+    }
+  };
+
+  const handleClientDetailsSaved = () => {
+    setEditingLead(null);
+    setWorkspaceRefreshKey((key) => key + 1);
+  };
   const fetchError = workspaceResource.error;
 
   const projectOrders = useMemo(
@@ -1508,6 +1541,58 @@ const AdminClientWorkspace = () => {
             <div className="mb-4">
               <h2 className="text-xl font-bold text-slate-900">Overview</h2>
             </div>
+
+            {customer ? (
+              <div className="mb-4 rounded-3xl border border-slate-200 bg-white p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Contact</h3>
+                  {customer.leadId ? (
+                    <button type="button" onClick={openEditDetails} disabled={editLeadLoading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60">
+                      {editLeadLoading ? <Loader2 size={14} className="animate-spin" /> : <Pencil size={14} />}
+                      Edit Details
+                    </button>
+                  ) : null}
+                </div>
+                <div className="mt-3 grid grid-cols-1 gap-3 text-sm text-slate-800 sm:grid-cols-2">
+                  {customer.businessName ? (
+                    <div className="flex items-center gap-3">
+                      <Building2 size={16} className="shrink-0 text-slate-400" />
+                      <span className="truncate">{customer.businessName}</span>
+                    </div>
+                  ) : null}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <Phone size={16} className="shrink-0 text-slate-400" />
+                      <span className="truncate">{customer.phone || "N/A"}</span>
+                    </div>
+                    {whatsappChatHref(customer.phone) ? (
+                    <a href={whatsappChatHref(customer.phone)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200">
+                      <MessageSquarePlus size={14} />
+                      Open WhatsApp chat
+                    </a>
+                    ) : null}
+                  </div>
+                  {customer.altPhone ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3">
+                        <Phone size={16} className="shrink-0 text-slate-400" />
+                        <span className="truncate">{customer.altPhone}</span>
+                        <span className="text-xs text-slate-500">Alternate</span>
+                      </div>
+                      {whatsappChatHref(customer.altPhone) ? (
+                      <a href={whatsappChatHref(customer.altPhone)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200">
+                      <MessageSquarePlus size={14} />
+                      Open WhatsApp chat
+                    </a>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+            {editingLead ? (
+              <EditLeadModal lead={editingLead} onClose={() => setEditingLead(null)} onSaved={handleClientDetailsSaved} />
+            ) : null}
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {cards.map((card, cardIndex) => {

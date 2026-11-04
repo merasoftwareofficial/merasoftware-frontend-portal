@@ -24,7 +24,7 @@ require.cache[drivePath] = { id: drivePath, filename: drivePath, loaded: true, e
 const mongoose = fromBackend('mongoose');
 const express = fromBackend('express');
 const jwt = fromBackend('jsonwebtoken');
-const { MongoMemoryServer } = fromBackend('mongodb-memory-server');
+const { MongoMemoryReplSet } = fromBackend('mongodb-memory-server');
 const load = file => require(path.join(backend, file));
 const leadModel = load('models/leadModel');
 const userModel = load('models/userModel');
@@ -36,7 +36,7 @@ const css = process.env.LEAD_TEST_CSS ? fs.readFileSync(process.env.LEAD_TEST_CS
 const shots = process.env.LEAD_TEST_SHOTS;
 
 (async () => {
-  const db = await MongoMemoryServer.create();
+  const db = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   await mongoose.connect(db.getUri(), { dbName: 'lead-browser-isolated-test' });
   await Queue.init();
   const admin = await userModel.create({ name: 'Admin', email: 'admin@example.test', roles: ['admin'] });
@@ -59,6 +59,7 @@ const shots = process.env.LEAD_TEST_SHOTS;
   app.get('/api/admin/final-message/count', admin_, finalMessage.countController);
   app.post('/api/admin/final-message/prepare', admin_, finalMessage.prepareAllController);
   app.post('/api/admin/leads/:leadId/final-message', admin_, finalMessage.prepareOneController);
+  app.post('/api/admin/leads/:leadId/final-message/stop', admin_, finalMessage.stopController);
   app.post('/api/admin/leads/:leadId/message', admin_, load('controller/lead/leadMessage'));
   let script = '';
   app.get('/app.js', (req, res) => res.type('application/javascript').send(script));
@@ -434,6 +435,13 @@ const shots = process.env.LEAD_TEST_SHOTS;
       assert.match(before, /^0h (?:0m \d+s|1m 0s) remaining$/);
       await page.waitForFunction(previous => document.querySelector('[aria-label="Final message countdown"]')?.textContent !== previous, before);
       await shot('client-current-status-mobile');
+      await page.getByRole('button', { name: 'Stop countdown', exact: true }).click();
+      await page.getByLabel('Reason for stopping').fill('Client asked us to stop during a phone call');
+      await page.getByRole('button', { name: 'Confirm stop', exact: true }).click();
+      await page.getByText('Countdown stopped: Client asked us to stop during a phone call', { exact: true }).waitFor();
+      assert.equal((await fresh(won._id)).clientBehaviour, 'Negative');
+      assert.equal(await countdown.count(), 0);
+      await page.getByRole('button', { name: 'Start new final message', exact: true }).waitFor();
       await page.setViewportSize({ width: 1280, height: 900 });
     } finally { delete process.env.CLIENT_FINAL_MESSAGE_ENABLED; }
   });
