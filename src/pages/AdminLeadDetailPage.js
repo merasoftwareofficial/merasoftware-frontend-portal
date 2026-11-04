@@ -34,6 +34,7 @@ const AdminLeadDetailPage = () => {
   const [finalMessageBusy, setFinalMessageBusy] = useState(false);
   const [finalCountdown, setFinalCountdown] = useState("");
   const [messageBusy, setMessageBusy] = useState(false);
+  const [pendingBehaviour, setPendingBehaviour] = useState(null);
 
   const [followUpNote, setFollowUpNote] = useState("");
   const [followUpBadge, setFollowUpBadge] = useState("");
@@ -107,6 +108,7 @@ const AdminLeadDetailPage = () => {
   };
 
   const saveBehaviour = async (behaviour) => {
+    setPendingBehaviour(behaviour);
     try {
       setBehaviourSaving(true);
       const response = await fetch(`${SummaryApi.updateLead.url}/${leadId}`, {
@@ -116,6 +118,7 @@ const AdminLeadDetailPage = () => {
         body: JSON.stringify({ action: "setBehaviour", behaviour }),
       });
       const result = await response.json();
+      if (result.success) setLead((current) => current?._id === leadId ? { ...current, clientBehaviour: behaviour } : current);
       if (!result.success) toast.error(result.message || "Current status could not be saved");
       else if (result.finalMessageReadiness?.ready === false) toast.info(`Current status saved. ${result.finalMessageReadiness.message}`);
       else if (result.finalMessage === "unavailable") toast.info("Current status saved. Final message not started; use Retry final message to recover preparation.");
@@ -124,6 +127,7 @@ const AdminLeadDetailPage = () => {
       console.error("Error saving client behaviour:", error);
       toast.error("Current status could not be saved");
     } finally {
+      setPendingBehaviour(null);
       setBehaviourSaving(false);
     }
   };
@@ -474,10 +478,11 @@ const AdminLeadDetailPage = () => {
                   <div>
                     <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Current status</label>
                     <KeyboardSelect
-                      value={lead.clientBehaviour || DEFAULT_CLIENT_BEHAVIOUR}
+                      value={pendingBehaviour || lead.clientBehaviour || DEFAULT_CLIENT_BEHAVIOUR}
                       onChange={(value) => { if (!behaviourSaving && actionsOpen) saveBehaviour(value); }}
                       options={CLIENT_BEHAVIOUR_OPTIONS}
-                      className={["font-semibold", leadStatusStyle(lead.clientBehaviour || DEFAULT_CLIENT_BEHAVIOUR)].join(" ")}
+                      disabled={behaviourSaving || !actionsOpen}
+                      className="font-semibold"
                     />
                   </div>
                   {lead.clientAvailable !== false ? <button
@@ -616,9 +621,9 @@ const AdminLeadDetailPage = () => {
                         ref={followUpBadgeRef}
                         value={chosenTarget ? followUpBadge : isMatured ? "Won" : followUpBadge}
                         onChange={(value) => { badgeChosen.current = true; setFollowUpBadge(value); }}
-                        options={chosenTarget ? offerStageOptions(chosenTarget.stage) : isMatured ? [{ value: "Won", label: "Matured" }] : leadStatusOptions(lead?.status)}
+                        options={chosenTarget ? offerStageOptions(chosenTarget.stage) : isMatured ? [{ value: "Won", label: "Matured", className: leadStatusStyle("Won") }] : leadStatusOptions(lead?.status)}
                         onConfirm={() => followUpFileRef.current?.focus()}
-                        className={["font-semibold", leadStatusStyle(followUpBadge)].join(" ")}
+                        className="font-semibold"
                       />
                       <KeyboardHint id="hint-followup-stage" hint="Press ↓ or Enter to open · ↑↓ to move · Enter to select" />
                     </div>}
@@ -706,9 +711,9 @@ const AdminLeadDetailPage = () => {
                                 ref={editBadgeRef}
                                 value={editBadge}
                                 onChange={(value) => setEditBadge(value)}
-                                options={item.offerSlug ? offerStageOptions(targetFor(item.offerSlug)?.stage, item.badge) : isMatured ? [{ value: item.badge, label: leadStatusLabel(item.badge) }] : leadStatusOptions(item.badge)}
+                                options={item.offerSlug ? offerStageOptions(targetFor(item.offerSlug)?.stage, item.badge) : isMatured ? [{ value: item.badge, label: leadStatusLabel(item.badge), className: leadStatusStyle(item.badge) }] : leadStatusOptions(item.badge)}
                                 onConfirm={() => editNoteRef.current?.focus()}
-                                className={["font-semibold", leadStatusStyle(editBadge)].join(" ")}
+                                className="font-semibold"
                               />
                             </div>
                             <KeyboardHint id="hint-editfollowup-stage" hint="Press ↓ or Enter to open · ↑↓ to move · Enter to select" />

@@ -8,7 +8,7 @@ import { ChevronDown } from "lucide-react";
  * See frontend/src/DOCS/context-keyboard.md for the reuse pattern.
  */
 const KeyboardSelect = React.forwardRef(
-  ({ value, onChange, options, placeholder = "Select", onConfirm, className = "" }, ref) => {
+  ({ value, onChange, options, placeholder = "Select", onConfirm, className = "", disabled = false }, ref) => {
     const [isOpen, setIsOpen] = useState(false);
     const [highlightIndex, setHighlightIndex] = useState(-1);
     const containerRef = useRef(null);
@@ -18,6 +18,7 @@ const KeyboardSelect = React.forwardRef(
     React.useImperativeHandle(ref, () => buttonRef.current);
 
     const selectedOption = options.find((option) => option.value === value) || null;
+    const selectedColors = selectedOption?.className;
 
     useEffect(() => {
       if (!isOpen) return undefined;
@@ -87,12 +88,13 @@ const KeyboardSelect = React.forwardRef(
           onKeyDown={handleKeyDown}
           aria-haspopup="listbox"
           aria-expanded={isOpen}
-          className={`flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100 ${className}`}
+          disabled={disabled}
+          className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm outline-none transition focus:ring-4 disabled:cursor-wait disabled:opacity-70 ${selectedColors ? `${selectedColors} focus:ring-slate-200` : "border-slate-200 bg-slate-50 text-slate-900 focus:border-emerald-400 focus:bg-white focus:ring-emerald-100"} ${className}`}
         >
-          <span className={selectedOption ? "text-slate-900" : "text-slate-400"}>
+          <span className={selectedOption ? "" : "text-slate-400"}>
             {selectedOption ? selectedOption.label : placeholder}
           </span>
-          <ChevronDown size={16} className="text-slate-400" />
+          <ChevronDown size={16} className={selectedColors ? "opacity-60" : "text-slate-400"} />
         </button>
 
         {isOpen && (
@@ -110,7 +112,9 @@ const KeyboardSelect = React.forwardRef(
                 onMouseEnter={() => setHighlightIndex(index)}
                 onClick={() => commitSelection(index)}
                 className={`cursor-pointer px-4 py-2 text-sm ${
-                  index === highlightIndex ? "bg-emerald-50 text-emerald-800" : "text-slate-700"
+                  option.className
+                    ? `${option.className} ${index === highlightIndex ? "ring-2 ring-inset ring-current font-semibold" : ""}`
+                    : index === highlightIndex ? "bg-emerald-50 text-emerald-800" : "text-slate-700"
                 }`}
               >
                 {option.label}

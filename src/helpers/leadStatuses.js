@@ -25,7 +25,7 @@ export const leadStatusLabel = (status) => LEAD_STATUS_DISPLAY[status]?.label ||
 export const leadStatusStyle = (status) => (LEAD_STATUS_DISPLAY[status] || LEAD_STATUS_DISPLAY[DEFAULT_LEAD_STATUS]).style;
 export const leadStatusTone = (status) => LEAD_STATUS_DISPLAY[status]?.tone || "neutral";
 
-const toOption = (status) => ({ value: status, label: leadStatusLabel(status) });
+const toOption = (status) => ({ value: status, label: leadStatusLabel(status), className: leadStatusStyle(status) });
 
 // A client's general behaviour: the same list without Wrong. No saved value means Neutral.
 export const DEFAULT_CLIENT_BEHAVIOUR = "Contacted";
