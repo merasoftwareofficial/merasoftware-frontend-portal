@@ -1483,7 +1483,7 @@ const AdminClientWorkspace = () => {
           meta={
             <>
               <AdminInfoPill label="Status" value={dataLoading && !client ? "..." : clientStatus} variant="dark" />
-              {customer?.leadId && customer.clientBehaviour ? <AdminInfoPill label="Behaviour" value={leadStatusLabel(customer.clientBehaviour)} variant="dark" /> : null}
+              {customer?.leadId && customer.clientBehaviour ? <AdminInfoPill label="Current status" value={leadStatusLabel(customer.clientBehaviour)} variant="dark" /> : null}
               {customer?.leadId ? (
                 <button type="button" onClick={() => navigate(`/admin-panel/leads/${customer.leadId}`)} className="rounded-xl border border-white/20 px-3 py-2 text-sm font-semibold text-white hover:bg-white/10">View Lead</button>
               ) : null}

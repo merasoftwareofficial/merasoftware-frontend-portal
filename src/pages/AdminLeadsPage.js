@@ -478,7 +478,8 @@ const AdminLeadsPage = () => {
 
             <span className="mx-1 w-px self-stretch bg-slate-200" aria-hidden="true" />
 
-            {statusFilterOptions.map((option) => {
+            {statusFilterOptions.map((rawOption) => {
+              const option = rawOption.value === "Won" ? { ...rawOption, label: "Clients" } : rawOption;
               const isActive = statusFilter === option.value;
               return (
                 <button
@@ -515,7 +516,7 @@ const AdminLeadsPage = () => {
           </div>
           {statusFilter === "Won" ? (
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold text-slate-500">Client behaviour</span>
+              <span className="text-xs font-semibold text-slate-500">Client current status</span>
               {[{ value: "all", label: "All" }, ...CLIENT_BEHAVIOUR_OPTIONS].map((option) => (
                 <button
                   key={option.value}
@@ -588,7 +589,7 @@ const AdminLeadsPage = () => {
                 </div>
                 <div className="col-span-6 flex flex-wrap items-center gap-1.5 lg:col-span-2">
                   <span className={["inline-flex rounded-full px-3 py-1 text-xs font-semibold", leadStatusStyle(lead.status)].join(" ")}>
-                    {leadStatusLabel(lead.status)}
+                    {lead.convertedToUserId ? "Client" : leadStatusLabel(lead.status)}
                   </span>
                   {lead.convertedToUserId ? (
                     <span className={["inline-flex rounded-full px-3 py-1 text-xs font-semibold", leadStatusStyle(lead.clientBehaviour || DEFAULT_CLIENT_BEHAVIOUR)].join(" ")}>

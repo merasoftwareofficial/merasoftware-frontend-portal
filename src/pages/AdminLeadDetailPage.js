@@ -31,6 +31,7 @@ const AdminLeadDetailPage = () => {
 
   const [lead, setLead] = useState(null);
   const [finalMessageBusy, setFinalMessageBusy] = useState(false);
+  const [finalCountdown, setFinalCountdown] = useState("");
   const [messageBusy, setMessageBusy] = useState(false);
 
   const [followUpNote, setFollowUpNote] = useState("");
@@ -113,12 +114,13 @@ const AdminLeadDetailPage = () => {
         body: JSON.stringify({ action: "setBehaviour", behaviour }),
       });
       const result = await response.json();
-      if (!result.success) toast.error(result.message || "Behaviour could not be saved");
-      else if (["client-ineligible", "unavailable"].includes(result.finalMessage)) toast.info("Behaviour saved. The final message is unavailable; check the client account and message settings.");
+      if (!result.success) toast.error(result.message || "Current status could not be saved");
+      else if (result.finalMessageReadiness?.ready === false) toast.info(`Current status saved. ${result.finalMessageReadiness.message}`);
+      else if (result.finalMessage === "unavailable") toast.info("Current status saved. Final message not started; use Retry final message to recover preparation.");
       await fetchLead();
     } catch (error) {
       console.error("Error saving client behaviour:", error);
-      toast.error("Behaviour could not be saved");
+      toast.error("Current status could not be saved");
     } finally {
       setBehaviourSaving(false);
     }
@@ -129,13 +131,25 @@ const AdminLeadDetailPage = () => {
   };
 
   const finalMessage = lead?.finalMessage;
+  useEffect(() => {
+    if (finalMessage?.status !== "waiting" || !finalMessage.deadlineAt || !lead?.serverNow) { setFinalCountdown(""); return; }
+    const remaining = Date.parse(finalMessage.deadlineAt) - Date.parse(lead.serverNow);
+    const started = performance.now();
+    const update = () => {
+      const seconds = Math.max(0, Math.ceil((remaining - (performance.now() - started)) / 1000));
+      setFinalCountdown(seconds ? `${Math.floor(seconds / 3600)}h ${Math.floor(seconds / 60) % 60}m ${seconds % 60}s remaining` : "Time limit reached; awaiting the server check.");
+    };
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, [finalMessage?.status, finalMessage?.deadlineAt, lead?.serverNow]);
   // Only a Negative lead whose message hasn't gone: none yet, Don't Send, expired or failed, or a decision still open.
-  const canStartNewFinalMessage = isConverted && finalMessage?.subjectKind === "client" && (["dead", "stopped", "email-only"].includes(finalMessage.status) || (finalMessage.status === "replied" && finalMessage.decision));
+  const canStartNewFinalMessage = isConverted && finalMessage && (finalMessage.subjectKind !== "client" || ["dead", "stopped", "email-only"].includes(finalMessage.status) || (finalMessage.status === "replied" && finalMessage.decision));
   const canSendFinalMessage = actionsOpen && (isConverted ? lead?.clientBehaviour === "Negative" : lead?.status === "Negative" && !lead?.requestedByUserId) && (!finalMessage || ["not-sent", "review"].includes(finalMessage.status) || (isConverted && finalMessage.subjectKind !== "client") || canStartNewFinalMessage);
   const finalMessageLine = !finalMessage ? "" : {
-    review: "Final message: waiting for your decision.",
-    queued: "Final message: waiting in the WhatsApp queue.",
-    waiting: `Final message sent. No reply yet; ${isConverted ? "client behaviour" : "the lead"} goes Dead after ${finalMessage.deadlineAt ? new Date(finalMessage.deadlineAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) : "the wait"}.`,
+    review: "Final message: waiting for your decision. Countdown not started.",
+    queued: "Final message: waiting in the WhatsApp queue. Countdown starts after it sends.",
+    waiting: `Final message sent. Waiting for a reply; ${isConverted ? "current status becomes Dead" : "the lead goes Dead"} after ${finalMessage.deadlineAt ? new Date(finalMessage.deadlineAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) : "the wait"}.`,
     replied: `Final message replied: ${finalMessage.lastReplyText || "Message"}.${finalMessage.decision ? "" : " This reply needs your decision in Communication → Final Message."}`,
     dead: "Final message: no reply in time.",
     "not-sent": "Final message: not sent.",
@@ -364,8 +378,8 @@ const AdminLeadDetailPage = () => {
         <UpdatingSign show={updating && !loading} />
         {(refreshError || liveStatus === 'unavailable') && <p role="status" className="px-5 py-2 text-sm">{refreshError || 'Live updates temporarily unavailable.'} <button type="button" onClick={() => void fetchLead()}>Refresh</button></p>}
         <AdminWorkspaceHeader
-          icon={UserPlus}
-          eyebrow={<>Lead</>}
+          icon={isConverted ? UserCheck : UserPlus}
+          eyebrow={isConverted ? "Client" : "Lead"}
           title={shownLead?.name || shownLead?.phone || (loading ? "Loading..." : "Lead")}
           subtitle={shownLead?.email || shownLead?.phone || ""}
           leadingAction={
@@ -380,7 +394,7 @@ const AdminLeadDetailPage = () => {
           }
           meta={
             <>
-              <AdminInfoPill label="Status" value={shownLead || !loading ? leadStatusLabel(shownLead?.status) : "..."} variant="dark" />
+              <AdminInfoPill label={isConverted ? "Identity" : "Status"} value={isConverted ? "Client" : shownLead || !loading ? leadStatusLabel(shownLead?.status) : "..."} variant="dark" />
               <AdminInfoPill label="Source" value={shownLead?.source || (loading ? "..." : "N/A")} variant="dark" />
               <AdminInfoPill label="Added" value={lead?.createdAt ? new Date(lead.createdAt).toLocaleDateString("en-IN") : loading ? "..." : "N/A"} variant="dark" />
             </>
@@ -436,14 +450,14 @@ const AdminLeadDetailPage = () => {
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-5">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Current Stage</h3>
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">{isConverted ? "Client" : "Current Stage"}</h3>
               {isConverted ? (
                 <div className="mt-3 space-y-3">
                   <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                    Matured — follow-ups remain available.
+                    Client account · projects, payments and follow-ups remain linked.
                   </p>
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Client behaviour</label>
+                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Current status</label>
                     <KeyboardSelect
                       value={lead.clientBehaviour || DEFAULT_CLIENT_BEHAVIOUR}
                       onChange={(value) => { if (!behaviourSaving && actionsOpen) saveBehaviour(value); }}
@@ -460,7 +474,10 @@ const AdminLeadDetailPage = () => {
                     View Client
                   </button> : <p className="text-xs text-slate-500">Linked client is unavailable.</p>}
                   {finalMessageLine ? <p className="text-xs font-medium text-slate-700">{finalMessageLine}</p> : null}
-                  {canSendFinalMessage ? <button type="button" onClick={sendFinalMessage} disabled={finalMessageBusy} className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60">{canStartNewFinalMessage ? "Start new final message" : "Send final message"}</button> : null}
+                  {finalCountdown ? <p className="text-sm font-semibold tabular-nums" aria-label="Final message countdown">{finalCountdown}</p> : null}
+                  {lead.clientBehaviour === "Negative" && !finalMessage ? <p className="text-xs font-medium text-amber-800">Final message not started. No countdown is running.</p> : null}
+                  {lead.finalMessageReadiness?.ready === false ? <p role="status" className="text-xs font-medium text-amber-800">{lead.finalMessageReadiness.message}</p> : null}
+                  {canSendFinalMessage ? <button type="button" onClick={sendFinalMessage} disabled={finalMessageBusy || lead.finalMessageReadiness?.ready === false} className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60">{canStartNewFinalMessage ? "Start new final message" : !finalMessage || finalMessage.status === "not-sent" ? "Retry final message" : "Review final message"}</button> : null}
                 </div>
               ) : (
                 <div className="mt-3 space-y-2">
@@ -572,7 +589,11 @@ const AdminLeadDetailPage = () => {
                   {/* Stage + file side by side; remark below (full width). */}
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {/* Stage badge (dropdown) — colored so the timeline flow is readable. */}
-                    <div>
+                    {isConverted && !chosenTarget ? <div>
+                      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Current status</p>
+                      <p className="text-sm font-semibold">{leadStatusLabel(lead.clientBehaviour || DEFAULT_CLIENT_BEHAVIOUR)}</p>
+                      <p className="mt-1 text-xs text-slate-500">Change it in the Client panel. This follow-up adds a note and optional attachment.</p>
+                    </div> : <div>
                       <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                         Stage
                       </label>
@@ -585,7 +606,7 @@ const AdminLeadDetailPage = () => {
                         className={["font-semibold", leadStatusStyle(followUpBadge)].join(" ")}
                       />
                       <KeyboardHint id="hint-followup-stage" hint="Press ↓ or Enter to open · ↑↓ to move · Enter to select" />
-                    </div>
+                    </div>}
 
                     {/* Optional attachment for this follow-up. */}
                     <div>
@@ -719,7 +740,7 @@ const AdminLeadDetailPage = () => {
                                     leadStatusStyle(item.badge),
                                   ].join(" ")}
                                 >
-                                  {leadStatusLabel(item.badge)}
+                                  {isConverted && item.badge === "Won" && !item.offerSlug ? "Client" : leadStatusLabel(item.badge)}
                                 </span>
                               ) : null}
                               {item.offerSlug ? (
