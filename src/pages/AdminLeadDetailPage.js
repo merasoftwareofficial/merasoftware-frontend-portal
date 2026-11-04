@@ -18,6 +18,7 @@ import isAccountEmail from "../helpers/accountEmail";
 import { CLIENT_BEHAVIOUR_OPTIONS, DEFAULT_CLIENT_BEHAVIOUR, DEFAULT_LEAD_STATUS, leadStatusLabel, leadStatusOptions, leadStatusStyle, offerStageOptions } from "../helpers/leadStatuses";
 import LeadProposals from "../components/admin/LeadProposals";
 import ProposalSentBadge from "../components/admin/ProposalSentBadge";
+import { whatsappChatHref } from "../helpers/whatsappChat";
 
 const formatDateTime = (value) => {
   if (!value) return "N/A";
@@ -88,6 +89,7 @@ const AdminLeadDetailPage = () => {
   const shownLead = expired ? null : lead || leadPreview;
   // Kept data can be read at once, but nothing is acted on until it is confirmed current.
   const actionsOpen = Boolean(lead) && confirmed && !expired;
+  const chatHref = actionsOpen ? whatsappChatHref(lead?.phone) : null;
   const liveStatus = useLeadUpdates(() => { void fetchLead(); }, leadId);
 
   const isConverted = Boolean(lead?.convertedToUserId);
@@ -429,6 +431,19 @@ const AdminLeadDetailPage = () => {
                   <Phone size={16} className="text-slate-400" />
                   <span className="truncate">{lead?.phone || (loading ? "..." : "N/A")}</span>
                 </div>
+                {chatHref ? (
+                  <a
+                    href={chatHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200"
+                  >
+                    <MessageSquarePlus size={16} />
+                    Open WhatsApp chat
+                  </a>
+                ) : actionsOpen ? (
+                  <p className="text-xs text-slate-500">Add a valid phone number with country code to open WhatsApp chat.</p>
+                ) : null}
               </div>
               {lead?.inquiry ? (
                 <div className="mt-4 border-t border-slate-100 pt-4 text-sm text-slate-700">
