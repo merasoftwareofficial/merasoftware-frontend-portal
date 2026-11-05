@@ -37,14 +37,12 @@ const AdminLeadDetailPage = () => {
   const [stoppingCountdown, setStoppingCountdown] = useState(false);
   const [finalCountdown, setFinalCountdown] = useState("");
   const [messageBusy, setMessageBusy] = useState(false);
-  const [pendingBehaviour, setPendingBehaviour] = useState(null);
 
   const [followUpNote, setFollowUpNote] = useState("");
   const [followUpBadge, setFollowUpBadge] = useState("");
   const [followUpFile, setFollowUpFile] = useState(null);
   const [followUpOffer, setFollowUpOffer] = useState("");
   const [timelineTab, setTimelineTab] = useState("all");
-  const [behaviourSaving, setBehaviourSaving] = useState(false);
   const [followUpSaving, setFollowUpSaving] = useState(false);
   const [converting, setConverting] = useState(false);
   const [showConvertConfirm, setShowConvertConfirm] = useState(false);
@@ -88,7 +86,7 @@ const AdminLeadDetailPage = () => {
       }
       // Live reads must not overwrite an in-progress follow-up selection. "Initial" is also the first
       // current answer after kept data, which corrects the kept stage unless the admin already chose one.
-      if (initial && !badgeChosen.current) setFollowUpBadge(data?.status || DEFAULT_LEAD_STATUS);
+      if (initial && !badgeChosen.current) setFollowUpBadge(data?.convertedToUserId ? data.clientBehaviour || DEFAULT_CLIENT_BEHAVIOUR : data?.status || DEFAULT_LEAD_STATUS);
     }, { cache: LEAD_CACHE });
   const shownLead = expired ? null : lead || leadPreview;
   // Kept data can be read at once, but nothing is acted on until it is confirmed current.
@@ -102,6 +100,8 @@ const AdminLeadDetailPage = () => {
 
   const isConverted = Boolean(lead?.convertedToUserId);
   const isMatured = isConverted || lead?.status === "Won";
+  // One current status for the panel and the follow-up form: a client's status, or a lead's stage.
+  const currentStatus = isConverted ? lead?.clientBehaviour || DEFAULT_CLIENT_BEHAVIOUR : lead?.status;
 
   const offerTargets = useMemo(() => lead?.offerTargets || [], [lead]);
   const targetFor = (slug) => offerTargets.find((row) => row.offerSlug === slug);
@@ -111,36 +111,12 @@ const AdminLeadDetailPage = () => {
   const chooseFollowUpOffer = (slug) => {
     badgeChosen.current = true;
     setFollowUpOffer(slug);
-    setFollowUpBadge(targetFor(slug)?.stage || lead?.status || DEFAULT_LEAD_STATUS);
+    setFollowUpBadge(targetFor(slug)?.stage || currentStatus || DEFAULT_LEAD_STATUS);
   };
 
-  const saveBehaviour = async (behaviour) => {
-    setPendingBehaviour(behaviour);
-    try {
-      setBehaviourSaving(true);
-      const response = await fetch(`${SummaryApi.updateLead.url}/${leadId}`, {
-        method: SummaryApi.updateLead.method,
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "setBehaviour", behaviour }),
-      });
-      const result = await response.json();
-      if (result.success) setLead((current) => current?._id === leadId ? { ...current, clientBehaviour: behaviour } : current);
-      if (!result.success) toast.error(result.message || "Current status could not be saved");
-      else if (result.finalMessageReadiness?.ready === false) toast.info(`Current status saved. ${result.finalMessageReadiness.message}`);
-      else if (result.finalMessage === "unavailable") toast.info("Current status saved. Final message not started; use Retry final message to recover preparation.");
-      await fetchLead();
-    } catch (error) {
-      console.error("Error saving client behaviour:", error);
-      toast.error("Current status could not be saved");
-    } finally {
-      setPendingBehaviour(null);
-      setBehaviourSaving(false);
-    }
-  };
-
-  const noticeFinalMessage = (outcome) => {
-    if (outcome === "unreachable" || outcome === "unavailable") toast.info("No final message was prepared: check this lead's WhatsApp number and email, and the Final message action.");
+  // The server words every outcome other than an opened popup (updateLead.js finalMessageNote).
+  const noticeFinalMessage = (note) => {
+    if (note) toast.info(note);
   };
 
   const finalMessage = lead?.finalMessage;
@@ -150,25 +126,26 @@ const AdminLeadDetailPage = () => {
     const started = performance.now();
     const update = () => {
       const seconds = Math.max(0, Math.ceil((remaining - (performance.now() - started)) / 1000));
-      setFinalCountdown(seconds ? `${Math.floor(seconds / 3600)}h ${Math.floor(seconds / 60) % 60}m ${seconds % 60}s remaining` : "Time limit reached; awaiting the server check.");
+      setFinalCountdown(seconds ? `${Math.floor(seconds / 3600)}h ${Math.floor(seconds / 60) % 60}m ${seconds % 60}s remaining`
+        : finalMessage.listening === false ? "Time is up. WhatsApp is offline: Dead is decided when it reconnects." : "Time is up. Checking for a reply now…");
     };
     update();
     const timer = setInterval(update, 1000);
     return () => clearInterval(timer);
-  }, [finalMessage?.status, finalMessage?.deadlineAt, lead?.serverNow]);
-  // Only a Negative lead whose message hasn't gone: none yet, Don't Send, expired or failed, or a decision still open.
-  const canStartNewFinalMessage = (finalMessage?.status === "stopped" && Boolean(finalMessage.stopSource)) || (isConverted && finalMessage && (finalMessage.subjectKind !== "client" || ["dead", "stopped", "email-only"].includes(finalMessage.status) || (finalMessage.status === "replied" && finalMessage.decision)));
-  const canSendFinalMessage = actionsOpen && (isConverted ? lead?.clientBehaviour === "Negative" : lead?.status === "Negative" && !lead?.requestedByUserId) && (!finalMessage || ["not-sent", "review"].includes(finalMessage.status) || (isConverted && finalMessage.subjectKind !== "client") || canStartNewFinalMessage);
-  const finalMessageLine = !finalMessage ? "" : {
-    review: "Final message: waiting for your decision. Countdown not started.",
-    queued: "Final message: waiting in the WhatsApp queue. Countdown starts after it sends.",
-    waiting: `Final message sent. Waiting for a reply; ${isConverted ? "current status becomes Dead" : "the lead goes Dead"} after ${finalMessage.deadlineAt ? new Date(finalMessage.deadlineAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) : "the wait"}.`,
-    replied: `Final message replied: ${finalMessage.lastReplyText || "Message"}.${finalMessage.decision ? "" : " This reply needs your decision in Communication → Final Message."}`,
-    dead: "Final message: no reply in time.",
-    "not-sent": "Final message: not sent.",
-    "email-only": "Final message: sent by email only, so it is not followed.",
-    stopped: finalMessage?.stopReason ? `Countdown stopped: ${finalMessage.stopReason}` : "Final message: stage changed by hand before the wait ended.",
+  }, [finalMessage?.status, finalMessage?.deadlineAt, finalMessage?.listening, lead?.serverNow]);
+  const finalMessageAction = !actionsOpen ? null : finalMessage?.status === "review" ? "Review final message" : lead?.finalMessageCanStart ? "Start final message" : null;
+  const finalMessageLine = !finalMessage ? (currentStatus === "Negative" ? "Not started. No countdown is running." : "") : {
+    review: "Waiting for your Send or Don't Send. The countdown has not started.",
+    queued: "Queued on WhatsApp. The countdown starts when it sends.",
+    waiting: `Sent. Waiting for a reply; ${isConverted ? "the current status" : "the lead"} moves to Dead after ${finalMessage.deadlineAt ? new Date(finalMessage.deadlineAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) : "the wait"}.`,
+    replied: finalMessage.decision ? `Replied: "${finalMessage.lastReplyText || "Message"}". Decision made.` : `Replied: "${finalMessage.lastReplyText || "Message"}". Decide in Communication → Final Message.`,
+    dead: `No reply in time. ${isConverted ? "Current status" : "Stage"} moved to Dead.`,
+    "not-sent": "Not sent. No countdown is running.",
+    "email-only": "Sent by email only, so no countdown runs.",
+    stopped: `Stopped${finalMessage.stopReason ? `: ${finalMessage.stopReason}` : "."}`,
   }[finalMessage.status] || "";
+  // Shown while it concerns the person now: Negative or Dead, or a cycle that can still be stopped.
+  const showFinalMessage = ["Negative", "Dead"].includes(currentStatus) || Boolean(finalMessage?.stopLabel) || ["review", "queued", "waiting"].includes(finalMessage?.status);
 
   // The popup opens from this response (helpers/emailReview.js), and the timeline shows the line once it closes.
   const sendMessage = async () => {
@@ -189,7 +166,7 @@ const AdminLeadDetailPage = () => {
   const sendFinalMessage = async () => {
     try {
       setFinalMessageBusy(true);
-      const response = await fetch(`${SummaryApi.updateLead.url}/${leadId}/final-message${canStartNewFinalMessage ? "?new=1" : ""}`, { method: "post", credentials: "include" });
+      const response = await fetch(`${SummaryApi.updateLead.url}/${leadId}/final-message`, { method: "post", credentials: "include" });
       const result = await response.json();
       if (!result.success) toast.error(result.message || "The final message could not be prepared");
       await fetchLead();
@@ -210,7 +187,7 @@ const AdminLeadDetailPage = () => {
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.message || 'Countdown could not be stopped.');
       setShowStopCountdown(false); setStopReason('');
-      toast.success('Countdown stopped. Current status is unchanged.');
+      toast.success(`${finalMessage.stopLabel === 'Cancel closure message' ? 'Closure message cancelled' : 'Stopped'}. Current status is unchanged.`);
       await fetchLead();
     } catch (error) { toast.error(error.message); }
     finally { setStoppingCountdown(false); }
@@ -228,7 +205,7 @@ const AdminLeadDetailPage = () => {
       // follow-up also moves the lead's stage to the chosen badge (backend merge).
       const formData = new FormData();
       formData.append("action", "followUp");
-      formData.append("badge", chosenTarget ? followUpBadge : isMatured ? "Won" : followUpBadge);
+      formData.append("badge", chosenTarget || isConverted ? followUpBadge : isMatured ? "Won" : followUpBadge);
       formData.append("note", followUpNote);
       if (chosenTarget) formData.append("offerSlug", chosenTarget.offerSlug);
       if (followUpFile) {
@@ -246,7 +223,7 @@ const AdminLeadDetailPage = () => {
         return;
       }
       toast.success("Follow-up added");
-      noticeFinalMessage(result.finalMessage);
+      noticeFinalMessage(result.finalMessageNote);
       setFollowUpNote("");
       setFollowUpFile(null);
       await fetchLead();
@@ -273,7 +250,7 @@ const AdminLeadDetailPage = () => {
   // Follow-up entry is this page's main keyboard task, so focus lands there as
   // soon as the lead (and its default Stage selection) has loaded.
   useEffect(() => {
-    if (!loading && lead && !isConverted && !focusedOnce.current) {
+    if (!loading && lead && !focusedOnce.current) {
       // Once per opening: a background refresh must not pull focus from a note being typed.
       focusedOnce.current = true;
       followUpBadgeRef.current?.focus();
@@ -317,7 +294,7 @@ const AdminLeadDetailPage = () => {
         return;
       }
       toast.success("Follow-up updated");
-      noticeFinalMessage(result.finalMessage);
+      noticeFinalMessage(result.finalMessageNote);
       setEditingFollowUpId(null);
       setEditNote("");
       setEditBadge("");
@@ -400,14 +377,34 @@ const AdminLeadDetailPage = () => {
     return [...list].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   }, [lead, timelineTab]);
 
-  const stopCountdownControl = actionsOpen && finalMessage && ['review', 'queued', 'waiting', 'dead'].includes(finalMessage.status) ? <div className="mt-3">
+  const stopCountdownControl = actionsOpen && finalMessage?.stopLabel ? <div>
     {showStopCountdown ? <form onSubmit={stopCountdown} className="space-y-2">
       <label className="block text-sm font-semibold">Reason for stopping<textarea aria-label="Reason for stopping" maxLength={500} required value={stopReason} onChange={event => setStopReason(event.target.value)} placeholder="For example: client asked us to stop closure during a phone call" className="mt-1 w-full rounded-xl border border-slate-300 p-2" /></label>
-      <p className="text-xs text-slate-500">Stops this cycle and cancels unsent closure messages. Current status stays the same.</p>
+      <p className="text-xs text-slate-500">{finalMessage.stopLabel === 'Cancel closure message' ? 'The closure message will not be sent.' : 'Ends this final message and cancels anything not yet sent.'} Current status stays the same.</p>
       <button type="submit" disabled={stoppingCountdown || !stopReason.trim()} className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 disabled:opacity-50">{stoppingCountdown ? 'Stopping…' : 'Confirm stop'}</button>
       <button type="button" disabled={stoppingCountdown} onClick={() => setShowStopCountdown(false)} className="ml-2 px-3 py-2 text-sm">Cancel</button>
-    </form> : <button type="button" onClick={() => setShowStopCountdown(true)} className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-700">Stop countdown</button>}
+    </form> : <button type="button" onClick={() => setShowStopCountdown(true)} className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-700">{finalMessage.stopLabel}</button>}
   </div> : null;
+
+  const finalMessageBlock = showFinalMessage ? (
+    <div className="mt-4 space-y-2 border-t border-slate-100 pt-4" aria-label="Final message">
+      <h4 className="text-xs font-bold uppercase tracking-wide text-slate-500">Final message</h4>
+      {finalMessageLine ? <p className="text-xs font-medium text-slate-700">{finalMessageLine}</p> : null}
+      {finalCountdown ? <p className="text-sm font-semibold tabular-nums" aria-label="Final message countdown">{finalCountdown}</p> : null}
+      {isConverted && currentStatus === "Negative" && lead?.finalMessageReadiness?.ready === false ? <p role="status" className="text-xs font-medium text-amber-800">{lead.finalMessageReadiness.message}</p> : null}
+      {finalMessageAction ? (
+        <button
+          type="button"
+          onClick={sendFinalMessage}
+          disabled={finalMessageBusy}
+          className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
+        >
+          {finalMessageAction}
+        </button>
+      ) : null}
+      {stopCountdownControl}
+    </div>
+  ) : null;
 
   return (
     <>
@@ -535,15 +532,12 @@ const AdminLeadDetailPage = () => {
                   <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
                     Client account · projects, payments and follow-ups remain linked.
                   </p>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Current status</label>
-                    <KeyboardSelect
-                      value={pendingBehaviour || lead.clientBehaviour || DEFAULT_CLIENT_BEHAVIOUR}
-                      onChange={(value) => { if (!behaviourSaving && actionsOpen) saveBehaviour(value); }}
-                      options={CLIENT_BEHAVIOUR_OPTIONS}
-                      disabled={behaviourSaving || !actionsOpen}
-                      className="font-semibold"
-                    />
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Current status</p>
+                    <span className={["inline-flex rounded-full border px-4 py-1.5 text-sm font-semibold", leadStatusStyle(currentStatus)].join(" ")}>
+                      {leadStatusLabel(currentStatus)}
+                    </span>
+                    <p className="text-xs text-slate-500">Change the status on a follow-up. Matured stays.</p>
                   </div>
                   {lead.clientAvailable !== false ? <button
                     type="button"
@@ -553,12 +547,6 @@ const AdminLeadDetailPage = () => {
                     <UserCheck size={16} />
                     View Client
                   </button> : <p className="text-xs text-slate-500">Linked client is unavailable.</p>}
-                  {finalMessageLine ? <p className="text-xs font-medium text-slate-700">{finalMessageLine}</p> : null}
-                  {finalCountdown ? <p className="text-sm font-semibold tabular-nums" aria-label="Final message countdown">{finalCountdown}</p> : null}
-                  {stopCountdownControl}
-                  {lead.clientBehaviour === "Negative" && !finalMessage ? <p className="text-xs font-medium text-amber-800">Final message not started. No countdown is running.</p> : null}
-                  {lead.finalMessageReadiness?.ready === false ? <p role="status" className="text-xs font-medium text-amber-800">{lead.finalMessageReadiness.message}</p> : null}
-                  {canSendFinalMessage ? <button type="button" onClick={sendFinalMessage} disabled={finalMessageBusy || lead.finalMessageReadiness?.ready === false} className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60">{canStartNewFinalMessage ? "Start new final message" : !finalMessage || finalMessage.status === "not-sent" ? "Retry final message" : "Review final message"}</button> : null}
                 </div>
               ) : (
                 <div className="mt-3 space-y-2">
@@ -573,20 +561,9 @@ const AdminLeadDetailPage = () => {
                   <p className="text-xs text-slate-500">
                     Change the stage on a follow-up. Adding a proposal never changes it.
                   </p>
-                  {stopCountdownControl}
-                  {finalMessageLine ? <p className="text-xs font-medium text-slate-700">{finalMessageLine}</p> : null}
-                  {canSendFinalMessage ? (
-                    <button
-                      type="button"
-                      onClick={sendFinalMessage}
-                      disabled={finalMessageBusy}
-                      className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
-                    >
-                      {canStartNewFinalMessage ? "Start new final message" : "Send final message"}
-                    </button>
-                  ) : null}
                 </div>
               )}
+              {finalMessageBlock}
               {lead?.proposalSentAt ? (
                 <div className="mt-3">
                   <ProposalSentBadge className="px-4 py-1.5 text-sm" />
@@ -676,24 +653,20 @@ const AdminLeadDetailPage = () => {
                   {/* Stage + file side by side; remark below (full width). */}
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {/* Stage badge (dropdown) — colored so the timeline flow is readable. */}
-                    {isConverted && !chosenTarget ? <div>
-                      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Current status</p>
-                      <p className="text-sm font-semibold">{leadStatusLabel(lead.clientBehaviour || DEFAULT_CLIENT_BEHAVIOUR)}</p>
-                      <p className="mt-1 text-xs text-slate-500">Change it in the Client panel. This follow-up adds a note and optional attachment.</p>
-                    </div> : <div>
+                    <div>
                       <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Stage
+                        {isConverted && !chosenTarget ? "Status" : "Stage"}
                       </label>
                       <KeyboardSelect
                         ref={followUpBadgeRef}
-                        value={chosenTarget ? followUpBadge : isMatured ? "Won" : followUpBadge}
+                        value={chosenTarget || isConverted ? followUpBadge : isMatured ? "Won" : followUpBadge}
                         onChange={(value) => { badgeChosen.current = true; setFollowUpBadge(value); }}
-                        options={chosenTarget ? offerStageOptions(chosenTarget.stage) : isMatured ? [{ value: "Won", label: "Matured", className: leadStatusStyle("Won") }] : leadStatusOptions(lead?.status)}
+                        options={chosenTarget ? offerStageOptions(chosenTarget.stage) : isConverted ? CLIENT_BEHAVIOUR_OPTIONS : isMatured ? [{ value: "Won", label: "Matured", className: leadStatusStyle("Won") }] : leadStatusOptions(lead?.status)}
                         onConfirm={() => followUpFileRef.current?.focus()}
                         className="font-semibold"
                       />
                       <KeyboardHint id="hint-followup-stage" hint="Press ↓ or Enter to open · ↑↓ to move · Enter to select" />
-                    </div>}
+                    </div>
 
                     {/* Optional attachment for this follow-up. */}
                     <div>

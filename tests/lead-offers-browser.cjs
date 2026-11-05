@@ -89,13 +89,24 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     assert.equal(sent.body.offerSlug, 'dhamaka');
     assert.equal(sent.body.badge, 'Negative');
 
-    // Client behaviour: Wrong is not offered.
+    // Client status: chosen on a General follow-up as a lead's stage is, never from a separate dropdown. Wrong is not offered.
+    await page.locator('button[aria-haspopup="listbox"]').filter({ hasText: 'Digital Dhamaka' }).click();
+    await page.getByRole('option', { name: 'General' }).click();
+    const card = page.locator('div.rounded-3xl').filter({ hasText: 'Client account' }).first();
+    assert.equal(await card.locator('button[aria-haspopup="listbox"]').count(), 0, 'the Client panel shows the status as a badge');
+    await card.getByText('Tough', { exact: true }).waitFor();
     await page.locator('button[aria-haspopup="listbox"]').filter({ hasText: 'Tough' }).click();
     const behaviours = await page.getByRole('option').allInnerTexts();
     assert.deepEqual(behaviours, ['Neutral', 'Positive', 'Active', 'Lazy', 'Tough', 'Negative', 'Unhappy', 'Dead']);
     await page.getByRole('option', { name: 'Active' }).click();
-    await page.waitForFunction(() => window.calls.some(call => call.body?.action === 'setBehaviour'));
-    assert.deepEqual((await page.evaluate(() => window.calls.find(call => call.body?.action === 'setBehaviour'))).body, { action: 'setBehaviour', behaviour: 'Active' });
+    await page.getByPlaceholder(/Add a follow-up note/).fill('Working with us again');
+    await page.getByRole('button', { name: 'Add Follow-up' }).click();
+    await page.waitForFunction(() => window.calls.some(call => call.body?.note === 'Working with us again'));
+    const statusLine = await lastPost();
+    assert.equal(statusLine.body.action, 'followUp');
+    assert.equal(statusLine.body.badge, 'Active');
+    assert.equal(statusLine.body.offerSlug, undefined);
+    assert.equal(await page.evaluate(() => window.calls.some(call => call.body?.action === 'setBehaviour')), false);
 
     // Countdown: the badge and reason show, and Send message is off.
     await page.goto(`${origin}/admin-panel/leads/lead2`);

@@ -398,30 +398,39 @@ const shots = process.env.LEAD_TEST_SHOTS;
   });
 
   assert.deepEqual(errors, [], 'no page errors');
-  await step('a Matured client opens the tracked final-message review from behaviour', async () => {
-    process.env.CLIENT_FINAL_MESSAGE_ENABLED = 'true';
+  await step('a Matured client is marked Negative on a follow-up and opens the tracked final-message review', async () => {
     try {
       const client = await userModel.create({ name: 'Client final', email: 'client-final@example.test', phone: '9876500031', roles: ['customer'] });
       const won = await leadModel.create({ name: 'Client final', phone: client.phone, status: 'Won', convertedToUserId: client._id });
       await page.goto(`${origin}/?lead=${won._id}`);
       await page.getByText('Current status', { exact: true }).first().waitFor();
-      assert.equal(await stageBox().locator('[aria-haspopup="listbox"]').count(), 0, 'client follow-up has no one-option Matured stage');
       const card = page.locator('div.rounded-3xl').filter({ hasText: 'Client account' }).first();
-      await card.locator('button[aria-haspopup="listbox"]').click();
-      await page.getByRole('option', { name: 'Negative', exact: true }).click();
+      assert.equal(await card.locator('button[aria-haspopup="listbox"]').count(), 0, 'no status dropdown in the Client panel');
+      const markNegative = async note => {
+        const form = stageBox();
+        await form.locator('button[aria-haspopup="listbox"]').first().click();
+        await page.getByRole('option', { name: 'Negative', exact: true }).click();
+        await form.locator('textarea').fill(note);
+        await form.locator('button[type="submit"]').click();
+      };
+      // Automation off: refused before saving, with the reason, and the status stays.
+      await markNegative('Stopped replying');
+      await page.getByText(/Client final-message automation is disabled on the server/).first().waitFor();
+      assert.equal((await fresh(won._id)).clientBehaviour, undefined);
+      process.env.CLIENT_FINAL_MESSAGE_ENABLED = 'true';
+      await markNegative('Stopped replying');
       const review = page.getByRole('dialog', { name: 'Review message' });
       await review.waitFor();
       await review.getByRole('button', { name: /Don.t Send/ }).click();
       assert.equal((await fresh(won._id)).status, 'Won');
       assert.equal((await fresh(won._id)).clientBehaviour, 'Negative');
+      assert.equal((await fresh(won._id)).followUps.filter(item => item.note === 'Stopped replying').length, 1);
       assert.equal(await Queue.countDocuments({ to: '919876500031' }), 0);
-      delete process.env.CLIENT_FINAL_MESSAGE_ENABLED;
+      await card.getByText('Negative', { exact: true }).waitFor();
+      await load('helpers/finalMessageJobs').followFinalMessages();
       await page.reload();
-      await page.getByText(/Client final-message automation is disabled on the server/).waitFor();
-      assert.ok(await page.getByRole('button', { name: /Review final message|Retry final message/ }).isDisabled());
-      process.env.CLIENT_FINAL_MESSAGE_ENABLED = 'true';
-      await page.reload();
-      await page.getByRole('button', { name: /Review final message|Retry final message/ }).click();
+      assert.equal(await page.getByRole('button', { name: 'Stop countdown', exact: true }).count(), 0, 'nothing to stop before a send');
+      await page.getByRole('button', { name: 'Start final message', exact: true }).click();
       await review.waitFor();
       await review.getByRole('button', { name: /Don.t Send/ }).click();
       assert.equal(await Queue.countDocuments({ to: '919876500031' }), 0);
@@ -438,10 +447,11 @@ const shots = process.env.LEAD_TEST_SHOTS;
       await page.getByRole('button', { name: 'Stop countdown', exact: true }).click();
       await page.getByLabel('Reason for stopping').fill('Client asked us to stop during a phone call');
       await page.getByRole('button', { name: 'Confirm stop', exact: true }).click();
-      await page.getByText('Countdown stopped: Client asked us to stop during a phone call', { exact: true }).waitFor();
+      await page.getByText('Stopped: Client asked us to stop during a phone call', { exact: true }).waitFor();
       assert.equal((await fresh(won._id)).clientBehaviour, 'Negative');
       assert.equal(await countdown.count(), 0);
-      await page.getByRole('button', { name: 'Start new final message', exact: true }).waitFor();
+      assert.equal(await page.getByRole('button', { name: 'Stop countdown', exact: true }).count(), 0, 'Stop goes once nothing runs');
+      await page.getByRole('button', { name: 'Start final message', exact: true }).waitFor();
       await page.setViewportSize({ width: 1280, height: 900 });
     } finally { delete process.env.CLIENT_FINAL_MESSAGE_ENABLED; }
   });
@@ -466,10 +476,10 @@ const shots = process.env.LEAD_TEST_SHOTS;
     assert.equal(await Queue.countDocuments({ to: '919876500001' }), 0);
     await load('helpers/finalMessageJobs').followFinalMessages();
     await page.reload();
-    await page.getByRole('button', { name: 'Send final message' }).click();
+    await page.getByRole('button', { name: 'Start final message' }).click();
     await review.waitFor();
     await review.getByRole('button', { name: 'Send WhatsApp' }).click();
-    await page.getByText('Final message: waiting').first().waitFor();
+    await page.getByText(/^Queued on WhatsApp|^Sent\. Waiting for a reply/).first().waitFor();
     assert.equal(await Queue.countDocuments({ to: '919876500001' }), 1);
     await shot('final-message-sent');
   });

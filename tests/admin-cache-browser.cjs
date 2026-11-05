@@ -31,7 +31,7 @@ async function open(browser, origin, { feed = true, delay = 300 } = {}) {
     if (p === '/api/admin/dashboard-summary') return { active: 1, inactive: 0, joinedThisMonth: 0, recentClients: [] };
     if (p === '/api/admin/leads') return world.leads;
     if (p === '/api/admin/clients') return world.clients;
-    if (/^\/api\/admin\/leads\/l\d+$/.test(p)) return { ...world.leads.find(l => l._id === p.split('/').pop()), followUps: [], offerTargets: [], finalMessage: null, contactBlock: null, clientAvailable: false };
+    if (/^\/api\/admin\/leads\/l\d+$/.test(p)) return { ...world.leads.find(l => l._id === p.split('/').pop()), followUps: [], offerTargets: [], finalMessage: null, finalMessageCanStart: world.leads.find(l => l._id === p.split('/').pop())?.status === 'Negative', contactBlock: null, clientAvailable: false };
     if (p === '/api/admin/final-message/count') return { count: 0 };
     if (p === '/api/admin/user-workspace') return { customer: world.clients[0], orders: [], renewals: [], transactions: [], invoices: [], updates: [], plans: [], summary: { walletBalance: 0 } };
     return [];
@@ -359,12 +359,12 @@ async function run(browser, origin) {
     await push(page, 'leads'); await wait(page, 300);
     world.delay = 900;
     await click5(); await wait(page, 150);
-    const usable = () => page.evaluate(() => [...document.querySelectorAll('main button')].filter(n => !n.disabled && /Edit Lead|Send message|Send final message|Convert to Client|Add Follow-up|proposal/i.test(n.textContent)).map(n => n.textContent.trim()));
+    const usable = () => page.evaluate(() => [...document.querySelectorAll('main button')].filter(n => !n.disabled && /Edit Lead|Send message|Start final message|Convert to Client|Add Follow-up|proposal/i.test(n.textContent)).map(n => n.textContent.trim()));
     const early = await usable();
     check('unconfirmed lead: no action usable', early.length === 0, early);
     await wait(page, 1300);
     const late = await usable();
-    check('confirmed lead: actions usable', late.includes('Edit Lead') && late.includes('Send message') && late.includes('Send final message') && late.includes('Convert to Client'), late);
+    check('confirmed lead: actions usable', late.includes('Edit Lead') && late.includes('Send message') && late.includes('Start final message') && late.includes('Convert to Client'), late);
     await context.close();
   }
   // 18: a list left open past the limit
