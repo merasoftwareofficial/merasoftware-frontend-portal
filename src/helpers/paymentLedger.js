@@ -1,5 +1,5 @@
 import { getOrderDisplayName } from "./orderPresentation";
-import { getPaymentMethodText, isFreeInvoice } from "./invoicePresentation";
+import { getPaymentMethodText, isFreeInvoice, isComplimentaryInvoice, COMPLIMENTARY_INVOICE_LABEL } from "./invoicePresentation";
 
 const safeDateTime = (value) => {
   if (!value) return null;
@@ -67,6 +67,7 @@ export const getTransactionPaymentLabel = (transaction) => {
 };
 
 const getInvoiceLabel = (invoice) => {
+  if (isComplimentaryInvoice(invoice)) return COMPLIMENTARY_INVOICE_LABEL;
   if (invoice?.invoiceType === "project_final") return "Final Project Invoice";
   if (invoice?.invoiceType === "plan_renewal") return "Plan Renewal";
   if (invoice?.installmentNumber) return `${getOrdinal(invoice.installmentNumber)} Installment`;

@@ -71,7 +71,7 @@ import DataSpinner from "../components/admin/DataSpinner";
 import focusFirstInteractiveElement, { getInteractiveElements } from "../utils/focusFirstInteractiveElement";
 import { getItemSummary, getOrderCategoryLabel, getOrderDisplayName } from "../helpers/orderPresentation";
 import { isPlanItem } from "../helpers/orderType";
-import { getPaymentMethodText, isFreeInvoice } from "../helpers/invoicePresentation";
+import { getPaymentMethodText, isFreeInvoice, isComplimentaryInvoice, COMPLIMENTARY_INVOICE_LABEL } from "../helpers/invoicePresentation";
 import PaymentMethodFields from "../components/PaymentMethodFields";
 import { createPaymentEntry, getPaymentEntryError, toPaymentRequest } from "../helpers/paymentMethodRules";
 
@@ -3287,6 +3287,7 @@ const getOrdinal = (n) => ORDINALS[n - 1] || `${n}th`;
 const getOrderReference = (value) => String(value?._id || value || "");
 
 const getInvoiceLabel = (invoice) => {
+  if (isComplimentaryInvoice(invoice)) return COMPLIMENTARY_INVOICE_LABEL;
   if (invoice?.invoiceType === "project_final") return "Final Project Invoice";
   if (invoice?.invoiceType === "service_statement") return "Service Billing Statement";
   if (invoice?.installmentNumber) return `${getOrdinal(invoice.installmentNumber)} Installment Invoice`;

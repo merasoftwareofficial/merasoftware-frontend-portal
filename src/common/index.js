@@ -235,6 +235,11 @@ const SummaryApi = {
         url : `${backendDomain}/api/get-projects`,
         method : "get"
     },
+    // Send Upgrade on a completed project: `${url}/${orderId}/complimentary-upgrade`, body { event }.
+    complimentaryUpgrade: {
+        url: `${backendDomain}/api/admin/projects`,
+        method: "post"
+    },
     updateProjectProgress: {
         url : `${backendDomain}/api/update-project-progress`,
         method: "post"

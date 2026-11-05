@@ -23,6 +23,7 @@ import { customerChildState, goToCustomerReturn } from '../helpers/customerRetur
 import UploadedDataList from '../components/UploadedDataList';
 import { downloadAuthenticatedFile } from '../helpers/downloadFile';
 import OrderLifecycleTimeline from '../components/OrderLifecycleTimeline';
+import ComplimentaryUpgrades from '../components/ComplimentaryUpgrades';
 
 const normalizeNodeKey = (value) => {
   if (value === null || value === undefined) {
@@ -1346,6 +1347,15 @@ const ProjectDetails = ({ isAdminView = false }) => {
                   )}
                 </section>
               </div>
+
+              {/* Below both layouts: Send Upgrade for our team on a completed project, and the
+                  ₹0 complimentary invoices it left, for the team and the client alike. */}
+              <ComplimentaryUpgrades
+                order={order}
+                isAdminView={isAdminView}
+                canSend={isProjectComplete && !isOrderCancelled}
+                onChanged={fetchOrderDetails}
+              />
           </div>
         </div>
 

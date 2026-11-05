@@ -48,15 +48,15 @@ const fetchWithReview = async (input, options) => {
   return response;
 };
 
-// Show preparation immediately for the explicit lead message actions. Keep the
-// existing awaited review contract: callers refresh the timeline after deciding.
+// Show preparation immediately for the explicit message actions (a lead's messages, a project's
+// Send Upgrade). Keep the existing awaited review contract: callers refresh after deciding.
 let preparingReviews = 0;
 window.fetch = async (input, options) => {
   const raw = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
   const url = new URL(raw, window.location.href);
   const base = new URL(`${process.env.REACT_APP_BACKEND_URL}/api/`, window.location.href);
   const preparing = url.origin === base.origin && url.pathname.startsWith(base.pathname)
-    && /\/admin\/leads\/[^/]+\/(message|final-message)$/.test(url.pathname)
+    && /\/admin\/(leads\/[^/]+\/(message|final-message)|projects\/[^/]+\/complimentary-upgrade)$/.test(url.pathname)
     && (options?.method || input?.method || 'GET').toUpperCase() === 'POST';
   if (preparing) { preparingReviews++; window.dispatchEvent(new CustomEvent('email-review-preparing', { detail: preparingReviews > 0 })); }
   try { return await fetchWithReview(input, options); }

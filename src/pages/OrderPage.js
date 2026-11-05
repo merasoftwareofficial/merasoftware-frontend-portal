@@ -6,6 +6,7 @@ import {
   ArrowRight,
   Calendar,
   FileText,
+  Gift,
   LayoutGrid,
   Layers3,
   RefreshCw,
@@ -22,6 +23,7 @@ import { OrderList } from '../components/OrderListRow';
 import { isProjectItem, isPlanItem } from '../helpers/orderType';
 import { getOrderCategoryLabel, getOrderDisplayName, getItemStatusMeta } from '../helpers/orderPresentation';
 import { customerChildState } from '../helpers/customerReturnNavigation';
+import { COMPLIMENTARY_INVOICE_TYPE } from '../helpers/invoicePresentation';
 
 // Display label for one order. Derived by backend/helpers/orderStatusEngine.js and delivered on
 // the order as `orderState`, so this page can no longer disagree with the project list or the
@@ -70,6 +72,8 @@ const TAB_CODES = {
 
 const matchesTab = (order, tab) => {
   if (tab === 'all') return true;
+  // A complimentary upgrade is finished work by the time it exists.
+  if (order.isComplimentary) return tab === 'completed';
   return (TAB_CODES[tab] || []).includes(getOrderStatusCode(order));
 };
 
@@ -190,8 +194,54 @@ const OrderRow = ({ order, navigate, location, formatDate }) => {
   );
 };
 
+// A complimentary upgrade in the purchase history. It is not an order: it is the ₹0 complimentary
+// invoice that Upgrade completed left on a project (backend/helpers/complimentaryUpgrade.js), shown
+// here so the client sees what they got and that it cost nothing. It opens that invoice.
+const ComplimentaryRow = ({ invoice, navigate, location, formatDate }) => (
+  <button
+    onClick={() => navigate(`/invoice-detail/${invoice._id}`, { state: customerChildState(location) })}
+    type="button"
+    className="grid w-full grid-cols-12 gap-3 bg-[var(--glass-bg-subtle)] px-5 py-4 text-left transition hover:bg-[var(--glass-bg-hover)] sm:px-6"
+  >
+    <div className="col-span-12 lg:col-span-5">
+      <div className="flex items-start gap-3">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border-[length:var(--glass-border-width)] border-[var(--glass-border-strong)] bg-[var(--glass-bg)] text-[var(--text-primary)] backdrop-blur-md">
+          <Gift className="h-5 w-5" />
+        </div>
+        <div className="min-w-0">
+          <h3 className="truncate text-lg font-semibold text-[var(--text-primary)]">Complimentary Upgrade</h3>
+          <p className="mt-1 truncate text-sm text-[var(--text-secondary)]">{getOrderDisplayName(invoice.orderId, 'Your project')}</p>
+          <p className="mt-2 text-sm text-[var(--text-secondary)] sm:hidden">{formatDate(invoice.invoiceDate)}</p>
+        </div>
+      </div>
+    </div>
+    <div className="col-span-6 lg:col-span-2 lg:flex lg:items-center">
+      <p className="text-base font-semibold text-[var(--text-primary)]">Complimentary</p>
+    </div>
+    <div className="col-span-6 lg:col-span-2 lg:flex lg:items-center">
+      <Badge tone="success">Completed</Badge>
+    </div>
+    <div className="col-span-6 lg:col-span-2 lg:flex lg:items-center">
+      <div className="flex items-center gap-2 text-base font-semibold text-[var(--text-primary)]">
+        <Calendar size={14} />
+        <span>{formatDate(invoice.invoiceDate)}</span>
+      </div>
+    </div>
+    <div className="col-span-6 flex items-center justify-between lg:col-span-1 lg:justify-end">
+      <div className="text-right">
+        <p className="text-base font-semibold text-[var(--text-primary)]">{displayINRCurrency(0)}</p>
+        <div className="mt-1 flex lg:justify-end">
+          <Badge tone="success">Free</Badge>
+        </div>
+      </div>
+      <ArrowRight className="h-5 w-5 text-[var(--text-muted)]" />
+    </div>
+  </button>
+);
+
 const OrdersPage = () => {
   const [orders, setOrders] = useState([]);
+  const [complimentary, setComplimentary] = useState([]);
 
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
@@ -236,6 +286,10 @@ const OrdersPage = () => {
         setActiveProject(activeProj || null);
   });
   useEffect(() => { if (error) console.error(error); }, [error]);
+  const { refresh: fetchComplimentary } = useResource(`${SummaryApi.myInvoices.url}?invoiceType=${COMPLIMENTARY_INVOICE_TYPE}`, next => {
+    setComplimentary(Array.isArray(next) ? next.map((invoice) => ({ ...invoice, isComplimentary: true, createdAt: invoice.invoiceDate })) : []);
+  });
+  const refreshAll = () => { fetchOrders(); fetchComplimentary(); };
 
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString('en-GB', {
@@ -245,14 +299,17 @@ const OrdersPage = () => {
     });
   };
 
-  const filteredOrders = orders.filter((order) => matchesTab(order, activeTab));
+  // Real orders and complimentary upgrades in one list, newest first. activeProject above reads
+  // the real orders only, so a complimentary row never counts as work in progress.
+  const purchases = [...orders, ...complimentary].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const filteredOrders = purchases.filter((order) => matchesTab(order, activeTab));
 
   const statusCounts = {
-    all: orders.length,
-    pending: orders.filter((order) => matchesTab(order, 'pending')).length,
-    active: orders.filter((order) => matchesTab(order, 'active')).length,
-    completed: orders.filter((order) => matchesTab(order, 'completed')).length,
-    rejected: orders.filter((order) => matchesTab(order, 'rejected')).length,
+    all: purchases.length,
+    pending: purchases.filter((order) => matchesTab(order, 'pending')).length,
+    active: purchases.filter((order) => matchesTab(order, 'active')).length,
+    completed: purchases.filter((order) => matchesTab(order, 'completed')).length,
+    rejected: purchases.filter((order) => matchesTab(order, 'rejected')).length,
   };
 
   const filterTabs = [
@@ -323,7 +380,7 @@ const OrdersPage = () => {
               />
             )}
             actions={(
-              <GlassButton onClick={fetchOrders}>
+              <GlassButton onClick={refreshAll}>
                 <RefreshCw size={16} />
                 Refresh
               </GlassButton>
@@ -331,14 +388,21 @@ const OrdersPage = () => {
             items={filteredOrders}
             loading={loading}
             loadingLabel="Loading orders..."
-            renderRow={(order) => (
+            renderRow={(order) => (order.isComplimentary ? (
+              <ComplimentaryRow
+                invoice={order}
+                navigate={navigate}
+                location={location}
+                formatDate={formatDate}
+              />
+            ) : (
               <OrderRow
                 order={order}
                 navigate={navigate}
                 location={location}
                 formatDate={formatDate}
               />
-            )}
+            ))}
             emptyIcon={FileText}
             empty={(
               <>
@@ -348,7 +412,7 @@ const OrdersPage = () => {
                   <GlassButton variant="primary" size="lg" onClick={() => navigate('/start-new-project')}>
                     Browse Services
                   </GlassButton>
-                  <GlassButton size="lg" strong onClick={fetchOrders}>
+                  <GlassButton size="lg" strong onClick={refreshAll}>
                     Refresh Orders
                   </GlassButton>
                 </div>

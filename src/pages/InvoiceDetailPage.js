@@ -17,7 +17,7 @@ import Modal from '../components/Modal';
 import { getOrderDisplayName } from '../helpers/orderPresentation';
 import { isPlanItem } from '../helpers/orderType';
 import { goToCustomerReturn } from '../helpers/customerReturnNavigation';
-import { getInvoiceStatusText, isStatementInvoice, getPaymentMethodText, isFreeInvoice } from '../helpers/invoicePresentation';
+import { getInvoiceStatusText, isStatementInvoice, getPaymentMethodText, isFreeInvoice, isComplimentaryInvoice, COMPLIMENTARY_INVOICE_LABEL } from '../helpers/invoicePresentation';
 
 const generateTransactionId = () =>
   `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`;
@@ -70,6 +70,10 @@ const InvoiceDetailPage = () => {
   const orderIdForPay = invoice?.orderId?._id || invoice?.orderId;
   const isInstallmentInvoice = Boolean(invoice?.installmentNumber);
   const isStatement = isStatementInvoice(invoice);
+  // A complimentary invoice was never due: no due/paid dates, no agreement, and like a statement
+  // it is a document to keep, so it gets the same View / Download / Share buttons.
+  const isComplimentary = isComplimentaryInvoice(invoice);
+  const hasDocument = isStatement || isComplimentary;
   const isServerInvoice = Boolean(invoice?._id);
   const invoiceDocumentUrl = isServerInvoice ? `${SummaryApi.invoices.viewDocument.url}/${invoice._id}` : null;
 
@@ -260,7 +264,7 @@ const InvoiceDetailPage = () => {
                   status pill. Same eyebrow treatment as Modal and WalletDetails. */}
               <p className="inline-flex items-center gap-2 text-sm font-bold uppercase text-[var(--eyebrow-fg)]">
                 <Sparkles className="h-3.5 w-3.5" />
-                {isStatement ? 'Summary' : 'Bill'}
+                {isComplimentary ? COMPLIMENTARY_INVOICE_LABEL : isStatement ? 'Summary' : 'Bill'}
               </p>
               <h1 className="mt-3 text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl lg:text-4xl">
                 {getOrderDisplayName(invoice.orderId, 'Your plan')}
@@ -282,11 +286,26 @@ const InvoiceDetailPage = () => {
                 <span className="text-[var(--text-secondary)]">Invoice Date</span>
                 <span className="font-medium text-[var(--text-primary)]">{formatDate(invoice.invoiceDate)}</span>
               </div>
+              {isComplimentary ? (
+                <>
+                  {invoice.lineItems?.[0]?.name && (
+                    <div className="flex items-center justify-between gap-3 rounded-2xl bg-[var(--glass-bg-subtle)] px-4 py-2.5 text-base">
+                      <span className="text-[var(--text-secondary)]">What you got</span>
+                      <span className="text-right font-medium text-[var(--text-primary)]">{invoice.lineItems[0].name}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between rounded-2xl bg-[var(--glass-bg-subtle)] px-4 py-2.5 text-base">
+                    <span className="text-[var(--text-secondary)]">Payment</span>
+                    <span className="font-medium text-[var(--text-primary)]">No payment due</span>
+                  </div>
+                </>
+              ) : (
               <div className="flex items-center justify-between rounded-2xl bg-[var(--glass-bg-subtle)] px-4 py-2.5 text-base">
                 <span className="text-[var(--text-secondary)]">Due Date</span>
                 <span className="font-medium text-[var(--text-primary)]">{formatDate(invoice.dueDate)}</span>
               </div>
-              {invoice.status === 'paid' && (
+              )}
+              {invoice.status === 'paid' && !isComplimentary && (
                 <div className="flex items-center justify-between rounded-2xl bg-[var(--glass-bg-subtle)] px-4 py-2.5 text-base">
                   <span className="text-[var(--text-secondary)]">Paid Date</span>
                   <span className="font-medium text-[var(--text-primary)]">{formatDate(invoice.paidDate)}</span>
@@ -300,13 +319,13 @@ const InvoiceDetailPage = () => {
               )}
             </div>
 
-            <ProjectAgreement order={invoice.orderId} compact />
+            {!isComplimentary && <ProjectAgreement order={invoice.orderId} compact />}
             <div className="relative mt-5">
               {/* Only a statement is a document to keep: the project_final invoice already states
                   the whole project — its total, every installment and what is paid — so a paid
                   installment needs no PDF of its own. An installment invoice is a payment target,
                   never a document, so once it is paid this block simply renders nothing. */}
-              {isStatement ? (
+              {hasDocument ? (
                 invoiceDocumentUrl && (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     {/* Three buttons, three hand-written styles - and the two

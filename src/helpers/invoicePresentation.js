@@ -2,7 +2,7 @@
 //
 // invoiceModel stores its own vocabulary: status is one of
 // unpaid / partially_paid / paid / overdue / cancelled, and invoiceType is one of
-// project / project_final / plan_renewal / service_statement. Those are the database's
+// project / project_final / plan_renewal / service_statement / complimentary_upgrade. Those are the database's
 // words, not the customer's, and until now every page translated them itself:
 // InvoiceDetailPage.js and OrderDetailPage.js each kept a private copy of the same
 // status map, and PlanDetails.js kept none at all — so it printed the raw value, and a
@@ -42,12 +42,25 @@ export const isStatementInvoice = (invoice) =>
   STATEMENT_TYPES.includes(invoice?.invoiceType);
 
 /**
+ * A complimentary invoice: the ₹0 record of a free upgrade on a completed project
+ * (backend/helpers/complimentaryUpgrade.js). Nothing was ever due on it, and it is a
+ * document the customer keeps, so it is downloadable like a statement. Every page names
+ * it with COMPLIMENTARY_INVOICE_LABEL rather than its own wording.
+ */
+export const COMPLIMENTARY_INVOICE_TYPE = 'complimentary_upgrade';
+export const COMPLIMENTARY_INVOICE_LABEL = 'Complimentary Invoice';
+export const isComplimentaryInvoice = (invoice) =>
+  invoice?.invoiceType === COMPLIMENTARY_INVOICE_TYPE;
+
+/**
  * The status badge for an invoice: { label, tone }.
  *
  * `tone` is a Badge tone (success / pending / error / neutral), not a colour — the
  * colours live in index.css so they stay correct in all three themes.
  */
 export const getInvoiceStatusText = (invoice) => {
+  // Nothing was paid for a complimentary invoice, so it never reads "Paid".
+  if (isComplimentaryInvoice(invoice)) return { label: 'Free', tone: 'success' };
   if (isStatementInvoice(invoice)) {
     // A statement states, it does not demand. Neutral, and worded as a summary.
     return { label: 'Summary', tone: 'neutral' };
@@ -67,6 +80,7 @@ export const getInvoiceStatusText = (invoice) => {
  * @param {string} planName the plan's own name, used so the line reads like a sentence
  */
 export const getInvoicePurposeText = (invoice, planName = '') => {
+  if (isComplimentaryInvoice(invoice)) return 'Complimentary upgrade';
   if (isStatementInvoice(invoice)) return 'Total for this plan';
   if (invoice?.invoiceType === 'plan_renewal') return 'Renewal';
   // A plan's name often already ends in "Plan", so appending the word produced
