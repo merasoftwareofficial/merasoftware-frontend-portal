@@ -51,7 +51,8 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
         templateSubjectDoc: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'For ' }, { type: 'emailVariable', attrs: { key: 'name' } }] }] },
         selectedTemplateId: 'smart-template', templateLabel: 'Saved message', templateRevision: '2026-10-30T12:00:00.000Z',
         templateOptions: [{ id: 'smart-template', name: 'Saved message' }, ...(preferences['lead.proposal']?.templateId === 'new-template' ? [{id:'new-template',name:'Saved message copy'}] : [])], editorFields: { variables: [{ key: 'name', label: 'Customer name', value: 'Ravi' }], blocks: [] },
-        defaultChannel: 'both', channelOptions: [{ id: 'email', label: 'Email', enabled: true }, { id: 'whatsapp', label: 'WhatsApp', enabled: true }, { id: 'both', label: 'Both', enabled: true }]
+        // The action's Send via, as the server sends it: a customer action is WhatsApp only by default.
+        defaultChannel: 'whatsapp', channelOptions: [{ id: 'email', label: 'Email', enabled: true }, { id: 'whatsapp', label: 'WhatsApp', enabled: true }, { id: 'both', label: 'Both', enabled: true }]
       }).then(result => { window.smartDecision = result; });
       createRoot(document.getElementById('root')).render(<EmailReviewDialog />);
     ` },
@@ -160,7 +161,7 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     assert.deepEqual(errors, []);
     await page.evaluate(() => { window.askSmart(); });
     await page.getByRole('heading', { name: 'Review message', exact: true }).waitFor();
-    assert.equal(await page.getByLabel('Send via').inputValue(), 'both');
+    assert.equal(await page.getByLabel('Send via').inputValue(), 'whatsapp', 'the popup opens on the action\'s Send via');
     assert.equal(await message.locator('[data-email-variable="name"]').innerText(), 'Customer name');
     await message.click(); await page.keyboard.press('End'); await page.keyboard.type(', updated');
     await bar.getByRole('button', { name: 'Save', exact: true }).click();
@@ -198,6 +199,8 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     assert.equal(await page.evaluate(() => window.emailCalls.filter(call => call.url.endsWith('/drafts/smart-draft/decision')).length), 1);
     await page.evaluate(() => { window.smartDecision = null; window.askSmart(); });
     await page.waitForFunction(() => document.getElementById('review-channel')?.value === 'whatsapp' && document.getElementById('email-review-template')?.value === 'new-template');
+    // The template choice is remembered per reviewer; Send via never is (it is the action's own setting).
+    assert.equal(await page.evaluate(() => window.emailCalls.filter(call => call.url.includes('/preferences/') && call.options.method === 'PUT' && 'channel' in JSON.parse(call.options.body)).length), 0);
     assert.equal(await message.locator('[data-email-variable="name"]').innerText(), 'Customer name');
     await page.setViewportSize({width:375,height:620});
     const footer = await page.getByRole('button', {name:'Send WhatsApp',exact:true}).boundingBox();

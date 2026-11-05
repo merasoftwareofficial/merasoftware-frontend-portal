@@ -47,8 +47,8 @@ export default function EmailReviewDialog() {
         const selected = await emailApi(value._id ? `/drafts/${value._id}/preview` : '/review-preview', { method: 'POST', body: JSON.stringify({ event: value.event, values: value.values, templateId: preference.templateId }) });
         next = { ...value, ...selected, templatePreviewSubject: selected.subject, templatePreviewHtml: selected.html };
       }
+      // Send via is not remembered per reviewer: it opens on the action's own setting (defaultChannel).
       load(next);
-      if (preference?.channel && value.channelOptions?.length) setChannel(preference.channel);
       if (preference?.templateUnavailable) setTemplateNotice("Your last template is unavailable. The action's current template is shown.");
     } catch { setTemplateNotice('Saved selections could not be loaded. Current draft settings are shown.'); }
     finally { setBusy(false); }
@@ -200,7 +200,7 @@ export default function EmailReviewDialog() {
       </div>}
       {(!!draft.channelOptions?.length || !!options.length) && <div className="review-row">
         {!!draft.channelOptions?.length && <div className="review-field"><label htmlFor="review-channel">Send via</label>
-          <select id="review-channel" className="w-full rounded border p-2" value={channel} disabled={busy || locked} onChange={async event => { const selected = event.target.value; setChannel(selected); setBusy(true); await remember({ channel: selected }); setBusy(false); }}>
+          <select id="review-channel" className="w-full rounded border p-2" value={channel} disabled={busy || locked} onChange={event => setChannel(event.target.value)}>
             {draft.channelOptions.map(option => <option key={option.id} value={option.id} disabled={!option.enabled}>{option.label}{!option.enabled ? ` — ${option.reason}` : ''}</option>)}
           </select></div>}
         {!!options.length && <div className="review-field"><label htmlFor="email-review-template">Template</label>
@@ -209,7 +209,7 @@ export default function EmailReviewDialog() {
             {options.map(option => <option key={option.id || 'built-in'} value={option.id}>{optionLabel(option)}</option>)}
           </select></div>}
       </div>}
-      {draft.channelOptions?.find(option => option.id === channel)?.enabled === false && <p role="status" className="text-sm text-red-700">{draft.channelOptions.find(option => option.id === channel)?.reason}. Choose an available channel.</p>}
+      {draft.channelOptions?.find(option => option.id === channel)?.enabled === false && <p role="status" className="text-sm text-red-700">{draft.channelOptions.find(option => option.id === channel)?.reason.replace(/\.$/, '')}. Choose an available channel.</p>}
       {pendingChoice !== null && <div className="review-alert" role="alert"><span>{pendingChoice === 'close' ? "Don't send this message and close the review?" : 'You have unsaved edits. Discard them and change selection?'}</span><button type="button" disabled={busy} onClick={() => setPendingChoice(null)}>Keep editing</button><button type="button" className="review-danger" disabled={busy} onClick={() => pendingChoice === 'close' ? finish('skip') : pendingChoice.startsWith('type:') ? applyType(pendingChoice.slice(5)) : applyTemplate(pendingChoice)}>{pendingChoice === 'close' ? "Don't send and close" : 'Discard edits'}</button></div>}
       {subjectDoc ? <div className="review-field"><EmailEditor id="email-review-subject" label="Subject" value={subjectDoc} onChange={value => { setSubjectDoc(value); setDirty(true); }} singleLine compact disabled={busy || locked} variables={draft.editorFields?.variables} /></div> : <div className="review-field">
         <label htmlFor="email-review-subject">Subject</label>

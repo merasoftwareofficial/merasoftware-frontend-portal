@@ -37,7 +37,9 @@ function ExtendForm({ row, onDone }) {
     setBusy(true);
     try {
       const result = await post(`/${row.id}/extend`, { until: new Date(until).toISOString(), reason });
-      toast.success(result.notice === 'sent' ? 'Reservation extended. The customer was emailed the new deadline.' : 'Reservation extended.');
+      // The message goes by the action's Send via (Email Templates → Offer reservation extended).
+      toast.success(result.notice === 'sent' ? 'Reservation extended. The customer was sent the new deadline.'
+        : result.notice === 'not-sent' ? 'Reservation extended. The new-deadline message could not reach the customer; see Email History.' : 'Reservation extended.');
       onDone();
     } catch (error) { toast.error(error.message); } finally { setBusy(false); }
   };
