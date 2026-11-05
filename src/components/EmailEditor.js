@@ -74,11 +74,15 @@ export default function EmailEditor({ id, label, value, onChange, disabled, vari
 
   const button = on => `rounded border px-3 py-1 text-sm disabled:opacity-40 ${on ? 'bg-cyan-700 text-white border-cyan-700' : ''}`;
   const choices = [...variables.map(row => ({ ...row, kind: 'emailVariable' })), ...blocks.map(row => ({ ...row, kind: 'emailSection' }))];
+  // Compact (review popup): a one-line field keeps Insert detail inside the field, and the
+  // Insert detail dropdown replaces the separate details guide.
+  const inline = singleLine && compact;
   return (
     <>
-      <span id={`${id}-label`} className="mt-4 block">{label}</span>
-      <div className="mt-1 rounded border">
-        <div role="toolbar" aria-label={`${label} formatting`} className="flex flex-wrap items-center gap-2 border-b p-2">
+      <span id={`${id}-label`} className={compact ? 'block text-xs font-semibold text-slate-500' : 'mt-4 block'}>{label}</span>
+      <div className={`mt-1 rounded border ${inline ? 'flex items-stretch' : ''}`}>
+        {inline && <div className="min-w-0 flex-1"><EditorContent editor={editor} /></div>}
+        <div role="toolbar" aria-label={`${label} formatting`} className={inline ? 'flex items-center border-l px-1.5' : 'flex flex-wrap items-center gap-2 border-b p-2'}>
           {!singleLine && <><button type="button" className={button(editor?.isActive('bold'))} disabled={disabled || !editor} onClick={() => editor.chain().focus().toggleBold().run()}><strong>B</strong> Bold</button>
           <button type="button" className={button(editor?.isActive('heading'))} disabled={disabled || !editor} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>Heading</button>
           <button type="button" className={button(editor?.isActive('bulletList'))} disabled={disabled || !editor} onClick={() => editor.chain().focus().toggleBulletList().run()}>• List</button></>}
@@ -91,11 +95,9 @@ export default function EmailEditor({ id, label, value, onChange, disabled, vari
             </select>
           )}
         </div>
-        <EditorContent editor={editor} />
+        {!inline && <EditorContent editor={editor} />}
       </div>
-      {!singleLine && !!choices.length && (compact
-        ? <details className="mt-2 text-sm"><summary className="cursor-pointer">Available details</summary><DetailsGuide label={label} choices={choices} disabled={disabled || !editor} onInsert={choice => editor.chain().focus().insertContent({ type: choice.kind, attrs: { key: choice.key } }).run()} /></details>
-        : <DetailsGuide label={label} choices={choices} disabled={disabled || !editor} onInsert={choice => editor.chain().focus().insertContent({ type: choice.kind, attrs: { key: choice.key } }).run()} />)}
+      {!singleLine && !compact && !!choices.length && <DetailsGuide label={label} choices={choices} disabled={disabled || !editor} onInsert={choice => editor.chain().focus().insertContent({ type: choice.kind, attrs: { key: choice.key } }).run()} />}
     </>
   );
 }
