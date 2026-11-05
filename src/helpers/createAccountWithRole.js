@@ -1,30 +1,17 @@
 import SummaryApi from '../common';
 
-// Sign-up always creates a blog-only 'member', so an admin creating a portal user
-// signs the account up and then grants the role through the admin-only addRole.
+// An admin creating a portal user makes the account with its role in one admin-only call. It never goes
+// through the website's sign-up, so a team account gets no member lead (backend controller/user/adminCreateAccount.js).
 const createAccountWithRole = async (account, role) => {
-  const signupResponse = await fetch(SummaryApi.signUP.url, {
-    method: SummaryApi.signUP.method,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(account),
-  });
-  const created = await signupResponse.json();
-  if (!created.success) return created;
-
-  const roleResponse = await fetch(SummaryApi.addRoleToUser.url, {
-    method: SummaryApi.addRoleToUser.method,
+  const response = await fetch(SummaryApi.adminCreateAccount.url, {
+    method: SummaryApi.adminCreateAccount.method,
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId: created.data._id, role }),
+    body: JSON.stringify({ ...account, role }),
   });
-  const assigned = await roleResponse.json();
-  if (!assigned.success) {
-    return {
-      success: false,
-      message: `Account created, but the ${role} role could not be set: ${assigned.message || 'unknown error'}`,
-    };
-  }
-  return { success: true, data: assigned.data };
+  const created = await response.json();
+  if (!created.success) return created;
+  return { success: true, data: created.data };
 };
 
 export default createAccountWithRole;

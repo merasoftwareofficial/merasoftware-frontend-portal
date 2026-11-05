@@ -47,6 +47,8 @@ const AdminLeadDetailPage = () => {
   const [converting, setConverting] = useState(false);
   const [showConvertConfirm, setShowConvertConfirm] = useState(false);
   const [showUpgradeConfirm, setShowUpgradeConfirm] = useState(false);
+  // The website account the backend found for this lead: by its email, or by its phone (then its own email).
+  const [upgradeAccount, setUpgradeAccount] = useState({ email: "", byPhone: false });
   // null = closed; "edit" = Edit Lead button; "convert" = opened by Convert for a missing field.
   const [editLeadMode, setEditLeadMode] = useState(null);
   const [editingFollowUpId, setEditingFollowUpId] = useState(null);
@@ -351,6 +353,7 @@ const AdminLeadDetailPage = () => {
       const result = await response.json();
       if (!result.success) {
         if (result.code === "EXISTING_MEMBER") {
+          setUpgradeAccount({ email: result.accountEmail || lead?.email || "", byPhone: result.matchedBy === "phone" });
           setShowConvertConfirm(false);
           setShowUpgradeConfirm(true);
           return;
@@ -892,9 +895,9 @@ const AdminLeadDetailPage = () => {
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
                 <UserCheck size={24} />
               </div>
-              <h2 className="mt-4 text-center text-lg font-bold text-slate-900">Email already has a website account</h2>
+              <h2 className="mt-4 text-center text-lg font-bold text-slate-900">{upgradeAccount.byPhone ? "Phone already has a website account" : "Email already has a website account"}</h2>
               <p className="mt-2 text-center text-sm text-slate-600">
-                <span className="font-semibold text-slate-900">{lead?.email}</span> already signed up on the website.
+                <span className="font-semibold text-slate-900">{upgradeAccount.email || lead?.email}</span> already signed up on the website{upgradeAccount.byPhone ? " with this lead's phone number. That email becomes the client's login" : ""}.
                 Turn that account into this client's account? It keeps its website profile, and its password is reset to
                 the default <span className="font-semibold">1234</span> — the client sets their own on first login.
               </p>

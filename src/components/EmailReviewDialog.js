@@ -177,7 +177,9 @@ export default function EmailReviewDialog() {
   const isWhatsapp = draft.channel === 'whatsapp' || (!draft.to?.length && channel === 'whatsapp');
   const types = draft.messageTypes;
   const typeNote = types?.find(type => type.id === draft.event)?.note;
-  const recipients = [...(draft.to || []), ...(draft.whatsappTo && !draft.to?.includes(draft.whatsappTo) ? [`+${draft.whatsappTo}`] : [])];
+  // The person's alternate number gets the WhatsApp copy too (backend helpers/contactNumbers.js).
+  const altNumbers = ['whatsapp', 'both'].includes(channel) || isWhatsapp ? (draft.whatsappNumbers || []).filter(row => row.alt).map(row => `+${row.phone} (alternate)`) : [];
+  const recipients = [...(draft.to || []), ...(draft.whatsappTo && !draft.to?.includes(draft.whatsappTo) ? [`+${draft.whatsappTo}`] : []), ...altNumbers];
   const selectedOption = options.find(option => option.id === templateId);
   const builtIn = !!selectedOption?.system;
   return createPortal(

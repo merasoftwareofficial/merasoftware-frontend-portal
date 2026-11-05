@@ -430,6 +430,11 @@ const SummaryApi = {
         url: `${backendDomain}/api/addRole`,
         method: "post"
       },
+      // Add Admin / Developer / Partner / Customer: the account and its role in one admin-only call.
+      adminCreateAccount: {
+        url: `${backendDomain}/api/admin/create-account`,
+        method: "post"
+      },
       hideProduct: {
         url: `${backendDomain}/api/hide-product`,
         method: "post"

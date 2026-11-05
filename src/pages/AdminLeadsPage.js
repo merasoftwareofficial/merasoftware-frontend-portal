@@ -281,7 +281,7 @@ const AdminLeadsPage = () => {
       setSaving(true);
       let emailReview = { choice: 'skip' };
       if (form.email.trim() || form.phone.trim()) {
-        const preview = await emailApi('/lead-preview', { method: 'POST', body: JSON.stringify({ name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim() }) });
+        const preview = await emailApi('/lead-preview', { method: 'POST', body: JSON.stringify({ name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim(), altPhone: form.altPhone.trim() }) });
         if (preview) emailReview = await reviewEmail(preview, 'Choose whether to send this welcome message. The lead is added with either choice; sending starts only after saving succeeds.');
       }
       const response = await fetch(SummaryApi.createLead.url, {
