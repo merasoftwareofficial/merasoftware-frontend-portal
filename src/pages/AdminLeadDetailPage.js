@@ -15,7 +15,7 @@ import { LEAD_CACHE, patchCachedRow } from "../utils/resourceCache";
 import DataSpinner from "../components/admin/DataSpinner";
 import UpdatingSign from "../components/admin/UpdatingSign";
 import isAccountEmail from "../helpers/accountEmail";
-import { CLIENT_BEHAVIOUR_OPTIONS, DEFAULT_CLIENT_BEHAVIOUR, DEFAULT_LEAD_STATUS, leadStatusLabel, leadStatusOptions, leadStatusStyle, offerStageOptions } from "../helpers/leadStatuses";
+import { clientBehaviourOptions, DEFAULT_CLIENT_BEHAVIOUR, DEFAULT_LEAD_STATUS, leadStatusLabel, leadStatusOptions, leadStatusStyle, offerStageOptions } from "../helpers/leadStatuses";
 import LeadProposals from "../components/admin/LeadProposals";
 import ProposalSentBadge from "../components/admin/ProposalSentBadge";
 import { whatsappChatHref } from "../helpers/whatsappChat";
@@ -664,7 +664,7 @@ const AdminLeadDetailPage = () => {
                         ref={followUpBadgeRef}
                         value={chosenTarget || isConverted ? followUpBadge : isMatured ? "Won" : followUpBadge}
                         onChange={(value) => { badgeChosen.current = true; setFollowUpBadge(value); }}
-                        options={chosenTarget ? offerStageOptions(chosenTarget.stage) : isConverted ? CLIENT_BEHAVIOUR_OPTIONS : isMatured ? [{ value: "Won", label: "Matured", className: leadStatusStyle("Won") }] : leadStatusOptions(lead?.status)}
+                        options={chosenTarget ? offerStageOptions(chosenTarget.stage) : isConverted ? clientBehaviourOptions(currentStatus) : isMatured ? [{ value: "Won", label: "Matured", className: leadStatusStyle("Won") }] : leadStatusOptions(lead?.status)}
                         onConfirm={() => followUpFileRef.current?.focus()}
                         className="font-semibold"
                       />

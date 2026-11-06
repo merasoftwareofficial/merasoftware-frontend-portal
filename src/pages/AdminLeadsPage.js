@@ -16,7 +16,7 @@ import KeyboardHint from "../components/KeyboardHint";
 import { adminReturnState } from "../helpers/adminReturnNavigation";
 import leadSourceOptions from "../helpers/leadSourceOptions";
 import { DEFAULT_SORT, nextSort, parseSort, sortRows, timeValue } from "../helpers/adminListSort";
-import { CLIENT_BEHAVIOUR_OPTIONS, DEFAULT_CLIENT_BEHAVIOUR, DEFAULT_LEAD_STATUS, LEAD_STATUSES, PROPOSAL_SENT, leadStatusLabel, leadStatusStyle } from "../helpers/leadStatuses";
+import { CLIENT_BEHAVIOUR_FILTERS, DEFAULT_CLIENT_BEHAVIOUR, DEFAULT_LEAD_STATUS, LEAD_STATUSES, PROPOSAL_SENT, leadStatusLabel, leadStatusStyle } from "../helpers/leadStatuses";
 import ProposalSentBadge from "../components/admin/ProposalSentBadge";
 import isAccountEmail from "../helpers/accountEmail";
 import { matchesSearch } from "../helpers/searchText";
@@ -523,7 +523,7 @@ const AdminLeadsPage = () => {
           {statusFilter === "Won" ? (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="text-xs font-semibold text-slate-500">Client current status</span>
-              {[{ value: "all", label: "All" }, ...CLIENT_BEHAVIOUR_OPTIONS].map((option) => (
+              {[{ value: "all", label: "All" }, ...CLIENT_BEHAVIOUR_FILTERS].map((option) => (
                 <button
                   key={option.value}
                   type="button"

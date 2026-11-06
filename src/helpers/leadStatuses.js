@@ -30,6 +30,13 @@ const toOption = (status) => ({ value: status, label: leadStatusLabel(status), c
 // A client's general behaviour: the same list without Wrong. No saved value means Neutral.
 export const DEFAULT_CLIENT_BEHAVIOUR = "Contacted";
 export const CLIENT_BEHAVIOUR_OPTIONS = SELECTABLE_LEAD_STATUSES.filter((status) => status !== "Wrong").map(toOption);
+// Inquiry is set only by the system (a Dead client who wrote after the closure message), so it is shown and filtered, never chosen.
+export const CLIENT_BEHAVIOUR_FILTERS = [toOption("Inquiry"), ...CLIENT_BEHAVIOUR_OPTIONS];
+/** The behaviours to choose from, plus the current one when it can't be chosen (Inquiry). */
+export const clientBehaviourOptions = (current) => [
+  ...(current && !CLIENT_BEHAVIOUR_OPTIONS.some((option) => option.value === current) ? [toOption(current)] : []),
+  ...CLIENT_BEHAVIOUR_OPTIONS,
+];
 const SELECTABLE_OFFER_STAGES = ["Contacted", "Positive", "Negative"];
 /** A person's stage in one offer. Matured comes only from Bought this offer, so a Matured offer keeps the line's own badge. */
 export const offerStageOptions = (targetStage, current) => (targetStage === "Won" ? [toOption(current || "Won")] : SELECTABLE_OFFER_STAGES.map(toOption));
