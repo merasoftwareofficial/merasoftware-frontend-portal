@@ -62,7 +62,9 @@ export default function MyOffers() {
       const seconds = Math.max(0, Math.ceil((Date.parse(due) - now) / 1000));
       // under_review: a payment submitted before the deadline awaits approval; the price stays held.
       const review = row.status === 'under_review';
-      const expired = row.status !== 'confirmed' && !review && seconds === 0;
+      // start_requested: Start my project paused the countdown until our team sets up the project.
+      const paused = row.status === 'start_requested';
+      const expired = row.status !== 'confirmed' && !review && !paused && seconds === 0;
       const locked = row.status === 'confirmed';
       return <article key={row.id} className={`px-5 py-5 sm:px-6 ${expired ? 'bg-[var(--glass-bg-subtle)]' : ''}`}>
         <div className="grid grid-cols-12 items-start gap-4">
@@ -71,7 +73,7 @@ export default function MyOffers() {
             <p className="mt-2 text-sm text-[var(--text-secondary)]">Reserved {date(row.reservedAt)}</p>
           </div>
           <div className="col-span-12 lg:col-span-2"><Badge tone={expired ? 'neutral' : locked ? 'success' : 'pending'} icon={locked ? CheckCircle2 : expired ? Tag : Clock3}>
-              {expired ? 'Expired' : locked ? 'Price locked' : review ? 'Payment under review' : 'Reserved'}
+              {expired ? 'Expired' : locked ? 'Price locked' : review ? 'Payment under review' : paused ? 'Start requested' : 'Reserved'}
           </Badge></div>
           <div className="col-span-12 sm:col-span-6 lg:col-span-2">
             <p className="mb-1 text-sm text-[var(--text-secondary)] lg:hidden">Reserved price</p>
@@ -79,8 +81,8 @@ export default function MyOffers() {
           </div>
           <div className="col-span-12 sm:col-span-6 lg:col-span-4">
             <p className="mb-1 text-sm text-[var(--text-secondary)] lg:hidden">Payment deadline</p>
-            <p className="text-base font-medium">{date(due)}</p>
-            {row.extendedUntil && <p className="mt-1 text-sm text-[var(--text-secondary)]">(extended by our team)</p>}
+            <p className="text-base font-medium">{paused ? 'Paused – our team is setting up your project' : date(due)}</p>
+            {row.extendedUntil && !paused && <p className="mt-1 text-sm text-[var(--text-secondary)]">(extended by our team)</p>}
             {!expired && row.status === 'reserved' && <p className="mt-2 flex items-center gap-2 text-sm font-semibold tabular-nums text-[var(--badge-pending-fg)]"><Clock3 size={16} aria-hidden="true" />{Math.floor(seconds / 3600)}h {Math.floor(seconds % 3600 / 60)}m {seconds % 60}s remaining</p>}
           </div>
         </div>

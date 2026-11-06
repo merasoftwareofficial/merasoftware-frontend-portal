@@ -6,7 +6,9 @@ import SummaryApi from '../../common';
 // reserved price to a project. The backend re-checks every rule; this screen only collects input.
 const ist = value => `${new Date(value).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' })} IST`;
 const inr = value => `₹${Number(value || 0).toLocaleString('en-IN')}`;
-const STATUS = { reserved: 'Reserved', expired: 'Expired', confirmed: 'Price locked', under_review: 'Payment under review' };
+// start_requested: the customer pressed Start my project; the countdown is paused until a project is
+// created on it, or Extend deadline resumes it (backend helpers/reservationStart.js).
+const STATUS = { reserved: 'Reserved', expired: 'Expired', confirmed: 'Price locked', under_review: 'Payment under review', start_requested: 'Start requested' };
 const RESOLUTION = {
   repriced: 'Price revised after the deadline',
   unchanged: 'Deadline passed — price unchanged',
@@ -29,7 +31,10 @@ const post = async (path, body) => {
 const projectName = project => project?.projectSnapshot?.displayName || project?.projectSnapshot?.categoryLabel || 'Project';
 
 function ExtendForm({ row, onDone }) {
-  const [until, setUntil] = useState(localInput(Math.max(Date.now(), Date.parse(row.deadline)) + 24 * 3600000));
+  // A paused reservation resumes from now with the time that was left (at least 24 hours); the admin may shorten it.
+  const [until, setUntil] = useState(localInput(row.status === 'start_requested'
+    ? Date.now() + Math.max(row.pausedRemainingMs || 0, 24 * 3600000)
+    : Math.max(Date.now(), Date.parse(row.deadline)) + 24 * 3600000));
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const submit = async event => {
@@ -140,7 +145,9 @@ export default function ReservedOffersPanel({ customerId, projects = [], onChang
                 <p className="font-semibold text-slate-900">{row.title} · {inr(row.reservedPrice)}</p>
                 <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{STATUS[row.status] || row.status}</span>
               </div>
-              <p className="mt-1 text-sm text-slate-600">Reserved {ist(row.reservedAt)} · Deadline {ist(row.deadline)}{row.extendedUntil ? ` (original ${ist(row.expiresAt)})` : ''}</p>
+              <p className="mt-1 text-sm text-slate-600">Reserved {ist(row.reservedAt)} · {row.status === 'start_requested'
+                ? `Start requested ${ist(row.startRequestedAt)} · countdown paused. Create the project on it, or Extend deadline to resume.`
+                : `Deadline ${ist(row.deadline)}${row.extendedUntil ? ` (original ${ist(row.expiresAt)})` : ''}`}</p>
               <p className="text-sm text-slate-600">{project ? `Project: ${projectName(project)}` : row.projectId ? 'Linked to a project' : 'No project yet'}</p>
               {row.reuseNeedsReview && <p className="text-sm font-medium text-amber-700">The previous project is closed. Its payment or offer usage history prevents automatic reuse; financial review is required.</p>}
               {row.releases?.length > 0 && <p className="text-sm text-slate-600">Released from a previous project on {ist(row.releases[row.releases.length - 1].at)}. Original reservation deadline retained.</p>}
