@@ -1,3 +1,7 @@
+## Not Now stage — 7 November 2026
+
+Not Now: src/helpers/leadStatuses.js defines the lead/client label and options; general follow-up uses the existing review popup. See E:/Allprojects/merasoftware/src/docs/not-now-stage-plan.md. Local tests passed; no deployment or production migration.
+
 ## Template review saves — 31 October 2026
 
 Popup Save template creates a new custom template; explicit management Edit still updates. Shared backend POST /templates validates sourceTemplateId/action/application and reuses canonical editor conversion; templateOptions remains action scoped. Website `src/app/admin/email-control/email-control-panel.tsx` and portal `src/components/EmailReviewDialog.js` add/select the new ID and retain all options. Originals/defaults remain unchanged; chips remain reusable. Includes pre-save Add Lead and phone-only proposal previews through the common portal dialog. Lead-page manual messaging is deferred.

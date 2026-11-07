@@ -14,7 +14,7 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
       import Detail from './src/pages/AdminLeadDetailPage';
       import Leads from './src/pages/AdminLeadsPage';
       window.calls = [];
-      const client = { _id: 'client1', name: 'Rajan', phone: '9876500000', email: 'r@example.test', status: 'Won', convertedToUserId: 'user1', clientBehaviour: 'Tough', clientAvailable: true, contactBlock: null,
+      const client = { _id: 'client1', name: 'Rajan', phone: '9876500000', email: 'r@example.test', status: 'Won', convertedToUserId: 'user1', clientBehaviour: 'NotNow', clientAvailable: true, contactBlock: null,
         offerTargets: [{ offerSlug: 'dhamaka', offerTitle: 'Digital Dhamaka', stage: 'Positive' }, { offerSlug: 'seo', offerTitle: 'SEO Offer', stage: 'Won' }],
         followUps: [
           { _id: 'f1', note: 'General note', badge: 'Won', createdAt: '2026-10-01' },
@@ -24,7 +24,7 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
       const waiting = { _id: 'lead2', name: 'Ravi', phone: '9876543210', status: 'Negative', followUps: [], offerTargets: [], finalMessage: { status: 'waiting', deadlineAt: '2026-11-02' },
         contactBlock: { reason: 'final-message', label: 'Final message: countdown', message: 'The final message countdown is running for this person, so nothing else goes until it ends.' } };
       const list = [
-        { _id: 'client1', name: 'Rajan', phone: '9876500000', status: 'Won', convertedToUserId: 'user1', clientBehaviour: 'Tough', createdAt: '2026-10-30' },
+        { _id: 'client1', name: 'Rajan', phone: '9876500000', status: 'Won', convertedToUserId: 'user1', clientBehaviour: 'NotNow', createdAt: '2026-10-30' },
         { _id: 'client2', name: 'Sunil', phone: '9876500001', status: 'Won', convertedToUserId: 'user2', createdAt: '2026-10-30' },
         { _id: 'lead2', name: 'Ravi', phone: '9876543210', status: 'Negative', contactBlock: { reason: 'final-message', label: 'Final message: countdown' }, createdAt: '2026-10-30' },
         { _id: 'lead3', name: 'Mohan', phone: '9876543211', status: 'Contacted', createdAt: '2026-10-30' },
@@ -94,10 +94,10 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     await page.getByRole('option', { name: 'General' }).click();
     const card = page.locator('div.rounded-3xl').filter({ hasText: 'Client account' }).first();
     assert.equal(await card.locator('button[aria-haspopup="listbox"]').count(), 0, 'the Client panel shows the status as a badge');
-    await card.getByText('Tough', { exact: true }).waitFor();
-    await page.locator('button[aria-haspopup="listbox"]').filter({ hasText: 'Tough' }).click();
+    await card.getByText('Not Now', { exact: true }).waitFor();
+    await page.locator('button[aria-haspopup="listbox"]').filter({ hasText: 'Not Now' }).click();
     const behaviours = await page.getByRole('option').allInnerTexts();
-    assert.deepEqual(behaviours, ['Neutral', 'Positive', 'Active', 'Lazy', 'Tough', 'Negative', 'Unhappy', 'Dead']);
+    assert.deepEqual(behaviours, ['Neutral', 'Positive', 'Active', 'Not Now', 'Negative', 'Unhappy', 'Dead']);
     await page.getByRole('option', { name: 'Active' }).click();
     await page.getByPlaceholder(/Add a follow-up note/).fill('Working with us again');
     await page.getByRole('button', { name: 'Add Follow-up' }).click();
@@ -122,11 +122,11 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     assert.equal(await page.getByRole('button', { name: 'Contacted', exact: true }).count(), 0);
     await page.getByRole('button', { name: 'Neutral', exact: true }).first().waitFor();
     await page.getByText('Final message: countdown').first().waitFor();
-    assert.equal(await page.getByText('Client behaviour').count(), 0);
-    await page.getByRole('button', { name: 'Matured', exact: true }).click();
-    await page.getByText('Client behaviour').waitFor();
+    assert.equal(await page.getByText('Client current status').count(), 0);
+    await page.getByRole('button', { name: 'Clients', exact: true }).click();
+    await page.getByText('Client current status').waitFor();
     // The status row also has these names, so the behaviour row is the last match.
-    await page.getByRole('button', { name: 'Tough', exact: true }).last().click();
+    await page.getByRole('button', { name: 'Not Now', exact: true }).last().click();
     assert.equal(await page.getByRole('button').filter({ hasText: 'Rajan' }).count() > 0, true);
     await page.getByRole('button').filter({ hasText: 'Sunil' }).waitFor({ state: 'detached' });
     await page.getByRole('button', { name: 'Neutral', exact: true }).last().click();

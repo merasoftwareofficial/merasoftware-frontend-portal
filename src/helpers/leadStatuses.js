@@ -8,6 +8,7 @@ const LEAD_STATUS_DISPLAY = {
   Active: { label: "Active", style: "bg-teal-100 text-teal-800 border-teal-200", tone: "pending" },
   Lazy: { label: "Lazy", style: "bg-yellow-100 text-yellow-800 border-yellow-200", tone: "pending" },
   Tough: { label: "Tough", style: "bg-orange-100 text-orange-800 border-orange-200", tone: "pending" },
+  NotNow: { label: "Not Now", style: "bg-amber-100 text-amber-800 border-amber-200", tone: "pending" },
   Negative: { label: "Negative", style: "bg-red-100 text-red-800 border-red-200", tone: "error" },
   Unhappy: { label: "Unhappy", style: "bg-rose-100 text-rose-800 border-rose-200", tone: "error" },
   Dead: { label: "Dead", style: "bg-slate-200 text-slate-700 border-slate-300", tone: "neutral" },
@@ -16,9 +17,9 @@ const LEAD_STATUS_DISPLAY = {
   [PROPOSAL_SENT]: { label: PROPOSAL_SENT, style: "bg-amber-100 text-amber-800 border-amber-200", tone: "pending" },
 };
 
-export const LEAD_STATUSES = ["Inquiry", "Contacted", "Positive", "Active", "Lazy", "Tough", "Negative", "Unhappy", "Dead", "Wrong", "Won"];
+export const LEAD_STATUSES = ["Inquiry", "Contacted", "Positive", "Active", "Lazy", "Tough", "NotNow", "Negative", "Unhappy", "Dead", "Wrong", "Won"];
 // Won is set only by a lead becoming a client, and Inquiry only by WhatsApp Auto Reply: neither is chosen.
-export const SELECTABLE_LEAD_STATUSES = ["Contacted", "Positive", "Active", "Lazy", "Tough", "Negative", "Unhappy", "Dead", "Wrong"];
+export const SELECTABLE_LEAD_STATUSES = ["Contacted", "Positive", "Active", "NotNow", "Negative", "Unhappy", "Dead", "Wrong"];
 export const DEFAULT_LEAD_STATUS = "Contacted";
 
 export const leadStatusLabel = (status) => LEAD_STATUS_DISPLAY[status]?.label || status || DEFAULT_LEAD_STATUS;

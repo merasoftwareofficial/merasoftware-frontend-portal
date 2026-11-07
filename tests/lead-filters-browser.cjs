@@ -23,7 +23,7 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
  try {await new Promise(r=>server.listen(0,'127.0.0.1',r));browser=await chromium.launch({headless:true});const page=await browser.newPage();const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error('BROWSER',e.message)});
  const origin='http://127.0.0.1:'+server.address().port;
  await page.goto(origin+'/admin-panel/leads?status=Negative&source=normal&sort=nameAsc&proposal=1&q=Ravi');
- const search=page.getByPlaceholder('Search leads by name, email, or phone');await search.waitFor();await page.getByRole('button').filter({hasText:'1. Ravi'}).click();await page.getByRole('button',{name:'Return to leads'}).click();
+ const search=page.getByPlaceholder('Search leads by name, business, email, or phone');await search.waitFor();await page.getByRole('button').filter({hasText:'1. Ravi'}).click();await page.getByRole('button',{name:'Return to leads'}).click();
  assert.equal(await search.inputValue(),'Ravi');for(const [key,value] of Object.entries({status:'Negative',source:'normal',sort:'nameAsc',proposal:'1',q:'Ravi'}))assert.equal(new URL(page.url()).searchParams.get(key),value);
  await page.reload();await page.getByRole('button').filter({hasText:'1. Ravi'}).waitFor();assert.equal(await search.inputValue(),'Ravi');
  const before=await page.evaluate(()=>window.calls.length);await search.fill('Not present');await page.getByText(/No leads/).first().waitFor();assert.equal(await page.evaluate(()=>window.calls.length),before,'changing filters sends no extra API calls');assert.deepEqual(errors,[]);console.log('PASS: actual Leads filters survive return + reload; filter changes make zero API calls.');
