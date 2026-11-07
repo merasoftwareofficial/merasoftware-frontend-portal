@@ -5,6 +5,8 @@ const SummaryApi = {
     myInvoices: { url: `${backendDomain}/api/my-invoices`, method: 'get' },
     customerPlanCatalogue: { url: `${backendDomain}/api/customer/service-plan-catalogue`, method: 'get' },
     offerReservations: { url: `${backendDomain}/api/offer-reservations`, method: 'get' },
+    // Start my project on a package without an offer (backend helpers/packageStart.js).
+    packageStarts: { url: `${backendDomain}/api/package-starts`, method: 'get' },
     websitePreview: { url: `${backendDomain}/api/projects`, method: 'get' },
     servicePlanOffers: { url: `${backendDomain}/api/customer/service-plan-offers`, method: 'get' },
     uploadSessions: { url: `${backendDomain}/api/upload-sessions`, method: 'post' },

@@ -113,8 +113,39 @@ function ForceApplyForm({ row, projects, onDone }) {
   );
 }
 
+// "Start my project" on a package page without an offer (backend helpers/packageStart.js): no price is held.
+// Creating the project on that package closes it; the team can also close it here.
+function PackageStarts({ rows, onDone }) {
+  const [busy, setBusy] = useState('');
+  const close = async row => {
+    if (!window.confirm(`Close the start request for ${row.title}? The customer may ask again later.`)) return;
+    setBusy(row.id);
+    try {
+      const response = await fetch(`${SummaryApi.packageStarts.url}/${row.id}/close`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.message || 'Request failed');
+      toast.success('Start request closed.'); onDone();
+    } catch (error) { toast.error(error.message); } finally { setBusy(''); }
+  };
+  return (
+    <ul className="mt-4 space-y-3">
+      {rows.map(row => (
+        <li key={row.id} className="rounded-2xl border border-slate-200 p-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="font-semibold text-slate-900">{row.title}{row.price !== null ? ` · ${inr(row.price)}` : ''}</p>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{row.status === 'requested' ? 'Start requested' : row.closedReason === 'project_created' ? 'Project created' : 'Closed'}</span>
+          </div>
+          <p className="mt-1 text-sm text-slate-600">Package start request {ist(row.requestedAt)}{row.status === 'requested' ? ' · create the project on this package to close it.' : row.closedAt ? ` · closed ${ist(row.closedAt)}` : ''}</p>
+          {row.status === 'requested' && <div className="mt-2"><button type="button" disabled={busy === row.id} onClick={() => close(row)} className="rounded-xl border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-800 disabled:opacity-50">{busy === row.id ? 'Closing…' : 'Close request'}</button></div>}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export default function ReservedOffersPanel({ customerId, projects = [], onChanged }) {
   const [rows, setRows] = useState(null);
+  const [starts, setStarts] = useState([]);
   const [error, setError] = useState('');
   const [open, setOpen] = useState({});
   const load = useCallback(async () => {
@@ -124,16 +155,23 @@ export default function ReservedOffersPanel({ customerId, projects = [], onChang
       if (!response.ok || !result.success) throw new Error(result.message || 'Reserved offers could not be loaded');
       setRows(result.data.reservations || []); setError('');
     } catch (err) { setError(err.message); }
+    // Package start requests are optional here: an older backend without them simply shows none.
+    try {
+      const response = await fetch(`${SummaryApi.packageStarts.url}/user/${customerId}`, { credentials: 'include', cache: 'no-store' });
+      const result = await response.json();
+      setStarts(response.ok && result.success ? result.data.requests || [] : []);
+    } catch { setStarts([]); }
   }, [customerId]);
   useEffect(() => { if (customerId) void load(); }, [customerId, load]);
   const done = () => { setOpen({}); void load(); if (onChanged) onChanged(); };
   if (error) return <p role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>;
-  if (!rows?.length) return null;
+  if (!rows?.length && !starts.length) return null;
   const toggle = (id, form) => setOpen(current => ({ ...current, [id]: current[id] === form ? null : form }));
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <h3 className="text-lg font-semibold text-slate-900">Reserved offers</h3>
-      <p className="text-sm text-slate-500">Reservations stay here as history. Times are India time.</p>
+      <p className="text-sm text-slate-500">Reservations and package start requests stay here as history. Times are India time.</p>
+      {starts.length > 0 && <PackageStarts rows={starts} onDone={done} />}
       <ul className="mt-4 space-y-3">
         {rows.map(row => {
           const canExtend = !row.reuseNeedsReview && !row.confirmedAt && row.status !== 'confirmed' && (!row.resolution || row.resolution === 'unchanged');
