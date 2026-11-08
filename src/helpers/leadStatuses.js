@@ -19,7 +19,8 @@ const LEAD_STATUS_DISPLAY = {
 
 export const LEAD_STATUSES = ["Inquiry", "Contacted", "Positive", "Active", "Lazy", "Tough", "NotNow", "Negative", "Unhappy", "Dead", "Wrong", "Won"];
 // Won is set only by a lead becoming a client, and Inquiry only by WhatsApp Auto Reply: neither is chosen.
-export const SELECTABLE_LEAD_STATUSES = ["Contacted", "Positive", "Active", "NotNow", "Negative", "Unhappy", "Dead", "Wrong"];
+// Active, Lazy and Tough are only shown on stored leads and old follow-ups (Active is now Positive).
+export const SELECTABLE_LEAD_STATUSES = ["Contacted", "Positive", "NotNow", "Negative", "Unhappy", "Dead", "Wrong"];
 export const DEFAULT_LEAD_STATUS = "Contacted";
 
 export const leadStatusLabel = (status) => LEAD_STATUS_DISPLAY[status]?.label || status || DEFAULT_LEAD_STATUS;
@@ -28,12 +29,11 @@ export const leadStatusTone = (status) => LEAD_STATUS_DISPLAY[status]?.tone || "
 
 const toOption = (status) => ({ value: status, label: leadStatusLabel(status), className: leadStatusStyle(status) });
 
-// A client's general behaviour: the same list without Wrong. No saved value means Neutral.
+// A client's general behaviour: whether they may be marketed to (backend CLIENT_BEHAVIOURS). No saved value means Neutral.
 export const DEFAULT_CLIENT_BEHAVIOUR = "Contacted";
-export const CLIENT_BEHAVIOUR_OPTIONS = SELECTABLE_LEAD_STATUSES.filter((status) => status !== "Wrong").map(toOption);
-// Inquiry is set only by the system (a Dead client who wrote after the closure message), so it is shown and filtered, never chosen.
-export const CLIENT_BEHAVIOUR_FILTERS = [toOption("Inquiry"), ...CLIENT_BEHAVIOUR_OPTIONS];
-/** The behaviours to choose from, plus the current one when it can't be chosen (Inquiry). */
+export const CLIENT_BEHAVIOUR_OPTIONS = ["Contacted", "NotNow", "Negative", "Unhappy", "Dead"].map(toOption);
+export const CLIENT_BEHAVIOUR_FILTERS = CLIENT_BEHAVIOUR_OPTIONS;
+/** The behaviours to choose from, plus the current one when it can't be chosen (an older value such as Positive). */
 export const clientBehaviourOptions = (current) => [
   ...(current && !CLIENT_BEHAVIOUR_OPTIONS.some((option) => option.value === current) ? [toOption(current)] : []),
   ...CLIENT_BEHAVIOUR_OPTIONS,

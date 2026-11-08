@@ -97,14 +97,14 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     await card.getByText('Not Now', { exact: true }).waitFor();
     await page.locator('button[aria-haspopup="listbox"]').filter({ hasText: 'Not Now' }).click();
     const behaviours = await page.getByRole('option').allInnerTexts();
-    assert.deepEqual(behaviours, ['Neutral', 'Positive', 'Active', 'Not Now', 'Negative', 'Unhappy', 'Dead']);
-    await page.getByRole('option', { name: 'Active' }).click();
+    assert.deepEqual(behaviours, ['Neutral', 'Not Now', 'Negative', 'Unhappy', 'Dead']);
+    await page.getByRole('option', { name: 'Unhappy' }).click();
     await page.getByPlaceholder(/Add a follow-up note/).fill('Working with us again');
     await page.getByRole('button', { name: 'Add Follow-up' }).click();
     await page.waitForFunction(() => window.calls.some(call => call.body?.note === 'Working with us again'));
     const statusLine = await lastPost();
     assert.equal(statusLine.body.action, 'followUp');
-    assert.equal(statusLine.body.badge, 'Active');
+    assert.equal(statusLine.body.badge, 'Unhappy');
     assert.equal(statusLine.body.offerSlug, undefined);
     assert.equal(await page.evaluate(() => window.calls.some(call => call.body?.action === 'setBehaviour')), false);
 

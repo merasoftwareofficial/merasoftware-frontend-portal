@@ -185,7 +185,7 @@ const shots = process.env.LEAD_TEST_SHOTS;
     assert.match(await dropdown().innerText(), /Neutral/);
     await dropdown().click();
     const options = await page.getByRole('option').allInnerTexts();
-    assert.deepEqual(options.map(text => text.trim()), ['Neutral', 'Positive', 'Active', 'Lazy', 'Tough', 'Negative', 'Unhappy', 'Dead', 'Wrong']);
+    assert.deepEqual(options.map(text => text.trim()), ['Neutral', 'Positive', 'Not Now', 'Negative', 'Unhappy', 'Dead', 'Wrong']);
     await page.keyboard.press('Escape');
     await shot('1-contacted');
   });
