@@ -693,6 +693,8 @@ const SummaryApi = {
     },
     // Live (published, not expired) website offers for the Create Project form's Offer dropdown.
     adminSalesPackages: { url: `${backendDomain}/api/admin/sales-packages`, method: "get" },
+    // The choice quote for a package project (backend helpers/salesPackages.js quoteChoice).
+    adminSalesPackagesQuote: { url: `${backendDomain}/api/admin/sales-packages/quote`, method: "PATCH" },
     adminWebsiteOffers: {
         url: `${backendDomain}/api/admin/website-offers`,
         method: "get"

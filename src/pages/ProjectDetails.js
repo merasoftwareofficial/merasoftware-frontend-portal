@@ -352,17 +352,10 @@ const ProjectDetails = ({ isAdminView = false }) => {
           return;
         }
         
-        // Determine if we should show the alert based on progress. Prefer the installment's own
-        // admin-configured progressThreshold (Layer B — per-project gate, matches the backend's
-        // appendProjectNode() cap in projectNodeService.js exactly). Fall back to the old
-        // hardcoded 40%/75% only for installments created before this field existed
-        // (progressThreshold is null/undefined on them), so pre-existing orders keep behaving
-        // exactly as before.
-        const hasThreshold = nextUnpaidInstallment.progressThreshold != null;
-        const shouldPause = hasThreshold
-          ? Math.round(order.projectProgress) >= Number(nextUnpaidInstallment.progressThreshold)
-          : (nextUnpaidInstallment.installmentNumber === 2 && Math.round(order.projectProgress) >= 40) ||
-            (nextUnpaidInstallment.installmentNumber === 3 && Math.round(order.projectProgress) >= 75);
+        // Due or not is decided once, on the server (backend helpers/projectDuePayment.js): the
+        // installment's own threshold, the old 40% / 75% rule for installments without one, and
+        // due even before its invoice exists. hasUnpaidInvoice carries that answer.
+        const shouldPause = Boolean(order.hasUnpaidInvoice);
 
         setShouldShowPaymentAlert(shouldPause);
         setIsProjectPaused(shouldPause);
@@ -764,8 +757,15 @@ const ProjectDetails = ({ isAdminView = false }) => {
   // A cancelled project is closed and its money already settled — nothing more can be
   // uploaded or requested against it.
   const isOrderCancelled = order.orderState?.code === 'cancelled' || order.orderVisibility === 'cancelled';
+  // A package sold without portal uploads (backend projectUploadGate.js): no upload button at all, only progress.
+  const portalUploadsOff = order.portalUploads === false;
+  // A monthly package's term (backend projectUploadGate.js projectUploadLimits): it ends on its date, and
+  // per file it allows the updates the client bought, month by month. The server refuses the same.
+  const packageTerm = order.packageTerm || null;
+  const termEnded = Boolean(packageTerm?.ended);
+  const termUsedUp = Boolean(packageTerm?.allowance) && packageTerm.allowance.remaining <= 0;
   const isUploadLocked =
-    (order.paymentAccess ? !order.paymentAccess.allowed : Boolean(order.hasUnpaidInvoice)) || isOrderPendingApproval || isProjectComplete || isOrderCancelled;
+    (order.paymentAccess ? !order.paymentAccess.allowed : Boolean(order.hasUnpaidInvoice)) || isOrderPendingApproval || isProjectComplete || isOrderCancelled || termEnded || termUsedUp;
 
   // Why the upload is locked, not just that it is. All four reasons used to collapse into one
   // "Pending" pill, so a CANCELLED project offered "Upload Data · Pending" — telling the customer
@@ -778,7 +778,12 @@ const ProjectDetails = ({ isAdminView = false }) => {
         ? { badge: 'Payment due', title: order.paymentAccess?.reason || 'You can upload data after payment is received' }
         : isOrderPendingApproval
           ? { badge: 'Pending', title: 'You can upload data after payment is confirmed' }
-          : { badge: null, title: undefined };
+          : termEnded
+            ? { badge: 'Ended', title: 'This package has ended. Buy it again to continue sending files.' }
+            : termUsedUp
+              ? { badge: 'Used', title: packageTerm.allowance.nextReleaseAt ? "This month's updates are used. More open next month." : "This billing cycle's updates are used." }
+              : { badge: null, title: undefined };
+  const termDate = (value) => new Date(value).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
 
   return (
     <Shell {...shellProps}>
@@ -816,6 +821,8 @@ const ProjectDetails = ({ isAdminView = false }) => {
           {!isAdminView && shouldShowPaymentAlert && currentInstallment && (
             <PaymentAlert
               installmentNumber={currentInstallment.installmentNumber}
+              installment={currentInstallment}
+              installmentCount={order.installments?.length}
               amount={currentInstallment.amount}
               projectId={orderId}
               progress={Number(order.projectProgress) || 0}
@@ -1014,7 +1021,17 @@ const ProjectDetails = ({ isAdminView = false }) => {
                             </div>
                           ) : null}
 
-                          {!isAdminView ? (
+                          {packageTerm && (
+                            <p className="mt-3 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)] px-4 py-2.5 text-center text-base text-[var(--text-secondary)]">
+                              Monthly package · cycle {packageTerm.cycle.number} of {packageTerm.cycle.of} · {termEnded ? `ended ${termDate(packageTerm.endsAt)}` : `runs until ${termDate(packageTerm.endsAt)}`}
+                              {packageTerm.allowance ? ` · ${packageTerm.allowance.remaining} of ${packageTerm.allowance.limit} update${packageTerm.allowance.limit === 1 ? '' : 's'} left${packageTerm.allowance.nextReleaseAt ? ` · more open ${termDate(packageTerm.allowance.nextReleaseAt)}` : ''} · up to ${packageTerm.maxFiles} files each` : ''}
+                            </p>
+                          )}
+                          {!isAdminView && portalUploadsOff ? (
+                            <p className="mt-3 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)] px-4 py-2.5 text-center text-base text-[var(--text-secondary)]">
+                              This package includes progress updates only. No files are needed from you.
+                            </p>
+                          ) : !isAdminView ? (
                             <button
                               type="button"
                               onClick={() => setUpdateModalOpen(true)}
@@ -1191,14 +1208,14 @@ const ProjectDetails = ({ isAdminView = false }) => {
 
                   {!isAdminView ? (
                     <div className="relative mt-4 space-y-3">
-                      <button
+                      {!portalUploadsOff && <button
                         type="button"
                         onClick={() => setUpdateModalOpen(true)}
                         className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-accent-solid px-4 py-3 text-base font-semibold text-accent-on-solid transition hover:bg-accent-solid-hover"
                       >
                         <Upload className="h-4 w-4" />
                         Upload Data
-                      </button>
+                      </button>}
                       {order.projectLink && order.projectLink.trim() !== '' ? (
                         <a
                           href={order.projectLink}

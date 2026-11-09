@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import SummaryApi from '../../common';
+import { packageChoiceText } from '../../helpers/packageChoice';
 
 // Admin view of one customer's offer reservations: extend a deadline, or force-apply the saved
 // reserved price to a project. The backend re-checks every rule; this screen only collects input.
@@ -135,6 +136,7 @@ function PackageStarts({ rows, onDone }) {
             <p className="font-semibold text-slate-900">{row.title}{row.price !== null ? ` · ${inr(row.price)}` : ''}</p>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{row.status === 'requested' ? 'Start requested' : row.closedReason === 'project_created' ? 'Project created' : 'Closed'}</span>
           </div>
+          {row.choice && <p className="mt-1 text-sm font-semibold text-slate-700">Chose: {packageChoiceText(row.choice)}</p>}
           <p className="mt-1 text-sm text-slate-600">Package start request {ist(row.requestedAt)}{row.status === 'requested' ? ' · create the project on this package to close it.' : row.closedAt ? ` · closed ${ist(row.closedAt)}` : ''}</p>
           {row.status === 'requested' && <div className="mt-2"><button type="button" disabled={busy === row.id} onClick={() => close(row)} className="rounded-xl border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-800 disabled:opacity-50">{busy === row.id ? 'Closing…' : 'Close request'}</button></div>}
         </li>

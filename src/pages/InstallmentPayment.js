@@ -11,6 +11,7 @@ import DashboardLayout from '../components/DashboardLayout';
 import { goToCustomerReturn } from '../helpers/customerReturnNavigation';
 import { getOrderDisplayName } from '../helpers/orderPresentation';
 import { getInstallmentPaymentEligibility } from '../helpers/installmentPaymentEligibility';
+import { installmentName, installmentPurpose } from '../helpers/projectInstallments';
 
 const InstallmentPayment = () => {
   const { orderId, installmentNumber } = useParams();
@@ -287,22 +288,9 @@ const InstallmentPayment = () => {
     }
   };
 
-  const getInstallmentName = (number) => {
-    switch(parseInt(number)) {
-      case 1: return 'First Installment (30%)';
-      case 2: return 'Second Installment (30%)';
-      case 3: return 'Final Installment (40%)';
-      default: return `Installment #${number}`;
-    }
-  };
-  
-  const getProgressText = (number) => {
-    switch(parseInt(number)) {
-      case 2: return 'This payment will allow your project to progress from 50% to 90% completion.';
-      case 3: return 'This payment will allow your project to be completed and delivered.';
-      default: return 'This payment will start your project development.';
-    }
-  };
+  // Name and purpose from the installment itself, never its number (helpers/projectInstallments.js).
+  const getInstallmentName = (number) => installmentName(installment || { installmentNumber: number }, order?.installments?.length);
+  const getProgressText = (number) => installmentPurpose(installment || { installmentNumber: number }, order?.installments?.length);
 
 
   if (loading && !order) {

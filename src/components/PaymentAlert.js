@@ -3,9 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Clock } from 'lucide-react';
 import Surface from './Surface';
 import GlassButton from './GlassButton';
+import { installmentName } from '../helpers/projectInstallments';
 
 const PaymentAlert = ({
   installmentNumber,
+  installment,
+  installmentCount,
   amount,
   projectId,
   progress,
@@ -22,15 +25,8 @@ const PaymentAlert = ({
     }
   };
 
-  // Helper function to determine installment name
-  const getInstallmentName = (number) => {
-    switch(parseInt(number)) {
-      case 1: return 'First Installment (30%)';
-      case 2: return 'Second Installment (30%)';
-      case 3: return 'Final Installment (40%)';
-      default: return `Installment #${number}`;
-    }
-  };
+  // The name comes from the installment itself (helpers/projectInstallments.js).
+  const getInstallmentName = (number) => installmentName(installment || { installmentNumber: number }, installmentCount);
   
   // Both states are real statuses — a payment being verified, and a payment
   // that is due — so colour belongs here. What did not belong was the SHAPE:

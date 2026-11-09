@@ -1,7 +1,8 @@
 import { getResourceScope } from '../utils/resourceClient';
 import { useResource } from '../hooks/useResource';
 import { useListScroll } from '../hooks/useListScroll';
-import { buildInstallmentPreview } from '../helpers/projectInstallments';
+import { buildCycleInstallmentPreview, buildInstallmentPreview, installmentName } from '../helpers/projectInstallments';
+import { CYCLE_MONTHS, CYCLE_WORDS, defaultMonthlyChoice, packageChoiceText } from '../helpers/packageChoice';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useBlocker, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -313,6 +314,10 @@ const AdminClientWorkspace = () => {
   const requestedProjectView = searchParams.get("view");
   const activeProjectView = activeProjectId && PROJECT_VIEWS.includes(requestedProjectView) ? requestedProjectView : null;
   const activePaymentGroupId = searchParams.get("group") || null;
+  // "Create project" on a package request (website Communication → Reservations): open the create form
+  // filled from that request once, then drop the param so a reload or Back does not open it again.
+  const startRequestParam = searchParams.get("startRequest") || "";
+  const [openedStartRequest, setOpenedStartRequest] = useState("");
 
   // Single writer for every param above. The four subpage layers reset each other, so this
   // always writes the complete set and drops what the caller omitted — a partial merge would
@@ -328,6 +333,15 @@ const AdminClientWorkspace = () => {
     if (next.view) params.set("view", next.view);
     setSearchParams(params, { replace, state: location.state, preventScrollReset: !next.project && !next.plan && !next.group });
   };
+  useEffect(() => {
+    if (!startRequestParam) return;
+    setOpenedStartRequest(startRequestParam);
+    setShowCreateProjectForm(true);
+    const params = new URLSearchParams(searchParams);
+    params.delete("startRequest");
+    setSearchParams(params, { replace: true, state: location.state });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startRequestParam]);
 
   // Closing a layer with the header's Back button must be the SAME operation as Alt+Left —
   // a real history step — or Back and Forward stop being symmetric. Writing a "closed" URL
@@ -2598,9 +2612,10 @@ const AdminClientWorkspace = () => {
               <CreateProjectForClientForm
                 clientName={clientName}
                 customerId={customerId}
-                onCancel={() => setShowCreateProjectForm(false)}
+                startRequestId={openedStartRequest}
+                onCancel={() => { setShowCreateProjectForm(false); setOpenedStartRequest(""); }}
                 onCreated={() => {
-                  setShowCreateProjectForm(false);
+                  setShowCreateProjectForm(false); setOpenedStartRequest("");
                   setWorkspaceRefreshKey((current) => current + 1);
                 }}
               />
@@ -4068,7 +4083,7 @@ const projectFormInputClassName =
   "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-black outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100";
 const projectFormLabelClassName = "mb-1.5 block text-base font-semibold text-slate-700";
 
-const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreated }) => {
+const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreated, startRequestId: openedRequestId = "" }) => {
   const [step, setStep] = useState(1);
   const creationKey = useRef(null);
   if (!creationKey.current) creationKey.current = crypto.randomUUID();
@@ -4089,13 +4104,21 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
   const [offerReservationId, setOfferReservationId] = useState("");
   const [offerReservations, setOfferReservations] = useState([]);
   const [reservationError, setReservationError] = useState("");
+  // The customer's open package requests (backend helpers/packageStart.js): picking one fills the form.
+  const [packageStarts, setPackageStarts] = useState([]);
+  const [startRequestId, setStartRequestId] = useState("");
+  const pendingRequest = useRef(null);
+  const openedRequestApplied = useRef(false);
+  // A monthly package: the customer's cycle, length, files and updates, priced by the backend.
+  const [monthlyChoice, setMonthlyChoice] = useState(null);
+  const [monthlyQuote, setMonthlyQuote] = useState(null);
+  const [monthlyQuoteError, setMonthlyQuoteError] = useState("");
   const [packageId, setPackageId] = useState("");
   const [packages, setPackages] = useState([]);
   const [catalogueReload, setCatalogueReload] = useState(0);
   // Signed difference between the typed selling price and the package/offer + features price.
   const [priceAdjustment, setPriceAdjustment] = useState("");
   const [adjustmentLabel, setAdjustmentLabel] = useState("");
-  const [offers, setOffers] = useState([]);
   const [offersLoading, setOffersLoading] = useState(true);
   const [offersError, setOffersError] = useState("");
 
@@ -4107,6 +4130,15 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
         if (!response.ok || !result.success) throw new Error(result.message || 'Reserved offers could not be loaded');
         setOfferReservations(result.data.reservations || []); setReservationError('');
       }).catch(error => { if (error.name !== 'AbortError') setReservationError(error.message); });
+    return () => controller.abort();
+  }, [customerId, catalogueReload]);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`${SummaryApi.packageStarts.url}/user/${customerId}`, { credentials: 'include', cache: 'no-store', signal: controller.signal })
+      .then(async response => {
+        const result = await response.json();
+        if (response.ok && result.success) setPackageStarts((result.data.requests || []).filter(row => row.status === 'requested'));
+      }).catch(() => { /* The form works without them; the request list shows its own error. */ });
     return () => controller.abort();
   }, [customerId, catalogueReload]);
 
@@ -4154,7 +4186,6 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
         const response = await fetch(SummaryApi.adminSalesPackages.url, { credentials: "include", cache: "no-store", signal: controller.signal });
         const result = await response.json();
         if (!response.ok || !result.success) throw new Error(result.message || "Packages could not be loaded");
-        setOffers(result.data.offers || []);
         setPackages((result.data.packages || []).filter(item => item.status === "published"));
       } catch (error) { if (error.name !== "AbortError") setOffersError(error.message || "Packages could not be loaded"); }
       finally { if (!controller.signal.aborted) setOffersLoading(false); }
@@ -4165,6 +4196,38 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
   useEffect(() => {
     setPackageId(""); setOfferSlug(""); setOfferReservationId(""); setSellingPrice(""); setSelectedFeatureIds([]); setPriceAdjustment(""); setAdjustmentLabel("");
   }, [category]);
+  // A package request fills the form with its package and the customer's choice; the admin may still change it.
+  const applyStartRequest = (row) => {
+    setStartRequestId(row?.id || "");
+    if (!row) return;
+    pendingRequest.current = row;
+    if (category !== row.category) setCategory(row.category || "");
+    else setCategory(current => current); // same category: the effect below applies it
+  };
+  useEffect(() => {
+    const row = pendingRequest.current;
+    if (!row || category !== row.category || offersLoading) return;
+    pendingRequest.current = null;
+    const item = packages.find(entry => entry.id === row.packageId && entry.category === category);
+    setOfferReservationId(""); setOfferSlug(""); setSelectedFeatureIds([]); setPriceAdjustment(""); setAdjustmentLabel(""); setSellingPrice("");
+    setPackageId(item?.id || "");
+    const choice = row.choice || {};
+    if (item?.billing === 'monthly') {
+      setPaymentType('monthly');
+      setMonthlyChoice({ ...defaultMonthlyChoice(item), ...choice, forPackage: item.id });
+    } else if (choice.paymentOption === 'installments_2' || choice.paymentOption === 'installments_3') {
+      setPaymentType('partial'); setInstallmentCount(choice.paymentOption === 'installments_3' ? '3' : '2');
+    } else setPaymentType('full');
+  }, [category, packages, offersLoading, startRequestId]);
+  // Opened from a request's "Create project" link (?startRequest=<id>): pick it once the requests are loaded.
+  useEffect(() => {
+    if (!openedRequestId || openedRequestApplied.current) return;
+    const row = packageStarts.find(entry => entry.id === openedRequestId);
+    if (!row) return;
+    openedRequestApplied.current = true;
+    applyStartRequest(row);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openedRequestId, packageStarts]);
 
   // Prefill the category's own first timeline node; the admin can still type another.
   const categoryStartingNodeTitle = selectedCategoryEntry?.startingNodeTitle || "";
@@ -4183,6 +4246,7 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
   }, []);
 
   const toggleFeature = (featureId) => {
+    if (isMonthly) return; // a monthly package is sold as it is
     setSelectedFeatureIds((current) =>
       current.includes(featureId)
         ? current.filter((id) => id !== featureId)
@@ -4218,14 +4282,37 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
     return sum + (Number(feature.sellingPrice ?? feature.price ?? 0) || 0) * quantity;
   }, 0);
   const selectedPackage = packages.find(item => item.id === packageId && item.category === category);
-  const eligibleOffers = offers.filter(item => item.status === "published" && Date.parse(item.endsAt) > Date.now() && (!item.targets || item.targets.includes('projects')) && item.applicableCategories?.includes(category));
   const selectedReservation = offerReservations.find(row => row.id === offerReservationId);
-  const selectedOffer = selectedReservation?.offerSnapshot || selectedPackage?.quote.offer || eligibleOffers.find(item => item.slug === offerSlug);
+  // A monthly package is paid per billing cycle and sold as it is (no extras, no adjustment); its total is
+  // the backend's choice quote (PATCH /admin/sales-packages/quote), the same one the creation checks.
+  const isMonthly = selectedPackage?.billing === 'monthly';
+  useEffect(() => {
+    if (!isMonthly) { setMonthlyChoice(null); setPaymentType(current => (current === 'monthly' ? 'full' : current)); return; }
+    setPaymentType('monthly'); setSelectedFeatureIds([]); setPriceAdjustment(""); setAdjustmentLabel("");
+    setMonthlyChoice(current => (current?.forPackage === selectedPackage.id ? current : { ...defaultMonthlyChoice(selectedPackage), forPackage: selectedPackage.id }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMonthly, selectedPackage?.id]);
+  const monthlyRequest = isMonthly && monthlyChoice ? JSON.stringify({ packageId: selectedPackage.id, customerId, offerReservationId: selectedReservation?.id || undefined,
+    choice: { billingCycle: monthlyChoice.billingCycle, tenureMonths: monthlyChoice.tenureMonths, ...(selectedPackage.monthly.pricing === 'per_file' ? { files: monthlyChoice.files, updates: monthlyChoice.updates } : {}) } }) : "";
+  useEffect(() => {
+    setMonthlyQuote(null); setMonthlyQuoteError("");
+    if (!monthlyRequest) return undefined;
+    const controller = new AbortController();
+    fetch(SummaryApi.adminSalesPackagesQuote.url, { method: SummaryApi.adminSalesPackagesQuote.method, credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: monthlyRequest, signal: controller.signal })
+      .then(async response => {
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || 'The monthly price could not be worked out');
+        setMonthlyQuote(result.data.quote);
+      }).catch(error => { if (error.name !== 'AbortError') setMonthlyQuoteError(error.message); });
+    return () => controller.abort();
+  }, [monthlyRequest]);
+  // The admin picks a package; its running offer applies by itself. A reservation keeps the offer it froze.
+  const selectedOffer = selectedReservation?.offerSnapshot || selectedPackage?.quote.offer;
   const isPricedSelection = Boolean(selectedPackage || selectedOffer);
-  const selectedRegular = selectedPackage?.quote.regularPrice ?? selectedOffer?.mainPrice ?? Number(basePrice);
+  const selectedRegular = isMonthly ? monthlyQuote?.regularPrice ?? 0 : (selectedReservation ? selectedOffer?.mainPrice : selectedPackage?.quote.regularPrice) ?? selectedOffer?.mainPrice ?? Number(basePrice);
   const referenceTotal = selectedRegular + featuresTotal;
-  let bundlePrice = selectedPackage?.quote.finalPrice;
-  if (!selectedPackage && selectedOffer) {
+  let bundlePrice = isMonthly ? monthlyQuote?.finalPrice ?? 0 : selectedReservation ? undefined : selectedPackage?.quote.finalPrice;
+  if (bundlePrice === undefined && selectedOffer) {
     bundlePrice = selectedOffer.pricingRule === "fixed_price" ? selectedOffer.offerPrice
       : selectedOffer.pricingRule === "percentage" ? selectedOffer.mainPrice * (1 - Number(selectedOffer.benefitValue) / 100)
       : selectedOffer.mainPrice - Number(selectedOffer.benefitValue);
@@ -4239,6 +4326,7 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
     if (isPricedSelection) setSellingPrice(String(calculatedPrice));
   }, [isPricedSelection, calculatedPrice]);
   const handleSellingPriceChange = (value) => {
+    if (isMonthly) return; // sold as it is: the quote is the price
     setSellingPrice(value);
     if (isPricedSelection && value !== "" && Number.isFinite(Number(value))) {
       setPriceAdjustment(String(Math.round((Number(value) - quotedPrice) * 100) / 100));
@@ -4250,7 +4338,9 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
   // no installments, and its invoice is created already settled and reads FREE.
   const isFree = hasSellingPrice && Number(sellingPrice) === 0;
 
-  const firstInstallmentAmount = paymentType === "partial" && sellingPrice
+  const cyclePreview = isMonthly && monthlyQuote ? buildCycleInstallmentPreview(monthlyQuote.monthly.cyclePrice, monthlyQuote.monthly.totalCycles, monthlyQuote.monthly.cycleMonths) : [];
+  const firstInstallmentAmount = isMonthly ? monthlyQuote?.dueNow || 0
+    : paymentType === "partial" && sellingPrice
     ? buildInstallmentPreview(Number(sellingPrice), installmentCount)[0]?.amount || 0
     : Number(sellingPrice) || 0;
 
@@ -4261,6 +4351,9 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
     }
     if ((packageId || offerSlug) && ((offerReservationId ? reservationError : offersLoading || offersError) || !isPricedSelection)) {
       toast.error("Refresh packages and select an available package or offer."); return false;
+    }
+    if (isMonthly && !monthlyQuote) {
+      toast.error(monthlyQuoteError || "Wait for the monthly price, or change the choice."); return false;
     }
     if (isPricedSelection && adjustmentAmount !== 0 && !adjustmentLabel.trim()) {
       toast.error("Enter a label for the price adjustment (shown on the invoice)."); return false;
@@ -4295,10 +4388,11 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
       featureQuantities,
       paymentType: isFree ? "full" : paymentType,
       installmentCount: !isFree && paymentType === "partial" ? installmentCount : null,
+      monthlyChoice: isMonthly ? JSON.parse(monthlyRequest).choice : undefined,
       packageId: selectedPackage?.id || null,
-      packageQuoteKey: selectedPackage?.quoteKey || null,
+      packageQuoteKey: !selectedReservation ? selectedPackage?.quoteKey || null : null,
       offerSlug: selectedOffer?.slug || null,
-      offerQuoteKey: !selectedPackage ? selectedOffer?.quoteKey : null,
+      offerQuoteKey: selectedReservation || !selectedPackage ? selectedOffer?.quoteKey : null,
       offerReservationId: selectedReservation?.id || null,
       priceAdjustment: isPricedSelection ? adjustmentAmount : 0,
       adjustmentLabel: isPricedSelection && adjustmentAmount !== 0 ? adjustmentLabel.trim() : "",
@@ -4427,10 +4521,20 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
         ) : null}
 
         <div className="md:col-span-2 space-y-4">
+          {packageStarts.length > 0 && <>
+            <label className={projectFormLabelClassName}>Customer's package request (optional)</label>
+            <select aria-label="Customer's package request" className={projectFormInputClassName} value={startRequestId} onChange={event => applyStartRequest(packageStarts.find(row => row.id === event.target.value))}>
+              <option value="">Not from a request</option>
+              {packageStarts.map(row => <option key={row.id} value={row.id}>{row.title}{row.choice ? ` · ${packageChoiceText(row.choice)}` : ''}{row.price != null ? ` — ₹${Number(row.price).toLocaleString('en-IN')}` : ''}</option>)}
+            </select>
+            {startRequestId && <p className="rounded-xl bg-emerald-50 p-3 text-emerald-900">Filled from the customer's request. The price is today's package price; creating the project closes the request.</p>}
+          </>}
           <label className={projectFormLabelClassName}>Customer's reserved offer (optional)</label>
           <select aria-label="Customer's reserved offer" className={projectFormInputClassName} value={offerReservationId} disabled={!category || Boolean(reservationError)} onChange={event => {
             const row = offerReservations.find(item => item.id === event.target.value);
-            setOfferReservationId(event.target.value); setPackageId(''); setOfferSlug(row?.offerSlug || ''); setPriceAdjustment(''); setAdjustmentLabel(''); setSellingPrice('');
+            // A reservation goes with its own package (merasoftware/src/docs/package.md §5 item 7), so the project records it.
+            const ownPackage = packages.find(item => item.id === row?.offerSnapshot?.packageId && item.category === category);
+            setOfferReservationId(event.target.value); setPackageId(ownPackage?.id || ''); setOfferSlug(row?.offerSlug || ''); setPriceAdjustment(''); setAdjustmentLabel(''); setSellingPrice('');
           }}><option value="">Use current catalogue or custom price</option>{offerReservations.filter(row => row.offerSnapshot?.applicableCategories?.includes(category)).map(row => <option key={row.id} value={row.id} disabled={Boolean(row.projectId) || (row.status !== 'start_requested' && (row.status !== 'reserved' || Date.parse(row.deadline || row.expiresAt) <= Date.now()))}>{row.title} — ₹{row.reservedPrice.toLocaleString('en-IN')} · {row.status === 'start_requested' ? 'start requested' : row.status}{row.projectId ? ' · attached to a project' : ''}</option>)}</select>
           {reservationError && <p role="alert" className="text-base text-red-600">{reservationError}. Refresh before applying a saved reservation.</p>}
           {selectedReservation && <p className="rounded-xl bg-emerald-50 p-3 text-emerald-900">Saved reservation price and terms apply. {selectedReservation.status === 'start_requested'
@@ -4442,9 +4546,33 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
             <option value="">{offersLoading ? "Loading packages…" : "Custom project — no package"}</option>
             {packages.filter(item => item.category === category).map(item => <option key={item.id} value={item.id}>{item.name} — ₹{item.quote.finalPrice.toLocaleString("en-IN")}</option>)}
           </select>
-          {!selectedPackage && !selectedReservation && <><label className={projectFormLabelClassName}>Category offer (optional)</label><select aria-label="Category offer" className={projectFormInputClassName} value={offerSlug} disabled={!category || offersLoading || Boolean(offersError)} onChange={event => { setOfferSlug(event.target.value); setSellingPrice(""); setPriceAdjustment(""); setAdjustmentLabel(""); }}><option value="">No offer — manual custom price</option>{eligibleOffers.map(item => <option key={item.slug} value={item.slug}>{item.title}</option>)}</select></>}
           {selectedOffer?.paymentPolicy && selectedOffer.paymentPolicy.mode !== 'current' && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-base text-emerald-900">Payment terms: {selectedOffer.paymentPolicy.mode.replaceAll('_', ' ')}{selectedOffer.paymentPolicy.mode === 'limited_uploads' ? ` · ${selectedOffer.paymentPolicy.uploadAllowance} submissions before payment` : ''} · Due in {selectedOffer.paymentPolicy.dueDays} day(s). These terms will be saved with this project.</p>}
           {isPricedSelection && <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-base text-slate-700"><strong>{selectedPackage?.name || selectedOffer?.title}</strong><p>{selectedOffer ? `Offer: ${selectedOffer.title}` : "Regular package price"}</p><ul className="mt-2 list-disc pl-5">{(selectedPackage?.inclusions || selectedOffer?.inclusions || []).map((line, index) => <li key={index}>{line}</li>)}</ul><p className="mt-3">Regular ₹{selectedRegular.toLocaleString("en-IN")} − offer benefit ₹{Math.round((selectedRegular - bundlePrice) * 100) / 100} + extra features ₹{featuresTotal.toLocaleString("en-IN")}</p><p className="mt-1">Select additional features only for work outside the package scope.</p>{selectedPackage?.linkedPlanIds?.length > 0 && <p>Related services are references only; no service plan will be purchased or activated.</p>}<details className="mt-2"><summary>Agreed terms</summary><ul className="list-disc pl-5">{(selectedPackage?.quote.terms || selectedOffer?.resolvedTerms || []).map((line, index) => <li key={index}>{line}</li>)}</ul></details></div>}
+          {isMonthly && monthlyChoice && <div className="rounded-xl border border-slate-200 bg-white p-4 text-base text-slate-700 space-y-3">
+            <p className="font-semibold">Monthly package: the client pays per billing cycle. Sold as it is, without extra features or a price adjustment.</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="block"><span className={projectFormLabelClassName}>Billing cycle</span>
+                <select aria-label="Billing cycle" className={projectFormInputClassName} value={monthlyChoice.billingCycle} onChange={event => { const months = CYCLE_MONTHS[event.target.value]; setMonthlyChoice(current => ({ ...current, billingCycle: event.target.value, tenureMonths: Math.max(months, Math.floor(current.tenureMonths / months) * months) })); }}>
+                  {selectedPackage.monthly.billingOptions.map(option => <option key={option.billingCycle} value={option.billingCycle}>{CYCLE_WORDS[option.billingCycle]}{option.discountPercent ? ` · ${option.discountPercent}% off` : ''}</option>)}
+                </select></label>
+              <label className="block"><span className={projectFormLabelClassName}>Length (months)</span>
+                <select aria-label="Length in months" className={projectFormInputClassName} value={monthlyChoice.tenureMonths} onChange={event => setMonthlyChoice(current => ({ ...current, tenureMonths: Number(event.target.value) }))}>
+                  {Array.from({ length: Math.floor(Math.min(selectedPackage.monthly.maxTenureMonths, 12) / CYCLE_MONTHS[monthlyChoice.billingCycle]) }, (_, index) => (index + 1) * CYCLE_MONTHS[monthlyChoice.billingCycle]).map(months => <option key={months} value={months}>{months}</option>)}
+                </select></label>
+              {selectedPackage.monthly.pricing === 'per_file' && <>
+                <label className="block"><span className={projectFormLabelClassName}>Files per update</span>
+                  <input aria-label="Files per update" type="number" className={projectFormInputClassName} min={selectedPackage.monthly.files.min} max={selectedPackage.monthly.files.max} step={selectedPackage.monthly.files.step} value={monthlyChoice.files ?? ''} onChange={event => setMonthlyChoice(current => ({ ...current, files: Number(event.target.value) }))} /></label>
+                <label className="block"><span className={projectFormLabelClassName}>Updates a month</span>
+                  <input aria-label="Updates per month" type="number" className={projectFormInputClassName} min={selectedPackage.monthly.updatesPerMonth.min} max={selectedPackage.monthly.updatesPerMonth.max} value={monthlyChoice.updates ?? ''} onChange={event => setMonthlyChoice(current => ({ ...current, updates: Number(event.target.value) }))} /></label>
+              </>}
+            </div>
+            {monthlyQuoteError ? <p role="alert" className="text-red-600">{monthlyQuoteError}</p>
+              : !monthlyQuote ? <p className="text-slate-500">Working out the monthly price…</p>
+              : <div>
+                <p><strong>₹{monthlyQuote.monthly.cyclePrice.toLocaleString('en-IN')}</strong> per {CYCLE_WORDS[monthlyQuote.monthly.billingCycle].toLowerCase()} cycle · {monthlyQuote.monthly.totalCycles} cycle{monthlyQuote.monthly.totalCycles === 1 ? '' : 's'} · ₹{monthlyQuote.finalPrice.toLocaleString('en-IN')} in total{monthlyQuote.offer ? ` · ${monthlyQuote.offer.title} offer on every cycle` : ''}</p>
+                <ul className="mt-2 list-disc pl-5 text-sm text-slate-600">{cyclePreview.map(row => <li key={row.installmentNumber}>{installmentName(row, cyclePreview.length)} — ₹{row.amount.toLocaleString('en-IN')}</li>)}</ul>
+              </div>}
+          </div>}
           {offersError && <p role="alert" className="text-base text-red-600">{offersError}. A custom project without a package or offer can still be created.</p>}
           <button type="button" className="text-base font-semibold text-emerald-700 underline" disabled={offersLoading} onClick={() => setCatalogueReload(value => value + 1)}>Refresh packages and offers</button>
         </div>
@@ -4568,6 +4696,7 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
             value={sellingPrice}
             step="0.01"
             onChange={(event) => handleSellingPriceChange(event.target.value)}
+            readOnly={isMonthly}
             placeholder="e.g. 12000"
           />
           {isPricedSelection && adjustmentAmount !== 0 ? (
@@ -4599,7 +4728,12 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
         </p>
       </div>
 
-      {!isFree ? (
+      {!isFree && isMonthly ? (
+      <div className="mt-6 border-t border-slate-200 pt-5">
+        <label className={projectFormLabelClassName}>Payment Type</label>
+        <p className="text-sm text-slate-600">Per billing cycle: {cyclePreview.length} payment{cyclePreview.length === 1 ? '' : 's'} of ₹{(monthlyQuote?.monthly.cyclePrice || 0).toLocaleString('en-IN')}, each due on its date. Work pauses while a cycle is unpaid.</p>
+      </div>
+      ) : !isFree ? (
       <div className="mt-6 border-t border-slate-200 pt-5">
         <label className={projectFormLabelClassName}>Payment Type</label>
         <div className="flex flex-wrap gap-3">
@@ -4691,7 +4825,9 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
           <p className="text-sm font-semibold text-slate-500">Amount Due Now</p>
           <p className="mt-1 text-2xl font-bold text-slate-900">₹{firstInstallmentAmount.toLocaleString("en-IN")}</p>
           <p className="mt-1 text-xs text-slate-500">
-            {paymentType === "partial"
+            {isMonthly
+              ? `Cycle 1 of ${cyclePreview.length} — each next cycle is due on its date.`
+              : paymentType === "partial"
               ? `Installment 1 of ${installmentCount} — remaining installments stay unpaid and can be recorded later.`
               : "Full project amount (one-time payment)."}
           </p>
