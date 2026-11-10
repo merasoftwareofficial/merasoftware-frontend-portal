@@ -1,45 +1,40 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { motion } from 'framer-motion';
 import DashboardLayout from '../components/DashboardLayout';
 import CustomerPageHeader from '../components/CustomerPageHeader';
 import GlassPageState from '../components/GlassPageState';
-import { AnimatedSection } from '../components/PageMotion';
-import { ProjectArt } from '../components/GetServiceArt';
-import { readProjectRequestCategories } from '../helpers/projectRequest';
+import { AnimatedSection, getStaggerDelay } from '../components/PageMotion';
+import { formatCurrency } from '../helpers/paymentLedger';
+import { CALLBACK_PATH, packagePath, readPackageCatalogue } from '../helpers/packageStart';
 
-// Get a Service → Start a Project (/start-new-project/project): a chooser. Each project type
-// (live from the backend, any number) is its own pill on the left; the pills share the height of
-// the right panel. Hover or keyboard focus previews a type in the right panel; a click on the pill,
-// or the panel's button, opens the details form (pages/StartProjectRequestDetails.js). On a phone
-// there is no hover, so the panel is hidden and a tap on a pill goes straight on.
+// Get a Service → Start a Project (/start-new-project/project): the website's ready-made packages, each a
+// compact card with its price and one "What's included" link to the package's own page
+// (pages/StartProjectPackage.js, where it is chosen and paid for). Anything custom goes through the last
+// card: the call-back form (pages/StartProjectRequestDetails.js). While the package system is off, or no
+// package is open, there is nothing to choose from, so the client lands straight on the call-back form.
+
+const card = 'group relative flex flex-col gap-3 overflow-hidden rounded-[28px] border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] p-5 shadow-[var(--card-shadow)] backdrop-blur-2xl backdrop-saturate-150 transition-colors duration-300 hover:border-[var(--accent-soft-border)] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-text sm:p-6';
+const Sheen = () => <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-[var(--glass-sheen)] to-transparent" />;
+const Arrow = () => <span className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>;
 
 const StartProjectRequest = () => {
   const user = useSelector((state) => state?.user?.user);
   const navigate = useNavigate();
-  const [categories, setCategories] = useState(null);
+  const [catalogue, setCatalogue] = useState(null);
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
-  const [current, setCurrent] = useState(0);
-  const [lifted, setLifted] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
-    setError(''); setCategories(null);
-    readProjectRequestCategories(controller.signal)
-      .then((rows) => { setCategories(rows); setCurrent(0); })
+    setError(''); setCatalogue(null);
+    readPackageCatalogue(controller.signal)
+      .then(setCatalogue)
       .catch((cause) => { if (!controller.signal.aborted) setError(cause.message); });
     return () => controller.abort();
   }, [retry]);
 
-  const focus = (index) => {
-    if (index === current) return;
-    setCurrent(index);
-    setLifted((value) => !value);
-  };
-  const open = (row) => navigate(`/start-new-project/project/${encodeURIComponent(row.category)}`);
-  const chosen = categories?.[current];
+  if (catalogue && (!catalogue.enabled || !catalogue.packages.length)) return <Navigate to={CALLBACK_PATH} replace />;
 
   return (
     <DashboardLayout user={user}>
@@ -47,67 +42,50 @@ const StartProjectRequest = () => {
         <div className="pointer-events-none absolute inset-0 bg-[var(--scrim)]" />
         <div className="relative mx-auto w-full max-w-5xl">
           <CustomerPageHeader
-            title="What do you want to build?"
-            subtitle="Choose a type, then tell us a little about it on the next step."
+            title="Start a Project"
+            subtitle="Pick a ready-made package and start right here, or ask us for a call back."
             onBack={() => navigate('/start-new-project')}
           />
 
           <div className="mt-10">
             {error ? <GlassPageState type="error" message={error} onRetry={() => setRetry((value) => value + 1)} />
-              : !categories ? <GlassPageState message="Loading project types…" />
-                : !categories.length ? <GlassPageState type="error" message="No project types are open right now. Please contact support and we will help you." />
-                  : (
-                    <AnimatedSection className="grid items-stretch gap-4 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)]">
-                      <div role="listbox" aria-label="Project types" className="flex flex-col gap-2.5">
-                        {categories.map((row, index) => (
-                          <button
-                            key={row.category}
-                            type="button"
-                            role="option"
-                            aria-selected={index === current}
-                            onClick={() => open(row)}
-                            onMouseEnter={() => focus(index)}
-                            onFocus={() => focus(index)}
-                            className={`relative flex min-h-[76px] flex-1 items-center gap-3 rounded-[20px] border border-[var(--glass-border)] bg-[var(--glass-bg)] py-3.5 pl-6 pr-5 text-left backdrop-blur-2xl transition-colors hover:border-[var(--glass-border-strong)] hover:bg-[var(--glass-bg-strong)] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-text ${index === current
-                              ? 'md:border-[var(--accent-soft-border)] md:bg-[var(--accent-soft-bg)] md:shadow-[inset_0_0_0_1px_var(--accent-soft-border)]'
-                              : ''}`}
-                          >
-                            <span className={`absolute bottom-4 left-2.5 top-4 w-[3px] scale-y-0 rounded-full bg-[var(--accent-soft-fg)] transition-transform duration-300 ${index === current ? 'md:scale-y-100' : ''}`} />
-                            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                              <b className="text-base font-semibold text-[var(--text-primary)]">{row.label}</b>
-                              {row.description && <span className="truncate text-sm text-[var(--text-muted)]">{row.description}</span>}
-                            </span>
-                            {/* Shows the pill itself opens the next step: always on a phone, on the type in focus on wider screens. */}
-                            <span aria-hidden="true" className={`shrink-0 text-lg font-semibold text-[var(--accent-soft-fg)] transition duration-200 ${index === current ? '' : 'md:-translate-x-1 md:opacity-0'}`}>→</span>
-                          </button>
-                        ))}
-                      </div>
+              : !catalogue ? <GlassPageState message="Loading packages…" />
+                : (
+                  <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                    {catalogue.packages.map((item, index) => (
+                      <AnimatedSection key={item.id} delay={getStaggerDelay(index)} className="flex">
+                        <Link to={packagePath(item.id)} className={`${card} w-full`}>
+                          <Sheen />
+                          <div className="relative flex flex-1 flex-col gap-2">
+                            {item.offer && <span className="w-fit rounded-full border border-[var(--accent-soft-border)] bg-[var(--accent-soft-bg)] px-3 py-1 text-xs font-bold uppercase tracking-[0.08em] text-[var(--accent-soft-fg)]">{item.offer.title}</span>}
+                            <h2 className="text-xl font-bold tracking-tight text-[var(--text-primary)]">{item.name}</h2>
+                            {item.description && <p className="line-clamp-3 text-base text-[var(--text-secondary)]">{item.description}</p>}
+                          </div>
+                          <div className="relative flex items-baseline gap-2">
+                            <strong className="text-2xl font-bold text-[var(--text-primary)]">{formatCurrency(item.price)}</strong>
+                            {item.mainPrice > item.price && <s className="text-base text-[var(--text-muted)]">{formatCurrency(item.mainPrice)}</s>}
+                          </div>
+                          <span className="relative inline-flex items-center gap-2 text-base font-semibold text-[var(--accent-soft-fg)]">What's included <Arrow /></span>
+                        </Link>
+                      </AnimatedSection>
+                    ))}
+                  </div>
+                )}
 
-                      <section className="relative hidden flex-col gap-5 overflow-hidden rounded-[28px] md:flex border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] p-5 shadow-[var(--card-shadow)] backdrop-blur-2xl backdrop-saturate-150 sm:p-6">
-                        <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-[var(--glass-sheen)] to-transparent" />
-                        <div className="relative"><ProjectArt lifted={lifted} /></div>
-                        <motion.div
-                          key={chosen.category}
-                          initial={{ opacity: 0, y: 6 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.3 }}
-                          className="relative flex min-h-[92px] flex-col gap-1.5"
-                        >
-                          <span className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--accent-soft-fg)]">New work</span>
-                          <h2 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] lg:text-3xl">{chosen.label}</h2>
-                          {chosen.description && <p className="max-w-md text-base text-[var(--text-secondary)]">{chosen.description}</p>}
-                        </motion.div>
-                        <button
-                          type="button"
-                          onClick={() => open(chosen)}
-                          className="group relative inline-flex items-center gap-2.5 self-start rounded-2xl bg-[rgb(var(--ink-rgb))] px-5 py-3 text-base font-semibold text-[var(--page-bg)] transition hover:bg-[rgb(var(--ink-rgb)/0.85)] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-text"
-                        >
-                          Continue with {chosen.label}
-                          <span className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
-                        </button>
-                      </section>
-                    </AnimatedSection>
-                  )}
+            {/* Always offered, also when the packages could not load: a custom project is asked for by a call back. */}
+            {(catalogue || error) && (
+              <AnimatedSection className="mt-5">
+                <Link to={CALLBACK_PATH} state={{ fromPackages: Boolean(catalogue) }} className={card}>
+                  <Sheen />
+                  <div className="relative flex flex-col gap-1">
+                    <span className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--accent-soft-fg)]">Something different?</span>
+                    <h2 className="text-xl font-bold tracking-tight text-[var(--text-primary)]">Arrange a call back</h2>
+                    <p className="text-base text-[var(--text-secondary)]">Tell us what you need and our team will call you with a proposal.</p>
+                  </div>
+                  <span className="relative inline-flex items-center gap-2 text-base font-semibold text-[var(--accent-soft-fg)]">Ask for a call <Arrow /></span>
+                </Link>
+              </AnimatedSection>
+            )}
           </div>
         </div>
       </div>

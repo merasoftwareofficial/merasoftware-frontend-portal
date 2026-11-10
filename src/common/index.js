@@ -7,6 +7,12 @@ const SummaryApi = {
     offerReservations: { url: `${backendDomain}/api/offer-reservations`, method: 'get' },
     // Start my project on a package without an offer (backend helpers/packageStart.js).
     packageStarts: { url: `${backendDomain}/api/package-starts`, method: 'get' },
+    // Get a Service → Start a Project: the packages a client can buy here, the price of a choice, and the purchase (backend helpers/packagePurchase.js).
+    packageCatalogue: { url: `${backendDomain}/api/package-starts/catalogue`, method: 'get' },
+    packageQuote: { url: `${backendDomain}/api/package-starts/quote`, method: 'PATCH' },
+    packagePaymentInfo: { url: `${backendDomain}/api/package-starts/payment-info`, method: 'get' },
+    packageStartRequest: { url: `${backendDomain}/api/package-starts`, method: 'post' },
+    packagePurchase: { url: `${backendDomain}/api/package-starts/purchase`, method: 'post' },
     websitePreview: { url: `${backendDomain}/api/projects`, method: 'get' },
     servicePlanOffers: { url: `${backendDomain}/api/customer/service-plan-offers`, method: 'get' },
     uploadSessions: { url: `${backendDomain}/api/upload-sessions`, method: 'post' },

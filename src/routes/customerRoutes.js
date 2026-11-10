@@ -56,6 +56,7 @@ const SetNewPassword = lazyPage(() => import('../pages/SetNewPassword'));
 const CustomerDocuments = lazyPage(() => import('../pages/CustomerDocuments'));
 const StartProjectRequest = lazyPage(() => import('../pages/StartProjectRequest'));
 const StartProjectRequestDetails = lazyPage(() => import('../pages/StartProjectRequestDetails'));
+const StartProjectPackage = lazyPage(() => import('../pages/StartProjectPackage'));
 const MyReferredLeadsPage = lazyPage(() => import('../pages/MyReferredLeadsPage'));
 
 const CustomerProtectedRoute = ({ children }) => (
@@ -106,12 +107,22 @@ export const customerRoutes = [
     )
   },
   {
-    // Get a Service → Start a Project: choose a project type (pages/StartProjectRequest.js) …
+    // Get a Service → Start a Project: the website's packages and a call-back card (pages/StartProjectRequest.js) …
     path: "start-new-project/project",
     element: <CustomerProtectedRoute><StartProjectRequest/></CustomerProtectedRoute>
   },
   {
-    // … then the details form that sends the callback request (pages/StartProjectRequestDetails.js).
+    // … a package: what is included, the price and the payment (pages/StartProjectPackage.js) …
+    path: "start-new-project/project/package/:packageId",
+    element: <CustomerProtectedRoute><StartProjectPackage/></CustomerProtectedRoute>
+  },
+  {
+    // … or the call-back form (pages/StartProjectRequestDetails.js). An older link with a project type
+    // (/start-new-project/project/:category) opens the same form with that type chosen.
+    path: "start-new-project/project/call-back",
+    element: <CustomerProtectedRoute><StartProjectRequestDetails/></CustomerProtectedRoute>
+  },
+  {
     path: "start-new-project/project/:category",
     element: <CustomerProtectedRoute><StartProjectRequestDetails/></CustomerProtectedRoute>
   },

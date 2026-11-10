@@ -7,7 +7,7 @@ import { AnimatedSection, getStaggerDelay } from '../components/PageMotion';
 import { ProjectArt, PlansArt } from '../components/GetServiceArt';
 
 // "Get a Service" (/start-new-project): one screen with two choices, each with one button.
-// Start a Project → pages/StartProjectRequest.js (callback request); Buy a Service → the plans
+// Start a Project → pages/StartProjectRequest.js (ready-made packages, or a callback request); Buy a Service → the plans
 // page (pages/StartNewProject.js). The pictures (components/GetServiceArt.js) are decoration only.
 
 const CHOICES = [
@@ -15,7 +15,7 @@ const CHOICES = [
     id: 'project',
     kind: 'New work',
     title: 'Start a Project',
-    text: 'A new website, online store or app, built for you. Tell us what you need and our team will call you with a proposal.',
+    text: 'A new website, online store or app, built for you. Pick a ready-made package, or tell us what you need and our team will call you with a proposal.',
     action: 'Start a Project',
     to: '/start-new-project/project',
     Art: ProjectArt,

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import { CheckCircle2 } from 'lucide-react';
@@ -8,11 +8,13 @@ import CustomerPageHeader from '../components/CustomerPageHeader';
 import GlassButton from '../components/GlassButton';
 import GlassPageState from '../components/GlassPageState';
 import { BUDGET_OPTIONS, CALL_TIME_OPTIONS, DETAILS_MAX, readProjectRequestCategories, sendProjectRequest } from '../helpers/projectRequest';
+import { PACKAGES_PATH } from '../helpers/packageStart';
 
-// Start a Project → details (/start-new-project/project/:category): budget, time to call and phone
-// are required, the note is optional. Sent as a callback request (saved as a lead by the backend).
-// An unknown or closed project type goes back to the chooser (pages/StartProjectRequest.js).
-// Header and Back follow PlanDetails.js: the project type's name is the heading.
+// Start a Project → "Arrange a call back" (/start-new-project/project/call-back): what the enquiry is about
+// (the project type, chosen here from the live list), budget, time to call and phone are required, the note
+// is optional. Sent as a callback request (saved as a lead by the backend). An older link that carries a type
+// (/start-new-project/project/:category) opens the same form with that type already chosen. Back returns to the
+// packages (pages/StartProjectRequest.js) when the client came from there.
 
 const field = 'w-full rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] px-4 py-3 text-base text-[var(--text-primary)] outline-none transition focus:border-[var(--accent-soft-border)]';
 const Label = ({ children, optional }) => (
@@ -24,7 +26,9 @@ const Label = ({ children, optional }) => (
 const StartProjectRequestDetails = () => {
   const user = useSelector((state) => state?.user?.user);
   const navigate = useNavigate();
-  const { category } = useParams();
+  const location = useLocation();
+  const { category: presetCategory } = useParams();
+  const [category, setCategory] = useState(presetCategory && presetCategory !== 'call-back' ? presetCategory : '');
   const [categories, setCategories] = useState(null);
   const [loadError, setLoadError] = useState('');
   const [retry, setRetry] = useState(0);
@@ -48,12 +52,11 @@ const StartProjectRequestDetails = () => {
   }, [retry]);
 
   const chosen = categories?.find((row) => row.category === category);
-  if (categories && !chosen) return <Navigate to="/start-new-project/project" replace />;
 
   const submit = async (event) => {
     event.preventDefault();
     if (sending) return;
-    if (!budget || !callTime || !phone.trim()) { setError('Please choose a budget and a time to call, and enter your phone number.'); return; }
+    if (!chosen || !budget || !callTime || !phone.trim()) { setError('Please choose what your enquiry is about, a budget and a time to call, and enter your phone number.'); return; }
     setSending(true);
     setError('');
     try {
@@ -77,9 +80,9 @@ const StartProjectRequestDetails = () => {
           className="relative mx-auto w-full max-w-5xl"
         >
           <CustomerPageHeader
-            title={chosen?.label || 'Start a Project'}
-            subtitle="A few details, then we call you."
-            onBack={() => navigate('/start-new-project/project')}
+            title="Arrange a call back"
+            subtitle="Tell us what you need, then we call you."
+            onBack={() => navigate(location.state?.fromPackages ? PACKAGES_PATH : '/start-new-project')}
           />
 
           <div className="mx-auto mt-10 max-w-3xl">
@@ -100,6 +103,14 @@ const StartProjectRequestDetails = () => {
                 ) : (
                   <form onSubmit={submit} noValidate className="relative flex flex-col gap-5 overflow-hidden rounded-[28px] border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] p-5 shadow-[var(--card-shadow)] backdrop-blur-2xl backdrop-saturate-150 sm:p-7">
                     <div className="pointer-events-none absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-[var(--glass-sheen)] to-transparent" />
+                    <label className="relative flex flex-col gap-2.5">
+                      <Label>What is your enquiry about?</Label>
+                      <select required value={category} onChange={(event) => setCategory(event.target.value)} className={`${field} cursor-pointer`}>
+                        <option value="">Choose a project type</option>
+                        {categories.map((row) => <option key={row.category} value={row.category}>{row.label}</option>)}
+                      </select>
+                      {chosen?.description && <span className="text-sm text-[var(--text-muted)]">{chosen.description}</span>}
+                    </label>
                     <div className="relative grid gap-4 sm:grid-cols-2">
                       <label className="flex flex-col gap-2.5">
                         <Label>What is your budget?</Label>
