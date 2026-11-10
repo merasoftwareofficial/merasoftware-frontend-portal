@@ -14,7 +14,7 @@ const CustomerWorkspaceTabs = ({ tabs, activeTab, onChange, ariaLabel = 'Workspa
       <div
         role="tablist"
         aria-label={ariaLabel}
-        className="flex gap-6 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex flex-wrap gap-x-4 sm:flex-nowrap sm:gap-6 sm:overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -26,7 +26,7 @@ const CustomerWorkspaceTabs = ({ tabs, activeTab, onChange, ariaLabel = 'Workspa
               aria-selected={isActive}
               onClick={() => onChange(tab.id)}
               className={[
-                'relative -mb-px inline-flex shrink-0 cursor-pointer items-center justify-center border-b-2 px-1 py-4 text-base font-semibold transition',
+                'relative -mb-px inline-flex shrink-0 cursor-pointer items-center justify-center border-b-2 px-1 py-2.5 text-sm font-semibold transition sm:py-4 sm:text-base',
                 isActive
                   ? 'border-accent-text text-accent-text'
                   : 'border-transparent text-[var(--text-secondary)] hover:border-[var(--glass-border-strong)] hover:text-[var(--text-primary)]',

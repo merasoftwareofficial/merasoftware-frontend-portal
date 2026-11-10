@@ -798,18 +798,18 @@ const ProjectDetails = ({ isAdminView = false }) => {
         {!isAdminView && <div className="pointer-events-none absolute inset-0 bg-[var(--scrim)]" />}
 
         <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-4">
-          <div className="relative flex items-center justify-center">
+          <div className={isAdminView ? "relative flex items-center justify-center" : "relative flex flex-col items-start gap-4 lg:flex-row lg:items-center lg:justify-center"}>
             <button
               type="button"
               onClick={handleBack}
               className={g(
-                'absolute left-0 inline-flex w-fit shrink-0 items-center gap-2 rounded-2xl border border-[var(--glass-border)] bg-white px-5 py-3 text-lg font-semibold text-[var(--text-primary)] transition hover:bg-slate-50', 'absolute left-0 inline-flex w-fit shrink-0 items-center gap-2 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)] px-5 py-3 text-lg font-semibold text-[var(--text-primary)] backdrop-blur-md transition hover:bg-[var(--glass-bg-strong)]')}
+                'absolute left-0 inline-flex w-fit shrink-0 items-center gap-2 rounded-2xl border border-[var(--glass-border)] bg-white px-5 py-3 text-lg font-semibold text-[var(--text-primary)] transition hover:bg-slate-50', 'inline-flex w-fit shrink-0 items-center gap-2 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)] px-5 py-3 text-lg font-semibold text-[var(--text-primary)] backdrop-blur-md transition hover:bg-[var(--glass-bg-strong)] lg:absolute lg:left-0')}
             >
               <ArrowLeft className="h-5 w-5" />
               Back
             </button>
 
-            <div className="text-center">
+            <div className={isAdminView ? "text-center" : "w-full min-w-0 break-words text-center lg:px-36"}>
               <h1 className={g('text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl', 'text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl lg:text-4xl')}>
                 {getOrderDisplayName(order)}
               </h1>

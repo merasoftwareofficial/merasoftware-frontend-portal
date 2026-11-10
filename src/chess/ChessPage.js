@@ -148,19 +148,19 @@ export default function ChessPage() {
       >
         <div className="pointer-events-none absolute inset-0 bg-[var(--scrim)]" />
         <div className="relative mx-auto flex w-full max-w-7xl flex-col items-center gap-4">
-          <div className="relative flex w-full items-center justify-center">
+          <div className="relative flex w-full flex-col items-start gap-4 lg:flex-row lg:items-center lg:justify-center">
             <button
               type="button"
               onClick={() => {
                 leaveRoomView();
                 navigate('/games/chess', { replace: true });
               }}
-              className="absolute left-0 inline-flex w-fit shrink-0 items-center gap-2 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)] px-5 py-3 text-lg font-semibold text-[var(--text-primary)] backdrop-blur-md transition hover:bg-[var(--glass-bg-strong)]"
+              className="inline-flex w-fit shrink-0 items-center gap-2 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)] px-5 py-3 text-lg font-semibold text-[var(--text-primary)] backdrop-blur-md transition hover:bg-[var(--glass-bg-strong)] lg:absolute lg:left-0"
             >
               <ArrowLeft className="h-5 w-5" />
               Back
             </button>
-            <h1 className="text-2xl font-bold text-[var(--text-primary)] text-center sm:text-3xl">Chess</h1>
+            <h1 className="w-full text-center text-2xl font-bold text-[var(--text-primary)] sm:text-3xl lg:px-36">Chess</h1>
           </div>
 
           <div className="w-full max-w-2xl space-y-4">

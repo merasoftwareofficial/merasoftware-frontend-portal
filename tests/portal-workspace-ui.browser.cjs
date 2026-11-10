@@ -66,6 +66,22 @@ const server = http.createServer((req, res) => {
             await page.goto(origin + route);
             await page.locator('main.portal-surface h1').first().waitFor();
             await page.waitForTimeout(950); // Real PageTransition and AnimatedSection.
+            if (phase === 'after' && width < 1024) {
+              const back = page.getByRole('button', { name: 'Back', exact: true }).first();
+              if (await back.count()) {
+                const buttonBox = await back.boundingBox();
+                const headingBox = await page.locator('main.portal-surface h1').first().boundingBox();
+                assert.ok(buttonBox.y + buttonBox.height <= headingBox.y, `${route}: back button overlaps heading`);
+              }
+              if (route === '/dashboard') {
+                const metric = page.locator('main a').filter({ hasText: 'Wallet balance' }).first();
+                assert.ok((await metric.boundingBox()).width < width / 2, 'Dashboard metrics should have two columns');
+              }
+              if (route === '/dashboard' || route === '/projects-and-plans') {
+                const row = page.getByRole('button', { name: /Audit website project/ }).first();
+                assert.ok((await row.boundingBox()).height < 160, `${route}: project row is too tall`);
+              }
+            }
             assert.equal(await page.getByText('Unexpected Application Error!', { exact: true }).count(), 0);
             const visual = await page.evaluate(() => {
               const main = document.querySelector('main.portal-surface');

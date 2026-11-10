@@ -140,8 +140,17 @@ const OrderRow = ({ order, navigate, location, formatDate }) => {
     <button
       onClick={handleClick}
       type="button"
-      className="grid w-full grid-cols-12 gap-3 bg-[var(--glass-bg-subtle)] px-5 py-4 text-left transition hover:bg-[var(--glass-bg-hover)] sm:px-6"
+      className="block w-full bg-[var(--glass-bg-subtle)] px-4 py-3 text-left transition hover:bg-[var(--glass-bg-hover)] sm:px-6 lg:grid lg:grid-cols-12 lg:gap-3 lg:py-4"
     >
+      <div className="flex items-center gap-3 lg:hidden">
+        <div className="min-w-0 flex-1">
+          <h3 className="break-words text-base font-semibold text-[var(--text-primary)]">{getOrderDisplayName(order)}</h3>
+          <p className="mt-1 text-xs text-[var(--text-secondary)]">{purchaseType} · {formatDate(order.createdAt)}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2"><OrderStatusBadge order={order} status={status} /><span className="text-sm font-semibold text-[var(--text-primary)]">{price}</span><PaymentStatusChip order={order} /></div>
+        </div>
+        <ArrowRight className="h-5 w-5 shrink-0 text-[var(--text-muted)]" />
+      </div>
+      <div className="hidden lg:contents">
       <div className="col-span-12 lg:col-span-5">
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border-[length:var(--glass-border-width)] border-[var(--glass-border-strong)] bg-[var(--glass-bg)] text-[var(--text-primary)] backdrop-blur-md">
@@ -190,6 +199,7 @@ const OrderRow = ({ order, navigate, location, formatDate }) => {
         </div>
         <ArrowRight className="h-5 w-5 text-[var(--text-muted)]" />
       </div>
+      </div>
     </button>
   );
 };
@@ -201,8 +211,17 @@ const ComplimentaryRow = ({ invoice, navigate, location, formatDate }) => (
   <button
     onClick={() => navigate(`/invoice-detail/${invoice._id}`, { state: customerChildState(location) })}
     type="button"
-    className="grid w-full grid-cols-12 gap-3 bg-[var(--glass-bg-subtle)] px-5 py-4 text-left transition hover:bg-[var(--glass-bg-hover)] sm:px-6"
+    className="block w-full bg-[var(--glass-bg-subtle)] px-4 py-3 text-left transition hover:bg-[var(--glass-bg-hover)] sm:px-6 lg:grid lg:grid-cols-12 lg:gap-3 lg:py-4"
   >
+    <div className="flex items-center gap-3 lg:hidden">
+      <div className="min-w-0 flex-1">
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">Complimentary Upgrade</h3>
+        <p className="mt-1 break-words text-xs text-[var(--text-secondary)]">{getOrderDisplayName(invoice.orderId, 'Your project')} · {formatDate(invoice.invoiceDate)}</p>
+        <div className="mt-2 flex flex-wrap items-center gap-2"><Badge tone="success">Completed</Badge><span className="text-sm font-semibold text-[var(--text-primary)]">{displayINRCurrency(0)}</span><Badge tone="success">Free</Badge></div>
+      </div>
+      <ArrowRight className="h-5 w-5 shrink-0 text-[var(--text-muted)]" />
+    </div>
+    <div className="hidden lg:contents">
     <div className="col-span-12 lg:col-span-5">
       <div className="flex items-start gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border-[length:var(--glass-border-width)] border-[var(--glass-border-strong)] bg-[var(--glass-bg)] text-[var(--text-primary)] backdrop-blur-md">
@@ -235,6 +254,7 @@ const ComplimentaryRow = ({ invoice, navigate, location, formatDate }) => (
         </div>
       </div>
       <ArrowRight className="h-5 w-5 text-[var(--text-muted)]" />
+    </div>
     </div>
   </button>
 );

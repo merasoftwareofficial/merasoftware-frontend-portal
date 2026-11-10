@@ -68,9 +68,21 @@ const OrderListRow = ({ order, onClick }) => {
       type="button"
       onClick={() => onClick?.(order)}
       className={[
-        'grid w-full grid-cols-12 gap-3 bg-[var(--glass-bg-subtle)] px-5 py-4 text-left transition hover:bg-[var(--glass-bg-hover)] sm:px-6',
+        'block w-full bg-[var(--glass-bg-subtle)] px-4 py-3 text-left transition hover:bg-[var(--glass-bg-hover)] sm:px-6 lg:grid lg:grid-cols-12 lg:gap-3 lg:py-4',
       ].join(' ')}
     >
+      <div className="flex items-center gap-3 lg:hidden">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] text-[var(--text-primary)]">
+          {isProject ? <LayoutGrid className="h-4 w-4" /> : <Layers3 className="h-4 w-4" />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="break-words text-base font-semibold leading-snug text-[var(--text-primary)]">{getOrderDisplayName(order)}</h3>
+          <p className="mt-1 text-xs text-[var(--text-secondary)]">{getItemTypeLabel(order)} · {formatDate(order.updatedAt || order.createdAt)}</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5"><Badge tone={status.tone}>{status.label}</Badge>{summary && <Badge tone="neutral">{summary}</Badge>}</div>
+        </div>
+        <ArrowRight className="h-5 w-5 shrink-0 text-[var(--text-muted)]" />
+      </div>
+      <div className="hidden lg:contents">
       <div className="col-span-12 lg:col-span-5">
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border-[length:var(--glass-border-width)] border-[var(--glass-border-strong)] bg-[var(--glass-bg)] text-[var(--text-primary)] backdrop-blur-md">
@@ -122,6 +134,7 @@ const OrderListRow = ({ order, onClick }) => {
       <div className="col-span-6 flex items-center justify-end lg:col-span-1">
         <ArrowRight className="h-5 w-5 text-[var(--text-muted)]" />
       </div>
+      </div>
     </button>
   );
 };
@@ -165,7 +178,7 @@ export const OrderList = ({
       <div className="relative px-5 py-10 text-center text-base text-[var(--text-secondary)] sm:px-6">{loadingLabel}</div>
     ) : items.length > 0 ? (
       <>
-        <OrderListHeader columns={columns} />
+        <div className="hidden lg:block"><OrderListHeader columns={columns} /></div>
         <div className="relative divide-y divide-[var(--divider)]">
           {items.map((order) => (
             <React.Fragment key={order._id}>

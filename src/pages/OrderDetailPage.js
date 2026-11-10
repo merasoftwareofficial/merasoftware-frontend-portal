@@ -172,13 +172,13 @@ const OrderDetailPage = () => {
         <div className="pointer-events-none absolute inset-0 bg-[var(--scrim)]" />
 
         <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-4">
-          <div className="relative flex items-center justify-center">
-            <GlassButton size="lg" onClick={handleBack} className="absolute left-0 shrink-0">
+          <div className="relative flex flex-col items-start gap-4 lg:flex-row lg:items-center lg:justify-center">
+            <GlassButton size="lg" onClick={handleBack} className="shrink-0 lg:absolute lg:left-0">
               <ArrowLeft className="h-5 w-5" />
               Back
             </GlassButton>
 
-            <div className="text-center">
+            <div className="w-full min-w-0 break-words text-center lg:px-36">
               <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl lg:text-4xl">
                 {getOrderDisplayName(order, 'Plan')}
               </h1>

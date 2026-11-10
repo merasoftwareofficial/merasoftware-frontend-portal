@@ -337,17 +337,17 @@ const InstallmentPayment = () => {
 
         <div className="relative mx-auto flex w-full max-w-3xl flex-col gap-4">
           {/* Detail-page header: back button absolute-left, heading truly centred. */}
-          <div className="relative flex items-center justify-center">
+          <div className="relative flex flex-col items-start gap-4 lg:flex-row lg:items-center lg:justify-center">
             <button
               type="button"
               onClick={returnToParent}
-              className="absolute left-0 inline-flex w-fit shrink-0 items-center gap-2 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)] px-5 py-3 text-lg font-semibold text-[var(--text-primary)] backdrop-blur-md transition hover:bg-[var(--glass-bg-strong)]"
+              className="inline-flex w-fit shrink-0 items-center gap-2 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)] px-5 py-3 text-lg font-semibold text-[var(--text-primary)] backdrop-blur-md transition hover:bg-[var(--glass-bg-strong)] lg:absolute lg:left-0"
             >
               <ArrowLeft className="h-5 w-5" />
               Back
             </button>
 
-            <div className="text-center">
+            <div className="w-full min-w-0 break-words text-center lg:px-36">
               <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">
                 {getInstallmentName(installmentNumber)}
               </h1>

@@ -61,7 +61,7 @@ const MetricCard = ({ icon: Icon, label, value, helper, tone = 'neutral', to, st
       sheen
       {...wrapperProps}
       className={[
-        'group h-full p-5 transition-all duration-300',
+        'group h-full p-3 transition-all duration-300 sm:p-5',
         // A link lifts on hover; a plain measurement does not.
         to ? 'hover:-translate-y-1' : '',
         'hover:bg-[var(--glass-bg-hover)]',
@@ -72,13 +72,13 @@ const MetricCard = ({ icon: Icon, label, value, helper, tone = 'neutral', to, st
         className={`pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full ${glowMap[tone] || glowMap.neutral} blur-3xl`}
         style={{ opacity: 'var(--glow-opacity)' }}
       />
-      <div className="relative flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-bold uppercase tracking-wide text-[var(--text-secondary)]">{label}</p>
-          <p className="mt-2 text-2xl font-bold text-[var(--text-primary)]">{value}</p>
-          {helper ? <p className="mt-2 text-sm text-[var(--text-secondary)]">{helper}</p> : null}
+      <div className="relative flex items-start justify-between gap-2 sm:gap-4">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-wide text-[var(--text-secondary)] sm:text-sm">{label}</p>
+          <p className="mt-1 break-words text-lg font-bold text-[var(--text-primary)] sm:mt-2 sm:text-2xl">{value}</p>
+          {helper ? <p className="mt-1 text-xs text-[var(--text-secondary)] sm:mt-2 sm:text-sm">{helper}</p> : null}
         </div>
-        <div className={`rounded-2xl border p-3 backdrop-blur-md border-[var(--glass-border-strong)] bg-[var(--glass-bg)]`}>
+        <div className={`hidden shrink-0 rounded-2xl border p-3 backdrop-blur-md border-[var(--glass-border-strong)] bg-[var(--glass-bg)] sm:block`}>
           {to ? <ArrowRight className="h-5 w-5 text-[var(--text-primary)] transition-transform group-hover:translate-x-0.5" /> : <Icon className="h-5 w-5 text-[var(--text-primary)]" />}
         </div>
       </div>
@@ -219,7 +219,7 @@ const CustomerDashboard = () => {
             </p>
           </div>
 
-          <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-8 grid grid-cols-2 gap-3 sm:mt-10 sm:gap-4 xl:grid-cols-4">
             <AnimatedSection delay={getStaggerDelay(0)} className="h-full"><MetricCard
               icon={LayoutDashboard}
               label={primaryWorkItem ? 'Live project' : 'Services'}
@@ -245,11 +245,11 @@ const CustomerDashboard = () => {
             title="Recent projects & plans"
             actions={(
               <>
-                <GlassButton as={Link} to="/order">
+                <GlassButton as={Link} to="/order" size="sm" className="sm:px-4 sm:py-2.5">
                   View all orders
                   <ArrowRight className="h-4 w-4" />
                 </GlassButton>
-                <GlassButton onClick={fetchDashboardData}>
+                <GlassButton onClick={fetchDashboardData} size="sm" className="sm:px-4 sm:py-2.5">
                   <RefreshCw className="h-4 w-4" />
                   Refresh
                 </GlassButton>

@@ -281,13 +281,13 @@ const InvoiceDetailPage = () => {
         <div className="pointer-events-none absolute inset-0 bg-[var(--scrim)]" />
 
         <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-4">
-          <div className="relative flex items-center justify-center">
-            <GlassButton size="lg" onClick={handleBack} className="absolute left-0 shrink-0">
+          <div className="relative flex flex-col items-start gap-4 lg:flex-row lg:items-center lg:justify-center">
+            <GlassButton size="lg" onClick={handleBack} className="shrink-0 lg:absolute lg:left-0">
               <ChevronLeft className="h-5 w-5" />
               Back
             </GlassButton>
 
-            <div className="text-center">
+            <div className="w-full min-w-0 break-words text-center lg:px-36">
               {/* "Invoice" is an eyebrow, not a status - it was wearing a green
                   status pill. Same eyebrow treatment as Modal and WalletDetails. */}
               <p className="inline-flex items-center gap-2 text-sm font-bold uppercase text-[var(--eyebrow-fg)]">

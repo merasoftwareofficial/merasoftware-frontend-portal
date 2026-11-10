@@ -7,18 +7,18 @@ import { ArrowLeft } from 'lucide-react';
 // Used by the Get a Service flow: startproject.js, StartProjectRequest*.js, StartNewProject.js, ServicePlanDetail.js.
 
 const CustomerPageHeader = ({ title, subtitle, onBack }) => (
-  <div className="relative flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-center">
+  <div className="relative flex flex-col items-start gap-4 lg:flex-row lg:items-center lg:justify-center">
     {onBack && (
       <button
         type="button"
         onClick={onBack}
-        className="inline-flex w-fit shrink-0 items-center gap-2 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)] px-5 py-3 text-lg font-semibold text-[var(--text-primary)] backdrop-blur-md transition hover:bg-[var(--glass-bg-strong)] sm:absolute sm:left-0"
+        className="inline-flex w-fit shrink-0 items-center gap-2 rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)] px-5 py-3 text-lg font-semibold text-[var(--text-primary)] backdrop-blur-md transition hover:bg-[var(--glass-bg-strong)] lg:absolute lg:left-0"
       >
         <ArrowLeft className="h-5 w-5" />
         Back
       </button>
     )}
-    <header className={`w-full text-center ${onBack ? 'sm:px-36' : ''}`}>
+    <header className={`w-full min-w-0 break-words text-center ${onBack ? 'lg:px-36' : ''}`}>
       <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl lg:text-4xl">{title}</h1>
       {subtitle && <p className="mx-auto mt-3 max-w-2xl text-base text-[var(--text-secondary)] sm:text-lg">{subtitle}</p>}
     </header>
