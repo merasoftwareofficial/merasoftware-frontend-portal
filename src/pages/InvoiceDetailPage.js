@@ -1,7 +1,7 @@
 import ProjectAgreement from '../components/ProjectAgreement';
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft, Sparkles, Share2 } from 'lucide-react';
+import { ChevronLeft, Sparkles, Share2, Download, Eye } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'react-toastify';
 import { useResource } from '../hooks/useResource';
@@ -17,7 +17,7 @@ import Modal from '../components/Modal';
 import { getOrderDisplayName } from '../helpers/orderPresentation';
 import { isPlanItem } from '../helpers/orderType';
 import { goToCustomerReturn } from '../helpers/customerReturnNavigation';
-import { getInvoiceStatusText, isStatementInvoice, isProjectStatement, getPaymentMethodText, isFreeInvoice, isComplimentaryInvoice, COMPLIMENTARY_INVOICE_LABEL } from '../helpers/invoicePresentation';
+import { getInvoiceStatusText, isStatementInvoice, isProjectStatement, receiptForBill, getPaymentMethodText, isFreeInvoice, isComplimentaryInvoice, COMPLIMENTARY_INVOICE_LABEL } from '../helpers/invoicePresentation';
 
 const generateTransactionId = () =>
   `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`;
@@ -43,11 +43,13 @@ const InvoiceDetailPage = () => {
   const [invoice, setInvoice] = useState(null);
   const { loading, error } = useResource(`${SummaryApi.myInvoices.url}?invoiceId=${encodeURIComponent(invoiceId)}`, next => setInvoice(next?.[0] || null));
   useEffect(() => { if (error) toast.error(error); }, [error]);
-  // A bill paid in full has no PDF of its own: its document is the project's final invoice, read once the bill is paid.
-  const [finalInvoice, setFinalInvoice] = useState(null);
-  const paidFullPaymentBill = invoice?.invoiceType === 'project' && invoice.status === 'paid' && !invoice.installmentNumber;
+  // A bill paid in one go has no PDF of its own: its document is the order's statement (final invoice / plan invoice),
+  // read once the bill is paid. receiptForBill is the rule the bill lists use, so the page and the lists agree.
+  const [orderInvoices, setOrderInvoices] = useState([]);
+  const paidSingleBill = ['project', 'plan_renewal'].includes(invoice?.invoiceType) && invoice.status === 'paid' && !invoice.installmentNumber;
   const billOrderId = invoice?.orderId?._id || invoice?.orderId;
-  useResource(paidFullPaymentBill && billOrderId ? `${SummaryApi.myInvoices.url}?orderId=${encodeURIComponent(billOrderId)}` : null, next => setFinalInvoice((Array.isArray(next) ? next : []).find(isProjectStatement) || null));
+  useResource(paidSingleBill && billOrderId ? `${SummaryApi.myInvoices.url}?orderId=${encodeURIComponent(billOrderId)}` : null, next => setOrderInvoices(Array.isArray(next) ? next : []));
+  const finalInvoice = paidSingleBill ? receiptForBill(orderInvoices, invoice) : null;
   const [user, setUser] = useState(null);
 
   useEffect(() => {
@@ -78,8 +80,10 @@ const InvoiceDetailPage = () => {
   // A complimentary invoice was never due: no due/paid dates, no agreement, and like a statement
   // it is a document to keep, so it gets the same View / Download / Share buttons.
   const isComplimentary = isComplimentaryInvoice(invoice);
-  const documentInvoice = (paidFullPaymentBill && finalInvoice) || invoice;
-  const hasDocument = isStatement || isComplimentary || Boolean(paidFullPaymentBill && finalInvoice);
+  const documentInvoice = finalInvoice || invoice;
+  const hasDocument = isStatement || isComplimentary || Boolean(finalInvoice);
+  // Sharing a PDF needs the browser's file sharing; where it has none the button is left out rather than failing on a tap.
+  const canShareFile = typeof navigator !== 'undefined' && Boolean(navigator.share) && Boolean(navigator.canShare);
   const isServerInvoice = Boolean(documentInvoice?._id);
   const invoiceDocumentUrl = isServerInvoice ? `${SummaryApi.invoices.viewDocument.url}/${documentInvoice._id}` : null;
 
@@ -305,7 +309,8 @@ const InvoiceDetailPage = () => {
                     <span className="font-medium text-[var(--text-primary)]">No payment due</span>
                   </div>
                 </>
-              ) : (
+              ) : !isStatement && (
+              // A statement has no pay-by date (its dueDate is only the day the order began).
               <div className="flex items-center justify-between rounded-2xl bg-[var(--glass-bg-subtle)] px-4 py-2.5 text-base">
                 <span className="text-[var(--text-secondary)]">Due Date</span>
                 <span className="font-medium text-[var(--text-primary)]">{formatDate(invoice.dueDate)}</span>
@@ -333,13 +338,21 @@ const InvoiceDetailPage = () => {
                   never a document, so once it is paid this block simply renders nothing. */}
               {hasDocument ? (
                 invoiceDocumentUrl && (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    {/* Three buttons, three hand-written styles - and the two
-                        ghost ones were `text-emerald-100`, very nearly white on
-                        the light page. */}
-                    <GlassButton as="a" size="lg" href={`${invoiceDocumentUrl}/view`} target="_blank" rel="noopener noreferrer">View Invoice</GlassButton>
-                    <GlassButton as="a" size="lg" variant="primary" href={`${invoiceDocumentUrl}/download`}>Download Invoice</GlassButton>
-                    <GlassButton size="lg" onClick={handleShareInvoice} disabled={sharingInvoice} className="disabled:opacity-60"><Share2 size={17} />{sharingInvoice ? 'Preparing…' : 'Share'}</GlassButton>
+                  /* One main action and two icon buttons, all the same height: Download PDF keeps its words
+                     (it is what people come for); View and Share are icons named by their label and tooltip.
+                     Nothing wraps, whatever the card's width. */
+                  <div className="flex items-center gap-2.5">
+                    <GlassButton as="a" variant="primary" href={`${invoiceDocumentUrl}/download`} className="h-12 min-w-0 flex-1 whitespace-nowrap">
+                      <Download size={18} />Download PDF
+                    </GlassButton>
+                    <GlassButton as="a" href={`${invoiceDocumentUrl}/view`} target="_blank" rel="noopener noreferrer" title="View" aria-label="View invoice" className="h-12 w-12 shrink-0 !px-0">
+                      <Eye size={18} />
+                    </GlassButton>
+                    {canShareFile && (
+                      <GlassButton onClick={handleShareInvoice} disabled={sharingInvoice} title={sharingInvoice ? 'Preparing…' : 'Share'} aria-label="Share invoice" className="h-12 w-12 shrink-0 !px-0 disabled:opacity-60">
+                        <Share2 size={18} />
+                      </GlassButton>
+                    )}
                   </div>
                 )
               ) : (

@@ -51,28 +51,46 @@ const openDetail = async (responses) => {
   await act(async () => root.render(<MemoryRouter initialEntries={['/invoice-detail/bill']}><Routes><Route path="/invoice-detail/:invoiceId" element={<InvoiceDetailPage />} /></Routes></MemoryRouter>));
 };
 
-test('a paid full-payment bill offers the final invoice PDF to view, download and share', async () => {
+const downloadLink = () => [...container.querySelectorAll('a')].find(item => /Download PDF/.test(item.textContent));
+const viewLink = () => container.querySelector('a[aria-label="View invoice"]');
+const shareButton = () => container.querySelector('button[aria-label="Share invoice"]');
+
+test('a paid full-payment bill offers the final invoice PDF: a Download PDF button and a View icon button', async () => {
   await openDetail(url => (url.includes('invoiceId=') ? [bill()] : url.includes('orderId=') ? [bill(), statement()] : null));
-  const link = [...container.querySelectorAll('a')].find(item => /Download Invoice/.test(item.textContent));
-  expect(link).toBeTruthy();
-  expect(link.getAttribute('href')).toMatch(/\/stmt\/download$/);
-  expect([...container.querySelectorAll('a')].some(item => /View Invoice/.test(item.textContent))).toBe(true);
+  expect(downloadLink()).toBeTruthy();
+  expect(downloadLink().getAttribute('href')).toMatch(/\/stmt\/download$/);
+  expect(viewLink().getAttribute('href')).toMatch(/\/stmt\/view$/);
+  expect(viewLink().getAttribute('title')).toBe('View');
+});
+
+test('Share is offered only where the browser can share a file', async () => {
+  await openDetail(url => (url.includes('invoiceId=') ? [statement()] : null));
+  expect(shareButton()).toBeNull();
+  await act(async () => root.unmount());
+  root = createRoot(container);
+  Object.assign(navigator, { share: jest.fn(), canShare: jest.fn(() => true) });
+  try {
+    await openDetail(url => (url.includes('invoiceId=') ? [statement()] : null));
+    expect(shareButton()).toBeTruthy();
+  } finally { delete navigator.share; delete navigator.canShare; }
 });
 
 test('an unpaid bill has no download, and a bill paid in parts is left as it was', async () => {
   await openDetail(url => (url.includes('invoiceId=') ? [bill({ status: 'unpaid', amountPaid: 0, paidDate: null })] : [bill(), statement()]));
-  expect(container.textContent).not.toContain('Download Invoice');
+  expect(downloadLink()).toBeUndefined();
   await act(async () => root.unmount());
   root = createRoot(container);
   await openDetail(url => (url.includes('invoiceId=') ? [bill({ installmentNumber: 1 })] : [bill({ installmentNumber: 1 }), statement()]));
-  expect(container.textContent).not.toContain('Download Invoice');
+  expect(downloadLink()).toBeUndefined();
 });
 
 test('the final invoice page itself is named Final invoice and reads Paid', async () => {
   await openDetail(url => (url.includes('invoiceId=') ? [statement()] : null));
   expect(container.textContent).toContain('Final invoice');
   expect(container.textContent).toContain('Paid');
-  expect([...container.querySelectorAll('a')].some(item => /Download Invoice/.test(item.textContent))).toBe(true);
+  expect(container.textContent).not.toContain('Due Date');
+  expect(container.textContent).toContain('Paid Date');
+  expect(downloadLink()).toBeTruthy();
 });
 
 const detailOrder = { ...order, productId: { category: 'standard_websites', serviceName: 'All-in-One Startup' }, isPartialPayment: false, createdAt: day, orderItems: [] };
@@ -97,4 +115,27 @@ test('the order page of a project still to be paid lists only the bill', async (
   expect(text).toContain('All-in-One Startup plan');
   expect(text).not.toContain('Final invoice');
   expect(text).not.toContain('Summary');
+});
+
+const planOrder = { _id: 'p1', projectSnapshot: undefined, servicePlanSnapshot: { serviceName: 'Website Update Plan' }, orderItems: [{ name: 'Website Update Plan' }] };
+const planBill = (fields = {}) => ({ _id: 'pbill', orderId: planOrder, invoiceType: 'project', serviceCycleNumber: 1, status: 'paid', amount: 1152, amountPaid: 1152, invoiceDate: day, dueDate: day, paidDate: day, ...fields });
+const planStatement = (fields = {}) => ({ _id: 'pstmt', orderId: planOrder, invoiceType: 'service_statement', status: 'paid', amount: 1152, amountPaid: 1152, invoiceDate: day, dueDate: day, paidDate: day, ...fields });
+
+test('a plan paid in one go is one card on the order page and on the bills page: the Plan invoice, Paid', async () => {
+  global.__responses = url => (url.includes('orderId=') ? [planBill(), planStatement()] : { ...detailOrder, _id: 'p1', productId: { category: 'service_plan', serviceName: 'Website Update Plan' } });
+  await act(async () => root.render(<MemoryRouter initialEntries={['/order-detail/p1']}><Routes><Route path="/order-detail/:orderId" element={<OrderDetailPage />} /></Routes></MemoryRouter>));
+  expect(container.textContent.match(/Plan invoice/g)).toHaveLength(1);
+  expect(container.textContent).not.toContain('Total for this plan');
+  expect(container.textContent).not.toContain('Summary');
+  await act(async () => root.unmount());
+  root = createRoot(container);
+  global.__responses = () => [planBill(), planStatement()];
+  await act(async () => root.render(<MemoryRouter><UserInvoices /></MemoryRouter>));
+  expect(container.textContent.match(/Plan invoice/g)).toHaveLength(1);
+  expect(container.textContent).toContain('Paid (1)');
+});
+
+test('a paid plan bill offers the plan statement PDF', async () => {
+  await openDetail(url => (url.includes('invoiceId=') ? [planBill()] : [planBill(), planStatement()]));
+  expect(downloadLink().getAttribute('href')).toMatch(/\/pstmt\/download$/);
 });

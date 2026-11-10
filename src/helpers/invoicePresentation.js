@@ -64,8 +64,8 @@ export const isComplimentaryInvoice = (invoice) =>
 export const getInvoiceStatusText = (invoice) => {
   // Nothing was paid for a complimentary invoice, so it never reads "Paid".
   if (isComplimentaryInvoice(invoice)) return { label: 'Free', tone: 'success' };
-  // A project's final invoice that is fully paid is a receipt: it says Paid, like the bill it replaces.
-  if (isProjectStatement(invoice) && invoice.status === 'paid') return { label: 'Paid', tone: 'success' };
+  // A statement that is fully paid is a receipt: it says Paid, like the bill it replaces.
+  if (isStatementInvoice(invoice) && invoice.status === 'paid') return { label: 'Paid', tone: 'success' };
   if (isStatementInvoice(invoice)) {
     // A statement states, it does not demand. Neutral, and worded as a summary.
     return { label: 'Summary', tone: 'neutral' };
@@ -87,7 +87,8 @@ export const getInvoiceStatusText = (invoice) => {
 export const getInvoicePurposeText = (invoice, planName = '') => {
   if (isComplimentaryInvoice(invoice)) return 'Complimentary upgrade';
   if (isProjectStatement(invoice)) return 'Final invoice';
-  if (isStatementInvoice(invoice)) return 'Total for this plan';
+  // A plan paid in one go shows its statement alone (collapseSingleBillOrders): that is the plan's invoice.
+  if (isStatementInvoice(invoice)) return invoice.standsForBill ? 'Plan invoice' : 'Total for this plan';
   if (invoice?.invoiceType === 'plan_renewal') return 'Renewal';
   // A plan's name often already ends in "Plan", so appending the word produced
   // "Starter Update Plan plan". The name is the answer on its own when it carries the word.
@@ -145,37 +146,58 @@ export const isInvoicePayable = (invoice) => {
 };
 
 /**
- * One card for a project paid in full.
+ * One card for an order paid in one go.
  *
- * Every one-time project has two records: the bill that collects the money (invoiceType
- * "project") and the final invoice (invoiceType "project_final") that states the whole
- * project and is the only one with a PDF. For a project paid in one go both carry the same
- * amount, so listing both read as two orders. Exactly one is shown, by what the customer
- * can do:
- *   - the bill is still to be paid: the bill (it holds Pay now); the final invoice is hidden;
- *   - the bill is paid: the final invoice (a receipt with the download); the bill is hidden.
+ * Such an order has two records: the bill that collects the money (invoiceType "project", or
+ * "plan_renewal" for a plan) and a statement ("project_final" for a project, "service_statement"
+ * for a plan) that states the whole order and is the only one with a PDF. When the order is a
+ * single payment both carry the same amount, so listing both read as two orders. Exactly one is
+ * shown, by what the customer can do:
+ *   - the bill is still to be paid: the bill (it holds Pay now); the statement is hidden;
+ *   - the bill is paid: the statement (a receipt with the download); the bill is hidden.
  *
- * "Paid in full" is read from the invoices themselves: one live bill, with no installment
- * number (an installment bill carries one, and installment bills are created one at a time,
- * so a project paid in parts can briefly have a single bill). Projects paid in parts, plans,
- * complimentary invoices and orders with no final invoice yet are left exactly as they are.
- * Display only: payment, due and approval rules never read this list.
+ * "A single payment" is read from the invoices themselves:
+ *   - a project: one live bill with no installment number (installment bills are created one at
+ *     a time, so a project paid in parts can briefly have a single bill, but it carries a number);
+ *   - a plan: one live bill whose amount equals the statement's (a plan of several cycles has a
+ *     statement for the whole plan, which differs from any one cycle's bill).
+ * Projects paid in parts, plans of several cycles, complimentary invoices and orders with no
+ * statement yet are left exactly as they are. A kept plan statement is marked
+ * standsForBill so it can be worded as the plan's invoice. Display only: payment, due and
+ * approval rules never read this list.
  */
-export const collapseFullPaymentBills = (invoices) => {
+const BILL_TYPES = ['project', 'plan_renewal'];
+const orderKey = (invoice) => String(invoice?.orderId?._id || invoice?.orderId || '');
+
+export const collapseSingleBillOrders = (invoices) => {
   const list = Array.isArray(invoices) ? invoices : [];
   const groups = new Map();
   for (const invoice of list) {
-    const key = String(invoice?.orderId?._id || invoice?.orderId || '');
+    const key = orderKey(invoice);
     if (!key) continue;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(invoice);
   }
   const hidden = new Set();
+  const kept = new Set();
   for (const group of groups.values()) {
-    const statement = group.find(isProjectStatement);
-    const bills = group.filter((invoice) => invoice.invoiceType === 'project' && invoice.status !== 'cancelled');
-    if (!statement || bills.length !== 1 || bills[0].installmentNumber) continue;
-    hidden.add(bills[0].status === 'paid' ? bills[0]._id : statement._id);
+    const statement = group.find(isStatementInvoice);
+    const bills = group.filter((invoice) => BILL_TYPES.includes(invoice.invoiceType) && invoice.status !== 'cancelled');
+    if (!statement || bills.length !== 1) continue;
+    const single = isProjectStatement(statement)
+      ? !bills[0].installmentNumber
+      : Number(bills[0].amount) === Number(statement.amount);
+    if (!single) continue;
+    if (bills[0].status === 'paid') { hidden.add(bills[0]._id); kept.add(statement._id); } else hidden.add(statement._id);
   }
-  return list.filter((invoice) => !hidden.has(invoice._id));
+  return list
+    .filter((invoice) => !hidden.has(invoice._id))
+    .map((invoice) => (kept.has(invoice._id) && !isProjectStatement(invoice) ? { ...invoice, standsForBill: true } : invoice));
+};
+
+/** The document that stands in for a paid single-payment bill (its statement), or null when the bill has none. */
+export const receiptForBill = (invoices, bill) => {
+  const shown = collapseSingleBillOrders(invoices);
+  if (shown.some((invoice) => invoice._id === bill?._id)) return null;
+  return shown.find((invoice) => isStatementInvoice(invoice) && orderKey(invoice) === orderKey(bill)) || null;
 };

@@ -14,7 +14,7 @@ import {
   customerChildState,
   goToCustomerReturn,
 } from '../helpers/customerReturnNavigation';
-import { getInvoiceStatusText, isStatementInvoice, isProjectStatement, collapseFullPaymentBills, getInvoicePurposeText, isFreeInvoice } from '../helpers/invoicePresentation';
+import { getInvoiceStatusText, isStatementInvoice, collapseSingleBillOrders, getInvoicePurposeText, isFreeInvoice } from '../helpers/invoicePresentation';
 
 const formatDate = (date) => {
   if (!date) return 'N/A';
@@ -151,8 +151,8 @@ const OrderDetailPage = () => {
   // (recurring plan, full payment) keeps the original two-card layout below.
   const isInstallmentProject = !isRecurringPlan && order.isPartialPayment && order.installments?.length > 0;
   const projectStatement = invoices.find((invoice) => invoice.invoiceType === 'project_final') || null;
-  // A project paid in full is one card here, not its bill and its final invoice side by side.
-  const visibleInvoices = collapseFullPaymentBills(invoices);
+  // An order paid in one go is one card here, not its bill and its statement side by side.
+  const visibleInvoices = collapseSingleBillOrders(invoices);
   const installmentsTotal = (order.installments || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
   const startDate = new Date(order.createdAt);
@@ -328,7 +328,7 @@ const OrderDetailPage = () => {
                             </div>
                             <p className="mt-1 text-sm text-[var(--text-secondary)]">
                               {isStatement
-                                ? (isProjectStatement(invoice) && invoice.status === 'paid' && invoice.paidDate ? `Paid on ${formatDate(invoice.paidDate)}` : 'Everything charged on this order')
+                                ? (invoice.status === 'paid' && invoice.paidDate ? `Paid on ${formatDate(invoice.paidDate)}` : 'Everything charged on this order')
                                 : invoice.status === 'paid'
                                   ? `Paid on ${formatDate(invoice.paidDate)}`
                                   : `Due on ${formatDate(invoice.dueDate)}`}

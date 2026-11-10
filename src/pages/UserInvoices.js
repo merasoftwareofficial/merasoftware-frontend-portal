@@ -7,7 +7,7 @@ import SummaryApi from '../common';
 import { toast } from 'sonner';
 import CustomerWorkspaceTabs from '../components/CustomerWorkspaceTabs';
 import Badge from '../components/Badge';
-import { getInvoiceStatusText, getInvoicePurposeText, isFreeInvoice, isStatementInvoice, collapseFullPaymentBills } from '../helpers/invoicePresentation';
+import { getInvoiceStatusText, getInvoicePurposeText, isFreeInvoice, isStatementInvoice, collapseSingleBillOrders } from '../helpers/invoicePresentation';
 import { getOrderDisplayName } from '../helpers/orderPresentation';
 
 const UserInvoices = () => {
@@ -37,7 +37,7 @@ const UserInvoices = () => {
     };
 
     // A project paid in full is one bill here, not its payment bill and its final invoice together.
-    const shownInvoices = collapseFullPaymentBills(invoices);
+    const shownInvoices = collapseSingleBillOrders(invoices);
     const filteredInvoices = filter === 'all'
         ? shownInvoices
         : shownInvoices.filter(inv => inv.status === filter);
