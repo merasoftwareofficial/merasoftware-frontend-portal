@@ -30,6 +30,7 @@ const MyReferredLeadsPage = () => {
     <DashboardLayout user={user}>
       <div className="min-h-full px-3 py-4 sm:px-5 lg:px-8 lg:py-7">
         <div className="mx-auto max-w-4xl">
+          {error && <p role="alert" className="mb-4 rounded-xl bg-[var(--glass-bg)] p-3 text-sm text-[var(--text-primary)]">Could not refresh this information. It may be out of date; please try again.</p>}
           <div className="text-center">
             <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">
               People Connected

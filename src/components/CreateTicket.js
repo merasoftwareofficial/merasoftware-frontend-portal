@@ -1,3 +1,4 @@
+import { invalidatePortalResources } from '../hooks/usePortalUpdates';
 import React, { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { AlertCircle, MessageSquare } from 'lucide-react';
@@ -33,6 +34,7 @@ const CreateTicket = ({ show, handleClose, refreshTickets }) => {
       const result = await response.json();
       
       if (result.success) {
+        invalidatePortalResources(['tickets']);
         const openTickets = result.data.tickets.filter(
           ticket => ticket.status === 'pending' || ticket.status === 'open'
         );
@@ -76,6 +78,7 @@ const CreateTicket = ({ show, handleClose, refreshTickets }) => {
       const result = await response.json();
       
       if (result.success) {
+        invalidatePortalResources(['tickets']);
         toast.success('Ticket created successfully!');
         setCategory('');
         setSubject('');

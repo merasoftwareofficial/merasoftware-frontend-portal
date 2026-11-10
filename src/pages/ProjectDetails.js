@@ -375,6 +375,7 @@ const ProjectDetails = ({ isAdminView = false }) => {
   // the admin view reads the same endpoint rather than being skipped.
   const { loading: uploadHistoryLoading, refresh: fetchUploadHistory, error: uploadError } = useResource(`${SummaryApi.orderUploads.url}/${orderId}/uploads`, next => setUploadHistory(next || []));
   const { loading, refresh: fetchOrderDetails, error: orderError } = useResource(`${SummaryApi.orderDetails.url}/${orderId}`, order => {
+    if (!order) { setOrder(null); return; }
     if (!isAdminView && isPlanItem(order)) {
       navigate(`/plan-details/${orderId}`, { replace: true, state: location.state });
       return;

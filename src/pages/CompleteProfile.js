@@ -1,3 +1,4 @@
+import { invalidatePortalResources } from '../hooks/usePortalUpdates';
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import SummaryApi from '../common';
@@ -242,6 +243,7 @@ const CompleteProfile = ({ user, onKycComplete, onCancel, initialData }) => {
       const data = await response.json();
 
       if (data.success) {
+        invalidatePortalResources(['users', 'documents']);
         toast.success('KYC completed successfully!');
         // localStorage.removeItem('completeProfile_basicDetails');
         // localStorage.removeItem('completeProfile_bankAccounts');

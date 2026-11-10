@@ -1,4 +1,4 @@
-import { usePortalUpdates } from '../hooks/usePortalUpdates';
+import { invalidatePortalResources, usePortalUpdates } from '../hooks/usePortalUpdates';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -169,6 +169,7 @@ const CheckoutScreen = ({ planId }) => {
     try {
       const created = await task();
       if (!created) return;
+      invalidatePortalResources(['orders', 'payments', 'invoices', 'users', 'wallet']);
       forgetPurchaseKey(keyScope);
       context?.fetchWalletBalance?.();
       navigate(checkoutDonePath(created.orderId, from), { replace: true, state: { justPaid: true } });

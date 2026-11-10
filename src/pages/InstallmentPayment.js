@@ -1,3 +1,4 @@
+import { invalidatePortalResources } from '../hooks/usePortalUpdates';
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
@@ -117,11 +118,14 @@ const InstallmentPayment = () => {
 
     try {
       setLoading(true);
+      const currentBalance = await context.fetchWalletBalance();
+      if (currentBalance == null) throw new Error('Could not verify your wallet balance. Please try again.');
+      setRemainingAmount(Math.max(0, installment.amount - currentBalance));
 
       // Full wallet cover → instant payment, no admin approval (wallet is the customer's own,
       // already-approved money). The single /wallet/pay-instant call atomically debits the wallet
       // and settles the installment + approves the order server-side.
-      if (context.walletBalance >= installment.amount) {
+      if (currentBalance >= installment.amount) {
         const response = await fetch(SummaryApi.wallet.payInstant.url, {
           method: SummaryApi.wallet.payInstant.method,
           credentials: 'include',
@@ -143,6 +147,7 @@ const InstallmentPayment = () => {
           return;
         }
 
+        invalidatePortalResources(['orders', 'payments', 'invoices', 'users', 'wallet']);
         // Refresh the just-debited wallet balance and take the customer back to the project.
         context.fetchWalletBalance();
         toast.success('Payment successful! Your project will continue now.');
@@ -156,7 +161,7 @@ const InstallmentPayment = () => {
 
         const upiId = 'vacomputers.com@okhdfcbank'; // Replace with your UPI ID
         const payeeName = 'VA Computer';
-        const upi = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${remainingAmount}&cu=INR&tn=${encodeURIComponent(`Installment Payment - ${txnId}`)}&tr=${txnId}`;
+        const upi = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${Math.max(0, installment.amount - currentBalance)}&cu=INR&tn=${encodeURIComponent(`Installment Payment - ${txnId}`)}&tr=${txnId}`;
 
         setUpiLink(upi);
         setShowQR(true);
@@ -205,6 +210,7 @@ const InstallmentPayment = () => {
           setLoading(false);
           return;
         }
+        invalidatePortalResources(['orders', 'payments', 'invoices', 'users', 'wallet']);
         context.fetchWalletBalance();
       }
 
@@ -241,6 +247,7 @@ const InstallmentPayment = () => {
         }
       }
       
+      invalidatePortalResources(['orders', 'payments', 'invoices', 'users', 'wallet']);
       // Then update the installment status to pending approval
       const updateResponse = await fetch(SummaryApi.payInstallment.url, {
         method: SummaryApi.payInstallment.method,

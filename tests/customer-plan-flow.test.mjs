@@ -6,7 +6,7 @@ const load = async (path, transform = value => value) => {
   return import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 };
 const auth = await load('../src/helpers/planAuthReturn.js');
-const { planGroups, planBenefit } = await load('../src/helpers/customerPlanCatalogue.js', source => source.replace("import SummaryApi from '../common';", 'const SummaryApi = {};'));
+const { planGroups, planBenefit } = await load('../src/helpers/customerPlanCatalogue.js', source => source.replace("import SummaryApi from '../common';", 'const SummaryApi = {};').replace("import { readResource } from '../utils/resourceClient';", 'const readResource = () => { throw new Error(\"Not used by this test\"); };'));
 const { canBuyOnSurface, SURFACE } = await load('../src/helpers/serviceDependency.js');
 const tenureSource = await readFile(new URL('../src/helpers/serviceTenure.js', import.meta.url), 'utf8');
 const { initialPlanChoice, planChoiceBody, planChoiceQuery } = await load('../src/helpers/serviceTenure.js');

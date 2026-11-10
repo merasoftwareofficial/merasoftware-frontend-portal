@@ -21,7 +21,7 @@ export function createSessionClient({ url, method, onUser, onSignedOut, onError,
     const promise = (async () => {
       try {
         if (!navigator.onLine) throw new Error('offline');
-        const response = await fetch(url, { method, credentials: 'include', signal: controller.signal });
+        const response = await fetch(url, { method, credentials: 'include', cache: 'no-store', signal: controller.signal });
         if (current !== generation) return null;
         if (response.status === 401) {
           onSignedOut();

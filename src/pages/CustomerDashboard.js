@@ -201,6 +201,7 @@ const CustomerDashboard = () => {
         <div className="pointer-events-none absolute inset-0 bg-[var(--scrim)]" />
 
         <div className="relative mx-auto max-w-7xl">
+          {(orderError || referralError || context?.walletError) && <p role="alert" className="mb-4 rounded-xl bg-[var(--glass-bg)] p-3 text-sm text-[var(--text-primary)]">Some information could not be refreshed and may be out of date. Please try again.</p>}
           {user?.isGuest ? (
             <div className="badge mx-auto mb-6 flex max-w-2xl items-center justify-center gap-2 badge-pending rounded-2xl px-4 py-2.5 text-center">
               <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--badge-pending-fg)]" />

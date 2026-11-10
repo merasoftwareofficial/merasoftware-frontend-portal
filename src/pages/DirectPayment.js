@@ -1,3 +1,4 @@
+import { invalidatePortalResources } from '../hooks/usePortalUpdates';
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -46,7 +47,7 @@ const DirectPayment = () => {
       
       // Calculate if wallet balance is sufficient
       const paymentAmount = paymentData.currentPaymentAmount || paymentData.totalPrice;
-      if (context.walletBalance < paymentAmount) {
+      if (!showQR && context.walletBalance < paymentAmount) {
         setRemainingAmount(paymentAmount - context.walletBalance);
       }
     } else {
@@ -64,11 +65,11 @@ const DirectPayment = () => {
       
       // Calculate if wallet balance is sufficient
       const paymentAmount = retryPaymentData.totalPrice;
-      if (context.walletBalance < paymentAmount) {
+      if (!showQR && context.walletBalance < paymentAmount) {
         setRemainingAmount(paymentAmount - context.walletBalance);
       }
     }
-  }, [location, navigate, context.walletBalance]);                                
+  }, [location, navigate, context.walletBalance, showQR]);
 
   // Generate transaction ID
   const generateTransactionId = () => {
@@ -94,12 +95,15 @@ const handleWalletPayment = async () => {
   
   try {
     setLoading(true);
+    const currentBalance = await context.fetchWalletBalance();
+    if (currentBalance == null) throw new Error('Could not verify your wallet balance. Please try again.');
     
     // Get the correct amount to charge
     const amountToCharge = paymentData.currentPaymentAmount || paymentData.totalPrice;
+    setRemainingAmount(Math.max(0, amountToCharge - currentBalance));
     
     // SCENARIO 1: If wallet has sufficient balance
-    if (context.walletBalance >= amountToCharge) {
+    if (currentBalance >= amountToCharge) {
       console.log("Sufficient wallet balance. Creating transaction for admin approval.");
       
       // Generate transaction ID for wallet payment
@@ -137,6 +141,7 @@ const handleWalletPayment = async () => {
       const data = await response.json();
       
       if (data.success) {
+        invalidatePortalResources(['orders', 'payments', 'invoices', 'users', 'wallet']);
         // Show success message for pending approval
         toast.success('Your payment has been submitted for approval');
         
@@ -157,7 +162,7 @@ const handleWalletPayment = async () => {
   }
 }
     // SCENARIO 2: Partial wallet balance
-    else if (context.walletBalance > 0) {
+    else if (currentBalance > 0) {
       console.log("Partial wallet balance. Need admin approval for both portions.");
       
       // Generate transaction IDs for both payment portions
@@ -177,7 +182,7 @@ const handleWalletPayment = async () => {
           // Create wallet portion transaction for admin approval
           const walletRequestBody = {
             transactionId: walletTxnId,
-            amount: context.walletBalance,
+            amount: currentBalance,
             paymentMethod: 'wallet',
             isInstallmentPayment: isPartialPayment || false,
             type: 'payment',
@@ -185,7 +190,7 @@ const handleWalletPayment = async () => {
             installmentNumber: isPartialPayment ? installmentNumber : null,
             isPartialInstallmentPayment: true,
             parentTransactionId: upiTxnId, // Link to the UPI transaction
-            description: `Wallet portion (${displayINRCurrency(context.walletBalance)}) for ${paymentData?.product?.serviceName}`
+            description: `Wallet portion (${displayINRCurrency(currentBalance)}) for ${paymentData?.product?.serviceName}`
           };
           
           // Submit wallet portion for admin approval
@@ -201,7 +206,7 @@ const handleWalletPayment = async () => {
           // Create UPI payment link for REMAINING amount
           const upiId = 'vacomputers.com@okhdfcbank';
           const payeeName = 'VA Computer';
-          const upi = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${remainingAmount}&cu=INR&tn=${encodeURIComponent(`Order Payment - ${upiTxnId}`)}&tr=${upiTxnId}`;
+          const upi = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${Math.max(0, amountToCharge - currentBalance)}&cu=INR&tn=${encodeURIComponent(`Order Payment - ${upiTxnId}`)}&tr=${upiTxnId}`;
           
           // Show QR code for remaining amount
           setUpiLink(upi);
@@ -392,6 +397,7 @@ if (paymentData.selectedFeatures && paymentData.selectedFeatures.length > 0) {
       throw new Error(orderData.message || 'Failed to create order');
     }
 
+    invalidatePortalResources(['orders', 'payments', 'invoices', 'users', 'wallet']);
     // Store the actual order ID
     const actualOrderId = orderData.data?._id || orderData.data?.orderId;
     
@@ -490,6 +496,7 @@ if (paymentData.selectedFeatures && paymentData.selectedFeatures.length > 0) {
       console.log("Verification response:", data);
       
       if (data.success) {
+        invalidatePortalResources(['orders', 'payments', 'invoices', 'users', 'wallet']);
         // Show appropriate success message
         setVerificationStatus('We have your payment. Your project starts once it clears, usually within 1-4 hours.');
         toast.success('Payment submitted successfully! We\'ll notify you once it\'s approved.');

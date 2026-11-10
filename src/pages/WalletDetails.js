@@ -1,3 +1,4 @@
+import { invalidatePortalResources } from '../hooks/usePortalUpdates';
 import { useListState } from '../hooks/useListState';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
@@ -200,6 +201,7 @@ const WalletDetails = () => {
       });
       const data = await response.json();
       if (data.success) {
+        invalidatePortalResources(['payments', 'wallet', 'users']);
         setVerificationStatus('We have your payment.');
         setVerificationSubmitted(true);
       } else setVerificationStatus(data.message || 'We could not check this payment. Please contact support.');
@@ -308,7 +310,7 @@ const WalletDetails = () => {
           <Surface as="section" tone="subtle" sheen className="p-3 text-[var(--text-primary)] sm:p-4">
               <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-accent-400/20 blur-3xl" />
             <div className="relative grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
-              <Surface tone="subtle" className="p-5 sm:p-6"><p className="text-sm font-bold uppercase text-[var(--eyebrow-fg)]">{getGreeting()}, {user?.name || 'User'}</p><h1 className="mt-2 text-2xl font-bold tracking-tight text-[var(--text-primary)]">Your wallet</h1><div className="mt-6 flex items-center justify-between"><span className="text-sm font-bold uppercase text-[var(--text-primary)]">Available balance</span><WalletIcon /></div><p className="mt-4 text-2xl font-bold tracking-tight text-[var(--text-primary)]">{displayINRCurrency(context?.walletBalance || 0)}</p><p className="mt-2 max-w-sm text-sm text-[var(--text-primary)]">Use this for any payment in the portal.</p><div className="mt-5 flex flex-wrap gap-2"><button onClick={() => setShowRechargePanel(true)} className="inline-flex items-center gap-2 rounded-xl bg-[var(--nav-active-bg)] px-4 py-2.5 text-base font-bold text-[var(--nav-active-fg)] transition hover:opacity-90"><Plus size={15} /> Recharge wallet</button><button onClick={refreshWallet} className="inline-flex items-center gap-2 rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] px-3 py-2.5 text-base font-bold text-[var(--text-primary)] hover:bg-[var(--glass-bg)]"><RefreshCw size={14} /> Refresh</button></div></Surface>
+              <Surface tone="subtle" className="p-5 sm:p-6"><p className="text-sm font-bold uppercase text-[var(--eyebrow-fg)]">{getGreeting()}, {user?.name || 'User'}</p><h1 className="mt-2 text-2xl font-bold tracking-tight text-[var(--text-primary)]">Your wallet</h1><div className="mt-6 flex items-center justify-between"><span className="text-sm font-bold uppercase text-[var(--text-primary)]">Available balance</span><WalletIcon /></div><p className="mt-4 text-2xl font-bold tracking-tight text-[var(--text-primary)]">{displayINRCurrency(context?.walletBalance || 0)}</p><p className="mt-2 max-w-sm text-sm text-[var(--text-primary)]">Use this for any payment in the portal.</p>{context?.walletError && <p role="alert" className="mt-2 text-sm">{context.walletError}</p>}<div className="mt-5 flex flex-wrap gap-2"><button onClick={() => setShowRechargePanel(true)} className="inline-flex items-center gap-2 rounded-xl bg-[var(--nav-active-bg)] px-4 py-2.5 text-base font-bold text-[var(--nav-active-fg)] transition hover:opacity-90"><Plus size={15} /> Recharge wallet</button><button onClick={refreshWallet} className="inline-flex items-center gap-2 rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] px-3 py-2.5 text-base font-bold text-[var(--text-primary)] hover:bg-[var(--glass-bg)]"><RefreshCw size={14} /> Refresh</button></div></Surface>
               <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-1">
                 <StatTile label="Total added" value={displayINRCurrency(getTotalAdded())} tone="neutral" />
                 <StatTile label="Total spent" value={displayINRCurrency(getTotalSpending())} tone="neutral" />

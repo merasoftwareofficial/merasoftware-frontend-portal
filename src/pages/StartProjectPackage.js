@@ -1,3 +1,4 @@
+import { invalidatePortalResources } from '../hooks/usePortalUpdates';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -139,6 +140,7 @@ const PackageScreen = ({ packageId }) => {
       packageId, choice, quoteKey: q.quoteKey, dueNow: q.dueNow, creationKey: purchaseKey, ...contactBody,
       ...(upiReference ? { upiTransactionId: upiReference } : {}),
     });
+    invalidatePortalResources(['orders', 'payments', 'invoices', 'users', 'wallet']);
     forgetPurchaseKey(keyScope);
     setDone(result);
   };

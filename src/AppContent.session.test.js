@@ -32,10 +32,15 @@ function LoginFixture() {
     dispatch: store.dispatch, navigate, toast: { success: () => {} }, fetchUserDetails,
   })}>Sign in</button></>;
 }
+function WalletProbe() {
+  const { walletBalance, walletError, fetchWalletBalance } = React.useContext(Context);
+  return <><p>Balance: {walletBalance}</p><p>{walletError}</p><button onClick={fetchWalletBalance}>Refresh wallet</button></>;
+}
 function render(path = '/dashboard') {
   root.render(<Provider store={store}><MemoryRouter initialEntries={[path]}>
     <Routes><Route element={<AppContent />}>
       <Route path="/" element={<RoleBasedHome />} />
+      <Route path="/wallet-test" element={<WalletProbe />} />
       <Route path="/dashboard" element={<ProtectedRoute requireRole={['customer']}><p>Customer dashboard</p></ProtectedRoute>} />
       <Route path="/admin-panel/dashboard" element={<ProtectedRoute requireRole={['admin']}><p>Admin dashboard</p></ProtectedRoute>} />
       <Route path="/login" element={<LoginFixture />} />
@@ -145,4 +150,20 @@ test('portal login supersedes a startup 401 and keeps the newly signed-in user',
   expect(container.textContent).toContain('Customer dashboard');
   expect(store.getState().user.user._id).toBe(user._id);
   expect(fetch).toHaveBeenCalledTimes(2);
+});
+
+
+test('failed wallet refresh does not replace the balance with another local storage value', async () => {
+  await act(async () => render('/wallet-test'));
+  await act(async () => resolveRequest(success()));
+  expect(container.textContent).toContain('Balance: 17');
+  localStorage.setItem('walletBalance', JSON.stringify({ balance: 999, timestamp: new Date().toISOString() }));
+  fetch.mockResolvedValueOnce({ status: 503, ok: false });
+  const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    await act(async () => container.querySelector('button').click());
+    expect(container.textContent).toContain('Balance: 17');
+    expect(container.textContent).toContain('Could not update wallet balance');
+    expect(container.textContent).not.toContain('Balance: 999');
+  } finally { error.mockRestore(); }
 });

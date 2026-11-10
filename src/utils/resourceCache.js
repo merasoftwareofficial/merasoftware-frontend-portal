@@ -11,6 +11,38 @@ const MAX_ENTRIES = 50;
 export const LEAD_CACHE = { domains: ['leads', 'users', 'communication'] };
 export const CLIENT_CACHE = { domains: ['clients', 'users', 'leads', 'tickets'] };
 
+// Only endpoints with audited, owner-scoped reads opt in. Policy identity stays stable
+// across renders; URL and query parameters remain part of the cache key.
+const CUSTOMER_POLICIES = {
+  orders: { domains: ['orders', 'payments', 'invoices', 'updates', 'catalog', 'users'] },
+  invoices: { domains: ['invoices', 'orders', 'payments', 'catalog'] },
+  orderDetail: { domains: ['orders', 'payments', 'invoices', 'updates', 'catalog', 'users', 'uploads', 'offers'], confirmedOnly: true },
+  invoiceDetail: { domains: ['invoices', 'orders', 'payments', 'catalog'], confirmedOnly: true },
+  documents: { domains: ['documents', 'users', 'referrals'] },
+  tickets: { domains: ['tickets', 'users'] },
+  referrals: { domains: ['referrals', 'payments'] },
+  uploads: { domains: ['uploads', 'updates', 'orders'] },
+  walletHistory: { domains: ['wallet', 'payments', 'users', 'orders', 'catalog'] },
+};
+export function customerCachePolicy(scope, url) {
+  let identity;
+  try { identity = JSON.parse(scope); } catch { return undefined; }
+  if (!Array.isArray(identity) || identity[1] !== 'customer') return undefined;
+  const path = String(url || '').split('?')[0];
+  if (/\/get-order$/.test(path)) return CUSTOMER_POLICIES.orders;
+  if (/\/order-details\/[^/]+$/.test(path)) return CUSTOMER_POLICIES.orderDetail;
+  if (/\/my-invoices$/.test(path)) {
+    const query = new URLSearchParams(String(url).split('?')[1] || '');
+    return query.has('invoiceId') || query.has('orderId') ? CUSTOMER_POLICIES.invoiceDetail : CUSTOMER_POLICIES.invoices;
+  }
+  if (/\/my-documents$/.test(path)) return CUSTOMER_POLICIES.documents;
+  if (/\/(get-user-tickets|get-ticket-details\/[^/]+)$/.test(path)) return CUSTOMER_POLICIES.tickets;
+  if (/\/my-referred-leads$/.test(path)) return CUSTOMER_POLICIES.referrals;
+  if (/\/wallet\/history$/.test(path)) return CUSTOMER_POLICIES.walletHistory;
+  if (/\/orders\/[^/]+\/uploads$/.test(path)) return CUSTOMER_POLICIES.uploads;
+  return undefined;
+}
+
 const entries = new Map();
 const reading = new Set();
 let feedConnected = false;

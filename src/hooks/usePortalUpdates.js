@@ -36,6 +36,10 @@ function schedule(message) {
     resources.clear(); reconcile = false;
   }, 200);
 }
+// Local successful writes invalidate immediately even when the live feed is unavailable.
+export function invalidatePortalResources(domains) {
+  schedule({ type: 'changed', resources: [...new Set(domains)].map(domain => ({ domain, all: true, ids: [] })) });
+}
 function connect() {
   if (source || !subscribers.size || document.visibilityState !== 'visible') return;
   if (typeof EventSource === 'undefined') { status('unavailable'); return; }
@@ -93,17 +97,18 @@ export function resourceDomains(url) {
   if (/\/credentials$/.test(path)) return ['users'];
   if (/\/documents$/.test(path)) return ['documents', 'users', 'leads'];
   if (/\/admin\/my-settings$/.test(path)) return ['users'];
-  if (/\/get-user-tickets$|\/get-ticket-details\//.test(path)) return ['tickets'];
+  if (/\/get-user-tickets$|\/get-ticket-details\//.test(path)) return ['tickets', 'users'];
   if (/\/admin\/user-workspace$/.test(path)) return ['users', 'orders', 'payments', 'invoices', 'updates', 'offers'];
   if (/\/uploads$/.test(path)) return ['uploads', 'updates', 'orders'];
-  if (/\/my-documents$/.test(path)) return ['documents', 'users', 'uploads'];
+  if (/\/my-documents$/.test(path)) return ['documents', 'users', 'referrals'];
   if (/\/admin\/trash$/.test(path)) return ['leads', 'users', 'orders', 'catalog'];
   if (/\/admin\/settings$/.test(path)) return ['settings'];
-  if (/\/my-invoices$/.test(path)) return ['invoices'];
-  if (/\/(get-order|orders-list|order-list|order-details\/[^/]+)$/.test(path)) return ['orders', 'payments', 'invoices', 'updates'];
-  if (/\/wallet\/history$/.test(path)) return ['wallet', 'payments', 'users'];
+  if (/\/my-invoices$/.test(path)) return ['invoices', 'orders', 'payments', 'catalog'];
+  if (/\/order-details\/[^/]+$/.test(path)) return ['orders', 'payments', 'invoices', 'updates', 'catalog', 'users', 'uploads', 'offers'];
+  if (/\/(get-order|orders-list|order-list)$/.test(path)) return ['orders', 'payments', 'invoices', 'updates', 'catalog', 'users'];
+  if (/\/wallet\/history$/.test(path)) return ['wallet', 'payments', 'users', 'orders', 'catalog'];
   if (/\/(category-base-prices|project-categories|service-plan-catalogue|plan-catalogue|service-plans|plan-products|feature-products)$/.test(path)) return ['catalog'];
   if (/\/offer-reservations$/.test(path)) return ['offers'];
-  if (/\/my-referred-leads$/.test(path)) return ['referrals'];
+  if (/\/my-referred-leads$/.test(path)) return ['referrals', 'payments'];
   return [];
 }

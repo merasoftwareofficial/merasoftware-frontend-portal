@@ -1,3 +1,4 @@
+import { invalidatePortalResources } from '../hooks/usePortalUpdates';
 import { useResource } from '../hooks/useResource';
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
@@ -36,12 +37,13 @@ const TicketDetail = ({ isAdmin = false }) => {
   const [closingTicket, setClosingTicket] = useState(false);
   const messagesEndRef = useRef(null);
 
-  const { loading, error, refresh: fetchTicketDetails } = useResource(isInitialized && userDetails?._id && ticketId ? `${SummaryApi.getTicketDetails.url}/${ticketId}` : null, setTicket);
+  const { loading, error, confirmed, refresh: fetchTicketDetails } = useResource(isInitialized && userDetails?._id && ticketId ? `${SummaryApi.getTicketDetails.url}/${ticketId}` : null, setTicket);
 
   // Handle reply submission
   const handleReply = async (e) => {
     e.preventDefault();
     
+    if (!confirmed) { toast.error('Please wait while the ticket is checked.'); return; }
     if (!replyMessage.trim()) {
       toast.error('Please enter a message');
       return;
@@ -62,6 +64,7 @@ const TicketDetail = ({ isAdmin = false }) => {
       const result = await response.json();
       
       if (result.success) {
+        invalidatePortalResources(['tickets']);
         setReplyMessage('');
         fetchTicketDetails(); // Refresh ticket details
         toast.success('Reply sent successfully');
@@ -78,6 +81,7 @@ const TicketDetail = ({ isAdmin = false }) => {
 
   // Handle close ticket (admin only)
   const handleCloseTicket = async () => {
+    if (!confirmed) { toast.error('Please wait while the ticket is checked.'); return; }
     if (!window.confirm('Are you sure you want to close this ticket?')) {
       return;
     }
@@ -94,6 +98,7 @@ const TicketDetail = ({ isAdmin = false }) => {
       const result = await response.json();
       
       if (result.success) {
+        invalidatePortalResources(['tickets']);
         fetchTicketDetails(); // Refresh ticket details
         toast.success('Ticket closed successfully');
       } else {
@@ -214,7 +219,7 @@ const TicketDetail = ({ isAdmin = false }) => {
         <div className="flex justify-center">
           <GlassButton
             onClick={handleCloseTicket}
-            disabled={closingTicket}
+            disabled={closingTicket || !confirmed}
             variant="primary"
             className={closingTicket ? 'cursor-not-allowed opacity-70' : ''}
           >
@@ -377,7 +382,7 @@ const TicketDetail = ({ isAdmin = false }) => {
                     <GlassButton
                       type="submit"
                       variant="primary"
-                      disabled={sendingReply || !replyMessage.trim()}
+                      disabled={sendingReply || !confirmed || !replyMessage.trim()}
                       className={sendingReply || !replyMessage.trim() ? 'cursor-not-allowed opacity-70' : ''}
                     >
                       {sendingReply ? (

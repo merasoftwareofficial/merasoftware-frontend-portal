@@ -1,5 +1,6 @@
 import { useResource } from './hooks/useResource';
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { usePortalUpdates } from './hooks/usePortalUpdates';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useDispatch, useSelector, useStore } from 'react-redux';
 import { useOnlineStatus } from './App';
@@ -26,6 +27,8 @@ const AppContent = () => {
   const user = useSelector(state => state?.user?.user);
   const { isOnline, isInitialized } = useOnlineStatus(); 
   const [walletBalance, setWalletBalance] = useState(0);
+  const [walletError, setWalletError] = useState('');
+  const walletRequest = useRef(0);
   const [activeProject, setActiveProject] = useState(null);
 
   const [sessionError, setSessionError] = useState('');
@@ -38,6 +41,7 @@ const AppContent = () => {
       setSessionChecking(true);
     },
     onUser: (details) => {
+      walletRequest.current += 1;
       const cached = StorageService.getUserDetails();
       if (cached?._id !== details._id) clearOrderSummary();
       CookieManager.setUserDetails(details);
@@ -45,6 +49,7 @@ const AppContent = () => {
       dispatch(setUserDetails(details));
       const balance = Number(details.walletBalance || 0);
       setWalletBalance(balance);
+      setWalletError('');
       dispatch(updateWalletBalance(balance));
       StorageService.setWalletBalance(balance);
       setSessionChecking(false);
@@ -73,6 +78,7 @@ const AppContent = () => {
     clearOrderSummary();
     document.cookie = "session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     setWalletBalance(0);
+    setWalletError('');
     dispatch(updateWalletBalance(0));
     dispatch(logout());
   };
@@ -94,10 +100,12 @@ const AppContent = () => {
 
   const fetchWalletBalance = useCallback(async () => {
     const scope = getResourceScope();
+    const request = ++walletRequest.current;
     try {
       const response = await fetch(SummaryApi.current_user.url, {
         method: SummaryApi.current_user.method,
-        credentials: 'include'
+        credentials: 'include',
+        cache: 'no-store'
       });
 
       if (!response.ok) {
@@ -105,23 +113,24 @@ const AppContent = () => {
       }
 
       const data = await response.json();
-      if (getResourceScope() !== scope) return;
-      if (data.success) {
-        const balance = Number(data.data?.walletBalance || 0);
+      if (getResourceScope() !== scope || request !== walletRequest.current) return null;
+      if (data.success && data.data?.walletBalance != null && Number.isFinite(Number(data.data.walletBalance))) {
+        const balance = Number(data.data.walletBalance);
         setWalletBalance(balance);
+        setWalletError('');
         dispatch(updateWalletBalance(balance));
         StorageService.setWalletBalance(balance);
+        return balance;
       }
+      throw new Error('Invalid wallet response');
     } catch (error) {
       console.error("Error fetching wallet balance:", error);
-      if (getResourceScope() !== scope) return;
-      const cachedBalance = StorageService.getWalletBalance();
-      if (cachedBalance !== null) {
-        setWalletBalance(cachedBalance);
-        dispatch(updateWalletBalance(cachedBalance));
-      }
+      if (getResourceScope() !== scope || request !== walletRequest.current) return null;
+      setWalletError('Could not update wallet balance. Please refresh and try again.');
+      return null;
     }
   }, [dispatch]);
+  usePortalUpdates(() => { if (user?._id && user.role === 'customer') void fetchWalletBalance(); }, user?._id && user.role === 'customer' ? ['users', 'wallet', 'payments'] : []);
 
    // Add a function to update active project that can be called from child components
  const updateActiveProject = (project) => {
@@ -171,6 +180,7 @@ const AppContent = () => {
         sessionError,
         sessionChecking,
         walletBalance,
+        walletError,
         setWalletBalance,
         fetchWalletBalance,
         handleLogout,

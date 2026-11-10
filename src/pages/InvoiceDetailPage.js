@@ -1,3 +1,4 @@
+import { invalidatePortalResources } from '../hooks/usePortalUpdates';
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, Sparkles, Share2, Download, Eye } from 'lucide-react';
@@ -173,6 +174,7 @@ const InvoiceDetailPage = () => {
     if (!data.success && !(data.message || '').includes('already submitted')) {
       throw new Error(data.message || 'Payment verification failed');
     }
+    invalidatePortalResources(['orders', 'payments', 'invoices', 'users', 'wallet']);
   };
 
   // Wallet covers the due amount → deduct + submit for approval. Else show a UPI QR.
@@ -180,7 +182,8 @@ const InvoiceDetailPage = () => {
     if (payProcessing) return;
     try {
       setPayProcessing(true);
-      const walletBalance = context?.walletBalance || 0;
+      const walletBalance = await context?.fetchWalletBalance?.();
+      if (walletBalance == null) throw new Error('Could not verify your wallet balance. Please try again.');
 
       if (walletBalance >= amountDueNow) {
         // Full wallet cover → instant payment, no admin approval (the wallet is the customer's own,
@@ -202,6 +205,7 @@ const InvoiceDetailPage = () => {
         if (!payData.success) {
           throw new Error(payData.message || 'Wallet payment failed');
         }
+        invalidatePortalResources(['orders', 'payments', 'invoices', 'users', 'wallet']);
         context?.fetchWalletBalance?.();
         toast.success('Payment successful! Your plan is now active.');
         setShowPayment(false);

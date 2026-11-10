@@ -85,6 +85,7 @@ const ProjectsAndPlans = () => {
         <div className="pointer-events-none absolute inset-0 bg-[var(--scrim)]" />
 
         <div className="relative mx-auto max-w-7xl">
+          {error && <p role="alert" className="mb-4 rounded-xl bg-[var(--glass-bg)] p-3 text-sm text-[var(--text-primary)]">Could not refresh this information. It may be out of date; please try again.</p>}
           <div className="text-center">
             <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl lg:text-4xl">
               My Projects

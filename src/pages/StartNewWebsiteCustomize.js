@@ -1,3 +1,4 @@
+import { invalidatePortalResources } from '../hooks/usePortalUpdates';
 import { buildInstallmentPreview } from '../helpers/projectInstallments';
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -455,6 +456,7 @@ const StartNewWebsiteCustomize = () => {
     if (!data.success) {
       throw new Error(data.message || 'Failed to create project request');
     }
+    invalidatePortalResources(['orders', 'payments', 'invoices', 'users', 'wallet']);
     return data.data;
   };
 

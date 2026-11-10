@@ -153,7 +153,9 @@ const shots = path.join(require('node:os').tmpdir(), `start-project-package-${Da
       await page.screenshot({ path: path.join(shots, 'packages-desktop.png'), fullPage: true });
       await page.getByRole('link', { name: /What's included/ }).click();
       await page.getByText('Mobile friendly design').waitFor();
+      await page.getByRole('button', { name: 'Terms & exclusions' }).click();
       await page.getByText('Content is supplied by the client').waitFor();
+      await page.keyboard.press('Escape');
       await page.getByRole('radio', { name: /2 installments/ }).click();
       await page.getByText('Due at the start').waitFor();
       await page.getByText('Wallet balance: ₹20,000.').waitFor();

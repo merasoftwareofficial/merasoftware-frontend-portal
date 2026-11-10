@@ -32,7 +32,7 @@ const TicketsList = () => {
   
   const ticketUrl = isInitialized && userDetails?._id ? `${SummaryApi.getUserTickets.url}?${new URLSearchParams({ page: currentPage, ...(statusFilter ? { status: statusFilter } : {}) })}` : null;
   const { loading, error, refresh: fetchTickets } = useResource(ticketUrl, next => {
-    setTickets(next.tickets || []); setTotalPages(next.pagination.pages);
+    setTickets(next?.tickets || []); setTotalPages(next?.pagination?.pages || 1);
   });
 
   // Status pill. These were opaque `-100/-800` pairs — `bg-yellow-100

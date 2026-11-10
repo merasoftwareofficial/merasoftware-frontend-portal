@@ -177,6 +177,7 @@ const PlanDetails = ({ isProjectServiceView = false }) => {
   const serviceActionMessage = '';
 
   const detail = useResource(`${SummaryApi.orderDetails.url}/${orderId}`, next => {
+    if (!next) { setPlan(null); return; }
     if (!isPlanItem(next)) { navigate(`/project-details/${orderId}`, { replace: true, state: location.state }); return; }
     setPlan(next);
   });

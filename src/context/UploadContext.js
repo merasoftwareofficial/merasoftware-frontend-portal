@@ -1,3 +1,4 @@
+import { invalidatePortalResources } from '../hooks/usePortalUpdates';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { toast } from 'sonner';
@@ -32,6 +33,7 @@ export function UploadProvider({ children }) {
     // Release file bytes; successful retries are answered by the server record.
     entry.formData = null;
     entry.files = null;
+    if (entry.surface !== 'external' && ownerRef.current === entry.ownerId) invalidatePortalResources(['uploads', 'updates', 'orders']);
     if (entry.surface === 'external' || ownerRef.current === entry.ownerId) {
       if (`${window.location.pathname}${window.location.search}` === entry.pagePath) entry.onSuccess?.(result);
       toast.success('Upload finished');

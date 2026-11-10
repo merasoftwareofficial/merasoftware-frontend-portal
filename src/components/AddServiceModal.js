@@ -1,3 +1,4 @@
+import { invalidatePortalResources } from '../hooks/usePortalUpdates';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -263,6 +264,7 @@ const AddServiceModal = ({
     });
     const result = await response.json();
     if (!result.success) throw Object.assign(new Error(result.message || 'Could not add the service'), { status: response.status });
+    invalidatePortalResources(['orders', 'payments', 'invoices', 'users', 'wallet']);
     return result.data;
   };
 

@@ -23,7 +23,7 @@ export function readResource(url, { signal, method = 'GET', headers, ...options 
   const key = JSON.stringify([scope, String(url), headerEntries, options]);
   return reads.read(key, async transportSignal => {
     const response = await fetch(url, { credentials: 'include', ...options, method: 'GET', headers, signal: transportSignal });
-    const result = await response.json();
+    const result = await response.json().catch(() => ({}));
     if (!response.ok || !result.success) throw Object.assign(new Error(result.message || `Could not load data (${response.status})`), { status: response.status });
     return result.data;
   }, { signal });

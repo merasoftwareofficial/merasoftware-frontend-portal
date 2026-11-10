@@ -1,3 +1,4 @@
+import { invalidatePortalResources } from '../../hooks/usePortalUpdates';
 import { useResource } from '../../hooks/useResource';
 import React, { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
@@ -67,6 +68,7 @@ const ProfileSettingsSection = () => {
       const updatedUser = { ...user, allowLoginFreeUploadLinks: result.data.allowLoginFreeUploadLinks };
       setAllowLoginFreeUploadLinks(result.data.allowLoginFreeUploadLinks);
       dispatch(setUserDetails(updatedUser));
+      invalidatePortalResources(['users']);
       StorageService.setUserDetails(updatedUser);
       toast.success(result.data.allowLoginFreeUploadLinks ? 'Login-free upload links enabled' : 'Login-free upload links disabled');
     } catch (error) {
@@ -130,6 +132,7 @@ const ProfileSettingsSection = () => {
       });
       StorageService.setUserDetails(data.data);
       dispatch(setUserDetails(data.data));
+      invalidatePortalResources(['users']);
       setSelectedImage(null);
       setFormData(getFormData(data.data));
       setInitialFormData(getFormData(data.data));
