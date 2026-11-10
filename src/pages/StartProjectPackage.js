@@ -7,6 +7,7 @@ import DashboardLayout from '../components/DashboardLayout';
 import CustomerPageHeader from '../components/CustomerPageHeader';
 import GlassPageState from '../components/GlassPageState';
 import Spinner from '../components/Spinner';
+import Modal from '../components/Modal';
 import { Row, Step } from '../components/PlanBuilder';
 import useServerNow from '../hooks/useServerNow';
 import { formatCurrency } from '../helpers/paymentLedger';
@@ -86,6 +87,7 @@ const PackageScreen = ({ packageId }) => {
   const [processing, setProcessing] = useState(false);
   const [notice, setNotice] = useState('');
   const [done, setDone] = useState(null);
+  const [termsOpen, setTermsOpen] = useState(false);
   const now = useServerNow(catalogue?.serverNow);
 
   const item = useMemo(() => (catalogue?.enabled ? catalogue.packages.find((row) => row.id === packageId) || null : null), [catalogue, packageId]);
@@ -202,8 +204,10 @@ const PackageScreen = ({ packageId }) => {
           <Step title="What's included">
             <List lines={item.inclusions} />
             <p className="text-sm text-[var(--text-muted)]">{item.portalUploads ? 'Send your files in your client portal while we build.' : 'Follow the progress in your client portal.'}</p>
+            {item.terms.length > 0 && (
+              <button type="button" onClick={() => setTermsOpen(true)} className="w-fit cursor-pointer text-sm font-semibold text-[var(--accent-soft-fg)] underline underline-offset-4 transition hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-soft-fg)]">Terms &amp; exclusions</button>
+            )}
           </Step>
-          {item.terms.length > 0 && <Step title="Terms & exclusions"><List lines={item.terms} /></Step>}
         </div>
 
         <aside className={asidePanel} aria-label="Your package">
@@ -300,6 +304,9 @@ const PackageScreen = ({ packageId }) => {
           {notice && <Notice>{notice}</Notice>}
         </aside>
       </div>
+      <Modal open={termsOpen} onClose={() => setTermsOpen(false)} eyebrow={item.name} title="Terms & exclusions" size="lg">
+        <List lines={item.terms} />
+      </Modal>
     </Shell>
   );
 };
