@@ -275,6 +275,18 @@ const shots = path.join(require('node:os').tmpdir(), `start-project-package-${Da
       assert.notEqual(look.border, plain.border, 'the offer card has its own outline');
       assert.notEqual(look.glow, plain.glow, 'the offer card has its own glow');
       await page.screenshot({ path: path.join(shots, 'offer-card-desktop.png'), fullPage: true });
+      // Hovering the offer card keeps its accent outline (only the lift and a stronger glow are added); the fill stays the card's own.
+      const edge = (el) => { const st = getComputedStyle(el); return { border: st.borderTopColor, fill: st.backgroundColor, glow: st.boxShadow }; };
+      const rest = await offerCard.evaluate(edge);
+      await offerCard.hover(); await page.waitForTimeout(600);
+      const hovered = await offerCard.evaluate(edge);
+      assert.equal(hovered.border, rest.border, 'the outline stays the same accent colour on hover');
+      const [r, g, b] = hovered.border.match(/[0-9.]+/g).map(Number);
+      assert.ok(b > r + 30, `the outline is blue-ish (rgb ${r},${g},${b})`);
+      assert.notEqual(hovered.glow, rest.glow, 'hover strengthens the glow');
+      assert.equal(rest.fill, (await page.getByRole('link', { name: /Business Starter/ }).evaluate(edge)).fill, 'the offer card is not filled differently from the others');
+      await page.screenshot({ path: path.join(shots, 'offer-card-hover.png'), fullPage: true });
+      await page.mouse.move(5, 5); await page.waitForTimeout(400);
       await offerCard.click();
       await page.getByRole('timer').filter({ hasText: /Summer offer ends in/ }).waitFor();
       await page.screenshot({ path: path.join(shots, 'offer-package-desktop.png'), fullPage: true });

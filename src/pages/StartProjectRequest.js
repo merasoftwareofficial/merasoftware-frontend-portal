@@ -20,9 +20,10 @@ import { CALLBACK_PATH, offerEnded, packagePath, readPackageCatalogue, timeLeft 
 // clock; when the offer ends the list is asked for again, so the card shows the real price.
 
 // The portal's choose-a-card look and hover (pages/StartNewWebsiteBuild.js): the card lifts and glows in the accent.
-const card = 'group flex w-full flex-col gap-3 p-5 transition-all duration-300 hover:-translate-y-1.5 hover:border-[var(--accent-soft-border)] hover:bg-[var(--glass-bg-strong)] hover:shadow-[0_24px_48px_rgb(var(--accent-500)/0.28)] motion-reduce:transition-none motion-reduce:hover:translate-y-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-soft-fg)] sm:p-6';
-// A running offer: the same accent fill and denser border the portal uses for a chosen item, with a steady glow.
-const offerCard = 'border-[var(--accent-soft-border)] bg-[var(--accent-soft-bg)] shadow-[0_0_32px_rgb(var(--accent-500)/0.22)]';
+const card = 'group flex w-full flex-col gap-3 p-5 transition-all duration-300 hover:-translate-y-1.5 hover:bg-[var(--glass-bg-strong)] hover:shadow-[0_24px_48px_rgb(var(--accent-500)/0.28)] motion-reduce:transition-none motion-reduce:hover:translate-y-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-soft-fg)] sm:p-6';
+// A running offer: the card keeps its own fill; only its outline and the glow around it are in the portal accent.
+const plainEdge = 'hover:border-[var(--accent-soft-border)]';
+const offerEdge = 'border-[rgb(var(--accent-500)/0.6)] shadow-[0_0_36px_rgb(var(--accent-500)/0.3)]';
 const pill = 'inline-flex items-center gap-1.5 px-3 py-1 font-semibold tabular-nums';
 const Arrow = () => <span className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>;
 
@@ -69,7 +70,7 @@ const StartProjectRequest = () => {
                       const offer = item.offer && !offerEnded(item.offer, now) ? item.offer : null;
                       return (
                         <AnimatedSection key={item.id} delay={getStaggerDelay(index)} className="flex">
-                          <Surface as={Link} to={packagePath(item.id)} sheen data-offer={offer ? 'running' : undefined} className={`${card} ${offer ? offerCard : ''}`}>
+                          <Surface as={Link} to={packagePath(item.id)} sheen data-offer={offer ? 'running' : undefined} className={`${card} ${offer ? offerEdge : plainEdge}`}>
                             <div className="relative flex flex-1 flex-col gap-2">
                               {offer && (
                                 <div className="flex flex-wrap items-center gap-2">
@@ -100,7 +101,7 @@ const StartProjectRequest = () => {
             {/* Always offered, also when the packages could not load: a custom project is asked for by a call back. */}
             {(catalogue || error) && (
               <AnimatedSection className="mt-5">
-                <Surface as={Link} to={CALLBACK_PATH} state={{ fromPackages: Boolean(catalogue) }} sheen className={card}>
+                <Surface as={Link} to={CALLBACK_PATH} state={{ fromPackages: Boolean(catalogue) }} sheen className={`${card} ${plainEdge}`}>
                   <div className="relative flex flex-col gap-1">
                     <span className="text-xs font-bold uppercase tracking-[0.1em] text-[var(--accent-soft-fg)]">Something different?</span>
                     <h2 className="text-xl font-bold tracking-tight text-[var(--text-primary)]">Arrange a call back</h2>
