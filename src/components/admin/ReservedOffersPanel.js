@@ -116,6 +116,9 @@ function ForceApplyForm({ row, projects, onDone }) {
 
 // "Start my project" on a package page without an offer (backend helpers/packageStart.js): no price is held.
 // Creating the project on that package closes it; the team can also close it here.
+// What the customer did on the package page: started buying it (Get this package) or asked for a callback.
+const packageStartStatus = row => row.status === 'requested' ? (row.kind === 'buy' ? 'Purchase started' : 'Callback requested')
+  : row.closedReason === 'project_created' ? 'Project created' : row.closedReason === 'callback_requested' ? 'Moved to callback' : 'Closed';
 function PackageStarts({ rows, onDone }) {
   const [busy, setBusy] = useState('');
   const close = async row => {
@@ -134,10 +137,10 @@ function PackageStarts({ rows, onDone }) {
         <li key={row.id} className="rounded-2xl border border-slate-200 p-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <p className="font-semibold text-slate-900">{row.title}{row.price !== null ? ` · ${inr(row.price)}` : ''}</p>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{row.status === 'requested' ? 'Start requested' : row.closedReason === 'project_created' ? 'Project created' : 'Closed'}</span>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{packageStartStatus(row)}</span>
           </div>
           {row.choice && <p className="mt-1 text-sm font-semibold text-slate-700">Chose: {packageChoiceText(row.choice)}</p>}
-          <p className="mt-1 text-sm text-slate-600">Package start request {ist(row.requestedAt)}{row.status === 'requested' ? ' · create the project on this package to close it.' : row.closedAt ? ` · closed ${ist(row.closedAt)}` : ''}</p>
+          <p className="mt-1 text-sm text-slate-600">Package start request {ist(row.requestedAt)}{row.status === 'requested' ? (row.kind === 'buy' ? ' · started buying on the website; the project is created when they pay, or create it here to close this.' : ' · call them, then create the project on this package to close it.') : row.closedAt ? ` · closed ${ist(row.closedAt)}` : ''}</p>
           {row.status === 'requested' && <div className="mt-2"><button type="button" disabled={busy === row.id} onClick={() => close(row)} className="rounded-xl border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-800 disabled:opacity-50">{busy === row.id ? 'Closing…' : 'Close request'}</button></div>}
         </li>
       ))}

@@ -15,7 +15,7 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
       createRoot(document.getElementById('root')).render(<><Toaster/><Panel customerId="c1" projects={projects} onChanged={()=>{window.changed=(window.changed||0)+1}}/></>);` },
     plugins: [{ name: 'api-fixture', setup(builder) {
       builder.onResolve({ filter: /^\.\.\/\.\.\/common$/ }, () => ({ path: 'api', namespace: 'fixture' }));
-      builder.onLoad({ filter: /^api$/, namespace: 'fixture' }, () => ({ contents: `export default {offerReservations:{url:'/api/offer-reservations'}};` }));
+      builder.onLoad({ filter: /^api$/, namespace: 'fixture' }, () => ({ contents: `export default {offerReservations:{url:'/api/offer-reservations'},packageStarts:{url:'/api/package-starts'}};` }));
     } }],
   });
   const now = Date.now();
@@ -25,10 +25,17 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     { id: 'r2', title: 'Locked offer', offerSlug: 'locked', reservedPrice: 4000, status: 'confirmed', resolution: null, projectId: 'p1',
       reservedAt: new Date(now).toISOString(), expiresAt: new Date(now + 3600000).toISOString(), deadline: new Date(now + 3600000).toISOString(), extendedUntil: null, extensions: [] },
   ];
+  // Package requests (backend helpers/packageStart.js): a callback, a buy in progress, and a buy replaced by a callback.
+  const starts = [
+    { id: 's1', kind: 'callback', title: 'Business Starter', price: 9999, requestedAt: new Date(now - 3600000).toISOString(), closedAt: null, closedReason: null, status: 'requested', choice: { paymentOption: 'full' } },
+    { id: 's2', kind: 'buy', title: 'Website Care', price: 5000, requestedAt: new Date(now - 7200000).toISOString(), closedAt: null, closedReason: null, status: 'requested', choice: { paymentOption: 'full' } },
+    { id: 's3', kind: 'buy', title: 'Old Package', price: 4000, requestedAt: new Date(now - 90000000).toISOString(), closedAt: new Date(now - 80000000).toISOString(), closedReason: 'callback_requested', status: 'closed', choice: null },
+  ];
   const calls = [];
   const server = http.createServer(async (req, res) => {
     if (req.url === '/app.js') { res.setHeader('Content-Type', 'application/javascript'); return res.end(bundle.outputFiles[0].contents); }
     res.setHeader('Content-Type', 'application/json');
+    if (req.url === '/api/package-starts/user/c1') return res.end(JSON.stringify({ success: true, data: { requests: starts, enabled: true } }));
     if (req.url.startsWith('/api/offer-reservations')) {
       let raw = ''; for await (const chunk of req) raw += chunk;
       if (req.method === 'POST') calls.push({ url: req.url, body: JSON.parse(raw) });
@@ -47,6 +54,14 @@ const { chromium } = require('../../merasoftware/node_modules/playwright');
     page.on('pageerror', err => errors.push(err.message));
     await page.goto(`http://127.0.0.1:${server.address().port}/`);
     await page.getByText('Expired offer · ₹5,000').waitFor();
+    // Package requests say what the customer did: a callback, a purchase in progress, a buy replaced by a callback.
+    const callback = page.locator('li').filter({ hasText: 'Business Starter' }), buying = page.locator('li').filter({ hasText: 'Website Care' }), moved = page.locator('li').filter({ hasText: 'Old Package' });
+    await callback.getByText('Callback requested', { exact: true }).waitFor();
+    assert.match(await callback.innerText(), /call them, then create the project/);
+    await buying.getByText('Purchase started', { exact: true }).waitFor();
+    assert.match(await buying.innerText(), /started buying on the website; the project is created when they pay/);
+    await moved.getByText('Moved to callback', { exact: true }).waitFor();
+    assert.equal(await moved.getByRole('button', { name: 'Close request' }).count(), 0, 'a closed request has nothing to close');
     // A price-locked reservation offers no admin action.
     const locked = page.locator('li').filter({ hasText: 'Locked offer' });
     assert.equal(await locked.getByRole('button').count(), 0);
