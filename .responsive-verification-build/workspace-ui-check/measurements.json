@@ -1,0 +1,1889 @@
+{
+  "failures": [],
+  "results": [
+    {
+      "phase": "after",
+      "route": "/dashboard",
+      "width": 1840,
+      "theme": "light",
+      "visual": {
+        "heading": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "36px",
+          "lineHeight": "40px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 424,
+          "y": 241,
+          "width": 308,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "20px",
+          "radius": "16px",
+          "border": "1px solid rgba(15, 23, 42, 0.22)",
+          "shadow": "rgba(15, 23, 42, 0.06) 0px 2px 8px 0px, rgba(15, 23, 42, 0.05) 0px 8px 24px 0px",
+          "background": "rgba(255, 255, 255, 0.25)"
+        },
+        "frameGap": 40,
+        "overflow": false,
+        "theme": "light"
+      },
+      "hash": "6a36181440aab2ec753a8d5f0425d3c7b541abb2c819b92431ca97addb82d1c5"
+    },
+    {
+      "phase": "after",
+      "route": "/projects-and-plans",
+      "width": 1840,
+      "theme": "light",
+      "visual": {
+        "heading": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "36px",
+          "lineHeight": "40px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 424,
+          "y": 241,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(15, 23, 42, 0.2)",
+          "shadow": "rgba(15, 23, 42, 0.06) 0px 2px 8px 0px, rgba(15, 23, 42, 0.05) 0px 8px 24px 0px",
+          "background": "rgba(255, 255, 255, 0.72)"
+        },
+        "frameGap": 40,
+        "overflow": false,
+        "theme": "light"
+      },
+      "hash": "25d8d25e4ea46f79e229855c57f9587d5dd0946fb2c5b38d6ee2fda8d2752571"
+    },
+    {
+      "phase": "after",
+      "route": "/order",
+      "width": 1840,
+      "theme": "light",
+      "visual": {
+        "heading": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "36px",
+          "lineHeight": "40px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 424,
+          "y": 241,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(15, 23, 42, 0.2)",
+          "shadow": "rgba(15, 23, 42, 0.06) 0px 2px 8px 0px, rgba(15, 23, 42, 0.05) 0px 8px 24px 0px",
+          "background": "rgba(255, 255, 255, 0.72)"
+        },
+        "frameGap": 40,
+        "overflow": false,
+        "theme": "light"
+      },
+      "hash": "b80719f28e3febd330d5a0e82c713df34a45a564996808916a175e4c03e5cfa1"
+    },
+    {
+      "phase": "after",
+      "route": "/project-details/audit-project",
+      "width": 1840,
+      "theme": "light",
+      "visual": {
+        "heading": {
+          "x": 474,
+          "y": 265,
+          "width": 1144,
+          "fontSize": "30px",
+          "lineHeight": "36px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 424,
+          "y": 187,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(15, 23, 42, 0.3)",
+          "shadow": "rgba(15, 23, 42, 0.06) 0px 2px 8px 0px, rgba(15, 23, 42, 0.05) 0px 8px 24px 0px",
+          "background": "rgba(255, 255, 255, 0.88)"
+        },
+        "frameGap": -146,
+        "overflow": false,
+        "theme": "light"
+      },
+      "hash": "99e745151bbba1d39b677f801c7121006939ebc5d04981c7f834d74ef7b00d67"
+    },
+    {
+      "phase": "after",
+      "route": "/project-details/audit-project?view=project",
+      "width": 1840,
+      "theme": "light",
+      "visual": {
+        "heading": {
+          "x": 568,
+          "y": 121,
+          "width": 992,
+          "fontSize": "36px",
+          "lineHeight": "40px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": null,
+        "frameGap": null,
+        "overflow": false,
+        "theme": "light"
+      },
+      "hash": "d541fda7e0fc5258e4f576bede790405c5031d7ca2de7fa6ad426c1728493351"
+    },
+    {
+      "phase": "after",
+      "route": "/plan-details/audit-service",
+      "width": 1840,
+      "theme": "light",
+      "visual": {
+        "heading": {
+          "x": 851.484375,
+          "y": 121,
+          "width": 305.65625,
+          "fontSize": "36px",
+          "lineHeight": "40px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": null,
+        "frameGap": null,
+        "overflow": false,
+        "theme": "light"
+      },
+      "hash": "3a9a7c3aea22c2c11678c12043106e47cbac72de6f184ffb197801035eebf469"
+    },
+    {
+      "phase": "after",
+      "route": "/my-offers",
+      "width": 1840,
+      "theme": "light",
+      "visual": {
+        "heading": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "36px",
+          "lineHeight": "40px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 424,
+          "y": 241,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(15, 23, 42, 0.2)",
+          "shadow": "rgba(15, 23, 42, 0.06) 0px 2px 8px 0px, rgba(15, 23, 42, 0.05) 0px 8px 24px 0px",
+          "background": "rgba(255, 255, 255, 0.72)"
+        },
+        "frameGap": 40,
+        "overflow": false,
+        "theme": "light"
+      },
+      "hash": "900eb622b819501ec288d47cf2739447e0cfdb4aa4ca34785224086a3b3764de"
+    },
+    {
+      "phase": "after",
+      "route": "/dashboard",
+      "width": 375,
+      "theme": "light",
+      "visual": {
+        "heading": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "24px",
+          "lineHeight": "32px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 16,
+          "y": 229,
+          "width": 165.5,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "12px",
+          "radius": "16px",
+          "border": "1px solid rgba(15, 23, 42, 0.22)",
+          "shadow": "rgba(15, 23, 42, 0.06) 0px 2px 8px 0px, rgba(15, 23, 42, 0.05) 0px 8px 24px 0px",
+          "background": "rgba(255, 255, 255, 0.25)"
+        },
+        "frameGap": 32,
+        "overflow": false,
+        "theme": "light"
+      },
+      "hash": "86d6e809bca60f574fdf400b251d2c00f9bfe15c9c736d266328fc85be72e750"
+    },
+    {
+      "phase": "after",
+      "route": "/projects-and-plans",
+      "width": 375,
+      "theme": "light",
+      "visual": {
+        "heading": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "24px",
+          "lineHeight": "32px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 16,
+          "y": 237,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(15, 23, 42, 0.2)",
+          "shadow": "rgba(15, 23, 42, 0.06) 0px 2px 8px 0px, rgba(15, 23, 42, 0.05) 0px 8px 24px 0px",
+          "background": "rgba(255, 255, 255, 0.72)"
+        },
+        "frameGap": 40,
+        "overflow": false,
+        "theme": "light"
+      },
+      "hash": "52168606f146e62dc8a0b57d5ce2cc922123fd553a5e5d3f0a86b3ec46e9672b"
+    },
+    {
+      "phase": "after",
+      "route": "/order",
+      "width": 375,
+      "theme": "light",
+      "visual": {
+        "heading": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "24px",
+          "lineHeight": "32px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 16,
+          "y": 237,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(15, 23, 42, 0.2)",
+          "shadow": "rgba(15, 23, 42, 0.06) 0px 2px 8px 0px, rgba(15, 23, 42, 0.05) 0px 8px 24px 0px",
+          "background": "rgba(255, 255, 255, 0.72)"
+        },
+        "frameGap": 40,
+        "overflow": false,
+        "theme": "light"
+      },
+      "hash": "f19d147a4b7be6cf561e1faa9f85d83523e0f4a83d4973a1304a79793e0340fb"
+    },
+    {
+      "phase": "after",
+      "route": "/project-details/audit-project",
+      "width": 375,
+      "theme": "light",
+      "visual": {
+        "heading": {
+          "x": 54,
+          "y": 237,
+          "width": 231,
+          "fontSize": "24px",
+          "lineHeight": "32px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 16,
+          "y": 171,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(15, 23, 42, 0.3)",
+          "shadow": "rgba(15, 23, 42, 0.06) 0px 2px 8px 0px, rgba(15, 23, 42, 0.05) 0px 8px 24px 0px",
+          "background": "rgba(255, 255, 255, 0.88)"
+        },
+        "frameGap": -126,
+        "overflow": false,
+        "theme": "light"
+      },
+      "hash": "2bdf7364cd739e2cd256a282005292d6a1d6c0aeecd79db802f5f58977dea3dd"
+    },
+    {
+      "phase": "after",
+      "route": "/project-details/audit-project?view=project",
+      "width": 375,
+      "theme": "light",
+      "visual": {
+        "heading": {
+          "x": 16,
+          "y": 175,
+          "width": 343,
+          "fontSize": "24px",
+          "lineHeight": "32px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": null,
+        "frameGap": null,
+        "overflow": false,
+        "theme": "light"
+      },
+      "hash": "704bd8fade37fd3789a6ddf96ec31620e104f6568f3169b1cbc81a2f25443f54"
+    },
+    {
+      "phase": "after",
+      "route": "/plan-details/audit-service",
+      "width": 375,
+      "theme": "light",
+      "visual": {
+        "heading": {
+          "x": 25.921875,
+          "y": 175,
+          "width": 203.765625,
+          "fontSize": "24px",
+          "lineHeight": "32px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": null,
+        "frameGap": null,
+        "overflow": false,
+        "theme": "light"
+      },
+      "hash": "d17d8f064d4f72a4ff9c9172e4600856a716a0c35fff9ca09854895c1ac8d7f5"
+    },
+    {
+      "phase": "after",
+      "route": "/my-offers",
+      "width": 375,
+      "theme": "light",
+      "visual": {
+        "heading": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "24px",
+          "lineHeight": "32px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 16,
+          "y": 237,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(15, 23, 42, 0.2)",
+          "shadow": "rgba(15, 23, 42, 0.06) 0px 2px 8px 0px, rgba(15, 23, 42, 0.05) 0px 8px 24px 0px",
+          "background": "rgba(255, 255, 255, 0.72)"
+        },
+        "frameGap": 40,
+        "overflow": false,
+        "theme": "light"
+      },
+      "hash": "3bd63bb303065342919d732a0973f5be398eb13beab85dfbcecc1d033b73f9cb"
+    },
+    {
+      "phase": "after",
+      "route": "/dashboard",
+      "width": 1840,
+      "theme": "dark",
+      "visual": {
+        "heading": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "36px",
+          "lineHeight": "40px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 424,
+          "y": 241,
+          "width": 308,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "20px",
+          "radius": "16px",
+          "border": "1px solid rgb(255, 255, 255)",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 8px 32px 0px",
+          "background": "rgba(255, 255, 255, 0.06)"
+        },
+        "frameGap": 40,
+        "overflow": false,
+        "theme": "dark"
+      },
+      "hash": "ed1c8196deb609b933e09f80d93d98f6ef811b3606814efdba7371229642c9ad"
+    },
+    {
+      "phase": "after",
+      "route": "/projects-and-plans",
+      "width": 1840,
+      "theme": "dark",
+      "visual": {
+        "heading": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "36px",
+          "lineHeight": "40px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 424,
+          "y": 241,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(255, 255, 255, 0.18)",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 8px 32px 0px",
+          "background": "rgba(255, 255, 255, 0.1)"
+        },
+        "frameGap": 40,
+        "overflow": false,
+        "theme": "dark"
+      },
+      "hash": "3f62232e1a951df364bc4d4286651c3002a5021f8a0c2d997b91e570f398fecc"
+    },
+    {
+      "phase": "after",
+      "route": "/order",
+      "width": 1840,
+      "theme": "dark",
+      "visual": {
+        "heading": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "36px",
+          "lineHeight": "40px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 424,
+          "y": 241,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(255, 255, 255, 0.18)",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 8px 32px 0px",
+          "background": "rgba(255, 255, 255, 0.1)"
+        },
+        "frameGap": 40,
+        "overflow": false,
+        "theme": "dark"
+      },
+      "hash": "a8cc11e8d36f6e65f7ceba892fd0286f4faacd7802dfdb1868257040cd8865ba"
+    },
+    {
+      "phase": "after",
+      "route": "/project-details/audit-project",
+      "width": 1840,
+      "theme": "dark",
+      "visual": {
+        "heading": {
+          "x": 474,
+          "y": 265,
+          "width": 1144,
+          "fontSize": "30px",
+          "lineHeight": "36px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 424,
+          "y": 187,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(255, 255, 255, 0.28)",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 8px 32px 0px",
+          "background": "rgba(255, 255, 255, 0.15)"
+        },
+        "frameGap": -146,
+        "overflow": false,
+        "theme": "dark"
+      },
+      "hash": "4c2ae282bdb0bd19cb62fccd05fcc7bfa754bb8b0c88851d4a2fe862fce7583b"
+    },
+    {
+      "phase": "after",
+      "route": "/project-details/audit-project?view=project",
+      "width": 1840,
+      "theme": "dark",
+      "visual": {
+        "heading": {
+          "x": 568,
+          "y": 121,
+          "width": 992,
+          "fontSize": "36px",
+          "lineHeight": "40px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": null,
+        "frameGap": null,
+        "overflow": false,
+        "theme": "dark"
+      },
+      "hash": "9f7dc82e6bd2f39948679f930c047d2d479b637da94906400ab11383b8dd0e19"
+    },
+    {
+      "phase": "after",
+      "route": "/plan-details/audit-service",
+      "width": 1840,
+      "theme": "dark",
+      "visual": {
+        "heading": {
+          "x": 851.484375,
+          "y": 121,
+          "width": 305.65625,
+          "fontSize": "36px",
+          "lineHeight": "40px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": null,
+        "frameGap": null,
+        "overflow": false,
+        "theme": "dark"
+      },
+      "hash": "6c22f3a0ad68fbeb28a86e93742496c572011362a3af9676bb9340b0d179cf41"
+    },
+    {
+      "phase": "after",
+      "route": "/my-offers",
+      "width": 1840,
+      "theme": "dark",
+      "visual": {
+        "heading": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "36px",
+          "lineHeight": "40px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 424,
+          "y": 241,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(255, 255, 255, 0.18)",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 8px 32px 0px",
+          "background": "rgba(255, 255, 255, 0.1)"
+        },
+        "frameGap": 40,
+        "overflow": false,
+        "theme": "dark"
+      },
+      "hash": "7f589ddb113c7e5dcd45abb3eacc5b0312ef2172e4cc50d8afdc92cf3d4f957e"
+    },
+    {
+      "phase": "after",
+      "route": "/dashboard",
+      "width": 375,
+      "theme": "dark",
+      "visual": {
+        "heading": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "24px",
+          "lineHeight": "32px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 16,
+          "y": 229,
+          "width": 165.5,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "12px",
+          "radius": "16px",
+          "border": "1px solid rgb(255, 255, 255)",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 8px 32px 0px",
+          "background": "rgba(255, 255, 255, 0.06)"
+        },
+        "frameGap": 32,
+        "overflow": false,
+        "theme": "dark"
+      },
+      "hash": "83798041e7eb8fbd5c858fb5285253d8c5a7fb302d93e8f73e6230b789f329a9"
+    },
+    {
+      "phase": "after",
+      "route": "/projects-and-plans",
+      "width": 375,
+      "theme": "dark",
+      "visual": {
+        "heading": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "24px",
+          "lineHeight": "32px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 16,
+          "y": 237,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(255, 255, 255, 0.18)",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 8px 32px 0px",
+          "background": "rgba(255, 255, 255, 0.1)"
+        },
+        "frameGap": 40,
+        "overflow": false,
+        "theme": "dark"
+      },
+      "hash": "4bc30dedde913bc380043f0d981b812c49cb7f4c0f983c270cc899efba77f9e2"
+    },
+    {
+      "phase": "after",
+      "route": "/order",
+      "width": 375,
+      "theme": "dark",
+      "visual": {
+        "heading": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "24px",
+          "lineHeight": "32px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 16,
+          "y": 237,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(255, 255, 255, 0.18)",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 8px 32px 0px",
+          "background": "rgba(255, 255, 255, 0.1)"
+        },
+        "frameGap": 40,
+        "overflow": false,
+        "theme": "dark"
+      },
+      "hash": "e6b9f13c9fe66c4fa34ad556381438bb8a0d1098fcde2c8b925e00de684399f9"
+    },
+    {
+      "phase": "after",
+      "route": "/project-details/audit-project",
+      "width": 375,
+      "theme": "dark",
+      "visual": {
+        "heading": {
+          "x": 54,
+          "y": 237,
+          "width": 231,
+          "fontSize": "24px",
+          "lineHeight": "32px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 16,
+          "y": 171,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(255, 255, 255, 0.28)",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 8px 32px 0px",
+          "background": "rgba(255, 255, 255, 0.15)"
+        },
+        "frameGap": -126,
+        "overflow": false,
+        "theme": "dark"
+      },
+      "hash": "431aba664434bf544cce24bc46e8a58a0616410b906878dcba5cfc09680e03c1"
+    },
+    {
+      "phase": "after",
+      "route": "/project-details/audit-project?view=project",
+      "width": 375,
+      "theme": "dark",
+      "visual": {
+        "heading": {
+          "x": 16,
+          "y": 175,
+          "width": 343,
+          "fontSize": "24px",
+          "lineHeight": "32px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": null,
+        "frameGap": null,
+        "overflow": false,
+        "theme": "dark"
+      },
+      "hash": "8dc5b81a124f26db773f7e47faa907227dba00ed7639c0559079b2eede836074"
+    },
+    {
+      "phase": "after",
+      "route": "/plan-details/audit-service",
+      "width": 375,
+      "theme": "dark",
+      "visual": {
+        "heading": {
+          "x": 25.921875,
+          "y": 175,
+          "width": 203.765625,
+          "fontSize": "24px",
+          "lineHeight": "32px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": null,
+        "frameGap": null,
+        "overflow": false,
+        "theme": "dark"
+      },
+      "hash": "1bad567620ef3085a289380c2fda0044700ceb3ddf73937d893508d3c79be695"
+    },
+    {
+      "phase": "after",
+      "route": "/my-offers",
+      "width": 375,
+      "theme": "dark",
+      "visual": {
+        "heading": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "24px",
+          "lineHeight": "32px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 16,
+          "y": 237,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(255, 255, 255, 0.18)",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 8px 32px 0px",
+          "background": "rgba(255, 255, 255, 0.1)"
+        },
+        "frameGap": 40,
+        "overflow": false,
+        "theme": "dark"
+      },
+      "hash": "4e88d5e315a9398c14c032849cc20d5b05bdb58f4dbeb9a58ca9be59cde9aeff"
+    },
+    {
+      "phase": "after",
+      "route": "/dashboard",
+      "width": 1840,
+      "theme": "immersive",
+      "visual": {
+        "heading": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "36px",
+          "lineHeight": "40px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 424,
+          "y": 241,
+          "width": 308,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "20px",
+          "radius": "16px",
+          "border": "1px solid rgb(255, 255, 255)",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 8px 32px 0px",
+          "background": "rgba(255, 255, 255, 0.06)"
+        },
+        "frameGap": 40,
+        "overflow": false,
+        "theme": "immersive"
+      },
+      "hash": "6ab20eceef0b98ed77b3c58d9cdf723208b2e2546a5631e8035c2049020afc2e"
+    },
+    {
+      "phase": "after",
+      "route": "/projects-and-plans",
+      "width": 1840,
+      "theme": "immersive",
+      "visual": {
+        "heading": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "36px",
+          "lineHeight": "40px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 424,
+          "y": 241,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(255, 255, 255, 0.18)",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 8px 32px 0px",
+          "background": "rgba(255, 255, 255, 0.1)"
+        },
+        "frameGap": 40,
+        "overflow": false,
+        "theme": "immersive"
+      },
+      "hash": "09d13742655a32f783fe3e423818594aefcb12b544612ffbe58b62e1681f2d77"
+    },
+    {
+      "phase": "after",
+      "route": "/order",
+      "width": 1840,
+      "theme": "immersive",
+      "visual": {
+        "heading": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "36px",
+          "lineHeight": "40px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 424,
+          "y": 241,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(255, 255, 255, 0.18)",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 8px 32px 0px",
+          "background": "rgba(255, 255, 255, 0.1)"
+        },
+        "frameGap": 40,
+        "overflow": false,
+        "theme": "immersive"
+      },
+      "hash": "69d883a4e1c6d212d8f2333dba2f08ae73ec1cdff5bd021dd62589b20a48977f"
+    },
+    {
+      "phase": "after",
+      "route": "/project-details/audit-project",
+      "width": 1840,
+      "theme": "immersive",
+      "visual": {
+        "heading": {
+          "x": 474,
+          "y": 265,
+          "width": 1144,
+          "fontSize": "30px",
+          "lineHeight": "36px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 424,
+          "y": 187,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(255, 255, 255, 0.28)",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 8px 32px 0px",
+          "background": "rgba(255, 255, 255, 0.15)"
+        },
+        "frameGap": -146,
+        "overflow": false,
+        "theme": "immersive"
+      },
+      "hash": "262c0676baed420d9b57878a26c480ca42f5f82be1be879c8ab1d6a2f3538766"
+    },
+    {
+      "phase": "after",
+      "route": "/project-details/audit-project?view=project",
+      "width": 1840,
+      "theme": "immersive",
+      "visual": {
+        "heading": {
+          "x": 568,
+          "y": 121,
+          "width": 992,
+          "fontSize": "36px",
+          "lineHeight": "40px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": null,
+        "frameGap": null,
+        "overflow": false,
+        "theme": "immersive"
+      },
+      "hash": "bbe68a2329c48d9843700d9308ce4d5f63f2d9a71b291d05a0c694a595626dc5"
+    },
+    {
+      "phase": "after",
+      "route": "/plan-details/audit-service",
+      "width": 1840,
+      "theme": "immersive",
+      "visual": {
+        "heading": {
+          "x": 851.484375,
+          "y": 121,
+          "width": 305.65625,
+          "fontSize": "36px",
+          "lineHeight": "40px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": null,
+        "frameGap": null,
+        "overflow": false,
+        "theme": "immersive"
+      },
+      "hash": "856ce4b92ad6d6813f754f0810f1a731c30b2bc2db71c20643b7b845cd00e765"
+    },
+    {
+      "phase": "after",
+      "route": "/my-offers",
+      "width": 1840,
+      "theme": "immersive",
+      "visual": {
+        "heading": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "36px",
+          "lineHeight": "40px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 424,
+          "y": 121,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 424,
+          "y": 241,
+          "width": 1280,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(255, 255, 255, 0.18)",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 8px 32px 0px",
+          "background": "rgba(255, 255, 255, 0.1)"
+        },
+        "frameGap": 40,
+        "overflow": false,
+        "theme": "immersive"
+      },
+      "hash": "cec35719ce6b783ac26784a8ec9aef03d6376f3109fb106adc4c56bc781e8ab3"
+    },
+    {
+      "phase": "after",
+      "route": "/dashboard",
+      "width": 375,
+      "theme": "immersive",
+      "visual": {
+        "heading": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "24px",
+          "lineHeight": "32px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 16,
+          "y": 229,
+          "width": 165.5,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "12px",
+          "radius": "16px",
+          "border": "1px solid rgb(255, 255, 255)",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 8px 32px 0px",
+          "background": "rgba(255, 255, 255, 0.06)"
+        },
+        "frameGap": 32,
+        "overflow": false,
+        "theme": "immersive"
+      },
+      "hash": "3cfc7650528230db389477b88b85f3d895ff220f782015a26616ad77fa5ea91f"
+    },
+    {
+      "phase": "after",
+      "route": "/projects-and-plans",
+      "width": 375,
+      "theme": "immersive",
+      "visual": {
+        "heading": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "24px",
+          "lineHeight": "32px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 16,
+          "y": 237,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(255, 255, 255, 0.18)",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 8px 32px 0px",
+          "background": "rgba(255, 255, 255, 0.1)"
+        },
+        "frameGap": 40,
+        "overflow": false,
+        "theme": "immersive"
+      },
+      "hash": "ff0b234be9fba98affa6b0b982ff1907ac671ebc0e307b4407fdd37e6fdf0792"
+    },
+    {
+      "phase": "after",
+      "route": "/order",
+      "width": 375,
+      "theme": "immersive",
+      "visual": {
+        "heading": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "24px",
+          "lineHeight": "32px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 16,
+          "y": 237,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(255, 255, 255, 0.18)",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 8px 32px 0px",
+          "background": "rgba(255, 255, 255, 0.1)"
+        },
+        "frameGap": 40,
+        "overflow": false,
+        "theme": "immersive"
+      },
+      "hash": "39ce6df569fce954080c37ec0636edd7614ca58e77b4873004a55529259e8f80"
+    },
+    {
+      "phase": "after",
+      "route": "/project-details/audit-project",
+      "width": 375,
+      "theme": "immersive",
+      "visual": {
+        "heading": {
+          "x": 54,
+          "y": 237,
+          "width": 231,
+          "fontSize": "24px",
+          "lineHeight": "32px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 16,
+          "y": 171,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(255, 255, 255, 0.28)",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 8px 32px 0px",
+          "background": "rgba(255, 255, 255, 0.15)"
+        },
+        "frameGap": -126,
+        "overflow": false,
+        "theme": "immersive"
+      },
+      "hash": "e5d1f029a83e456283d2319ae98d473bc8b31d916ed1fac6e9c78661abe2d955"
+    },
+    {
+      "phase": "after",
+      "route": "/project-details/audit-project?view=project",
+      "width": 375,
+      "theme": "immersive",
+      "visual": {
+        "heading": {
+          "x": 16,
+          "y": 175,
+          "width": 343,
+          "fontSize": "24px",
+          "lineHeight": "32px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": null,
+        "frameGap": null,
+        "overflow": false,
+        "theme": "immersive"
+      },
+      "hash": "bd7276d2a60a5beff71c7ca1319a22c087f1c9bebb016d9c3ec3b3f4f2518087"
+    },
+    {
+      "phase": "after",
+      "route": "/plan-details/audit-service",
+      "width": 375,
+      "theme": "immersive",
+      "visual": {
+        "heading": {
+          "x": 25.921875,
+          "y": 175,
+          "width": 203.765625,
+          "fontSize": "24px",
+          "lineHeight": "32px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": null,
+        "frameGap": null,
+        "overflow": false,
+        "theme": "immersive"
+      },
+      "hash": "9198d05b482f399f3bf816769904bc78e7de50f9e2b04802673a557e33c75e9b"
+    },
+    {
+      "phase": "after",
+      "route": "/my-offers",
+      "width": 375,
+      "theme": "immersive",
+      "visual": {
+        "heading": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "24px",
+          "lineHeight": "32px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "container": {
+          "x": 16,
+          "y": 105,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "0px",
+          "border": "0px solid rgb(229, 231, 235)",
+          "shadow": "none",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        "frame": {
+          "x": 16,
+          "y": 237,
+          "width": 343,
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "radius": "24px",
+          "border": "1px solid rgba(255, 255, 255, 0.18)",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 8px 32px 0px",
+          "background": "rgba(255, 255, 255, 0.1)"
+        },
+        "frameGap": 40,
+        "overflow": false,
+        "theme": "immersive"
+      },
+      "hash": "942b69364c4f4e6dc23cb6be74ea0e626a795909adc2a85a1e5cd784f8817641"
+    }
+  ]
+}
