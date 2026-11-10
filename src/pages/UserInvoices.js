@@ -7,7 +7,7 @@ import SummaryApi from '../common';
 import { toast } from 'sonner';
 import CustomerWorkspaceTabs from '../components/CustomerWorkspaceTabs';
 import Badge from '../components/Badge';
-import { getInvoiceStatusText, getInvoicePurposeText, isFreeInvoice } from '../helpers/invoicePresentation';
+import { getInvoiceStatusText, getInvoicePurposeText, isFreeInvoice, isStatementInvoice, collapseFullPaymentBills } from '../helpers/invoicePresentation';
 import { getOrderDisplayName } from '../helpers/orderPresentation';
 
 const UserInvoices = () => {
@@ -36,9 +36,11 @@ const UserInvoices = () => {
         return new Date(dueDate) < new Date();
     };
 
+    // A project paid in full is one bill here, not its payment bill and its final invoice together.
+    const shownInvoices = collapseFullPaymentBills(invoices);
     const filteredInvoices = filter === 'all'
-        ? invoices
-        : invoices.filter(inv => inv.status === filter);
+        ? shownInvoices
+        : shownInvoices.filter(inv => inv.status === filter);
 
     if (loading) {
         return (
@@ -81,7 +83,7 @@ const UserInvoices = () => {
                                 id: status,
                                 label: status === 'all'
                                     ? 'All'
-                                    : `${getInvoiceStatusText({ status }).label} (${invoices.filter((inv) => inv.status === status).length})`,
+                                    : `${getInvoiceStatusText({ status }).label} (${shownInvoices.filter((inv) => inv.status === status).length})`,
                             }))}
                             activeTab={filter}
                             onChange={setFilter}
@@ -123,7 +125,7 @@ const UserInvoices = () => {
                                                     <Badge tone={getInvoiceStatusText(invoice).tone}>
                                                         {getInvoiceStatusText(invoice).label}
                                                     </Badge>
-                                                    {isOverdue(invoice.dueDate, invoice.status) && (
+                                                    {!isStatementInvoice(invoice) && isOverdue(invoice.dueDate, invoice.status) && (
                                                         <Badge tone="error" size="sm">
                                                             Past due
                                                         </Badge>
@@ -137,9 +139,12 @@ const UserInvoices = () => {
                                                     <p>
                                                         <span className="font-medium text-[var(--text-muted)]">Sent:</span> {formatDate(invoice.invoiceDate)}
                                                     </p>
+                                                    {/* A final invoice states a project; it has no pay-by date (its dueDate is the day the project began). */}
+                                                    {!isStatementInvoice(invoice) && (
                                                     <p>
                                                         <span className="font-medium text-[var(--text-muted)]">Pay by:</span> {formatDate(invoice.dueDate)}
                                                     </p>
+                                                    )}
                                                     {invoice.paidDate && (
                                                         <p className="text-[var(--badge-success-fg)]">
                                                             <span className="font-medium">Paid:</span> {formatDate(invoice.paidDate)}

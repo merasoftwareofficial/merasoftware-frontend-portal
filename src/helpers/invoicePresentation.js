@@ -41,6 +41,9 @@ const STATEMENT_TYPES = ['project_final', 'service_statement'];
 export const isStatementInvoice = (invoice) =>
   STATEMENT_TYPES.includes(invoice?.invoiceType);
 
+/** The project's final invoice: the one document a customer keeps for a one-time project. */
+export const isProjectStatement = (invoice) => invoice?.invoiceType === 'project_final';
+
 /**
  * A complimentary invoice: the ₹0 record of a free upgrade on a completed project
  * (backend/helpers/complimentaryUpgrade.js). Nothing was ever due on it, and it is a
@@ -61,6 +64,8 @@ export const isComplimentaryInvoice = (invoice) =>
 export const getInvoiceStatusText = (invoice) => {
   // Nothing was paid for a complimentary invoice, so it never reads "Paid".
   if (isComplimentaryInvoice(invoice)) return { label: 'Free', tone: 'success' };
+  // A project's final invoice that is fully paid is a receipt: it says Paid, like the bill it replaces.
+  if (isProjectStatement(invoice) && invoice.status === 'paid') return { label: 'Paid', tone: 'success' };
   if (isStatementInvoice(invoice)) {
     // A statement states, it does not demand. Neutral, and worded as a summary.
     return { label: 'Summary', tone: 'neutral' };
@@ -81,6 +86,7 @@ export const getInvoiceStatusText = (invoice) => {
  */
 export const getInvoicePurposeText = (invoice, planName = '') => {
   if (isComplimentaryInvoice(invoice)) return 'Complimentary upgrade';
+  if (isProjectStatement(invoice)) return 'Final invoice';
   if (isStatementInvoice(invoice)) return 'Total for this plan';
   if (invoice?.invoiceType === 'plan_renewal') return 'Renewal';
   // A plan's name often already ends in "Plan", so appending the word produced
@@ -136,4 +142,40 @@ export const isFreeInvoice = (invoice) =>
 export const isInvoicePayable = (invoice) => {
   if (!invoice || isStatementInvoice(invoice)) return false;
   return ['unpaid', 'partially_paid', 'overdue'].includes(invoice.status);
+};
+
+/**
+ * One card for a project paid in full.
+ *
+ * Every one-time project has two records: the bill that collects the money (invoiceType
+ * "project") and the final invoice (invoiceType "project_final") that states the whole
+ * project and is the only one with a PDF. For a project paid in one go both carry the same
+ * amount, so listing both read as two orders. Exactly one is shown, by what the customer
+ * can do:
+ *   - the bill is still to be paid: the bill (it holds Pay now); the final invoice is hidden;
+ *   - the bill is paid: the final invoice (a receipt with the download); the bill is hidden.
+ *
+ * "Paid in full" is read from the invoices themselves: one live bill, with no installment
+ * number (an installment bill carries one, and installment bills are created one at a time,
+ * so a project paid in parts can briefly have a single bill). Projects paid in parts, plans,
+ * complimentary invoices and orders with no final invoice yet are left exactly as they are.
+ * Display only: payment, due and approval rules never read this list.
+ */
+export const collapseFullPaymentBills = (invoices) => {
+  const list = Array.isArray(invoices) ? invoices : [];
+  const groups = new Map();
+  for (const invoice of list) {
+    const key = String(invoice?.orderId?._id || invoice?.orderId || '');
+    if (!key) continue;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(invoice);
+  }
+  const hidden = new Set();
+  for (const group of groups.values()) {
+    const statement = group.find(isProjectStatement);
+    const bills = group.filter((invoice) => invoice.invoiceType === 'project' && invoice.status !== 'cancelled');
+    if (!statement || bills.length !== 1 || bills[0].installmentNumber) continue;
+    hidden.add(bills[0].status === 'paid' ? bills[0]._id : statement._id);
+  }
+  return list.filter((invoice) => !hidden.has(invoice._id));
 };

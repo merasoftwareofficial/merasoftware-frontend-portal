@@ -1,3 +1,4 @@
+/* eslint-disable testing-library/no-unnecessary-act -- root.render is React's own createRoot, not a Testing Library call */
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import ProjectAgreement from './ProjectAgreement';

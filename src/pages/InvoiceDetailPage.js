@@ -17,7 +17,7 @@ import Modal from '../components/Modal';
 import { getOrderDisplayName } from '../helpers/orderPresentation';
 import { isPlanItem } from '../helpers/orderType';
 import { goToCustomerReturn } from '../helpers/customerReturnNavigation';
-import { getInvoiceStatusText, isStatementInvoice, getPaymentMethodText, isFreeInvoice, isComplimentaryInvoice, COMPLIMENTARY_INVOICE_LABEL } from '../helpers/invoicePresentation';
+import { getInvoiceStatusText, isStatementInvoice, isProjectStatement, getPaymentMethodText, isFreeInvoice, isComplimentaryInvoice, COMPLIMENTARY_INVOICE_LABEL } from '../helpers/invoicePresentation';
 
 const generateTransactionId = () =>
   `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`;
@@ -43,6 +43,11 @@ const InvoiceDetailPage = () => {
   const [invoice, setInvoice] = useState(null);
   const { loading, error } = useResource(`${SummaryApi.myInvoices.url}?invoiceId=${encodeURIComponent(invoiceId)}`, next => setInvoice(next?.[0] || null));
   useEffect(() => { if (error) toast.error(error); }, [error]);
+  // A bill paid in full has no PDF of its own: its document is the project's final invoice, read once the bill is paid.
+  const [finalInvoice, setFinalInvoice] = useState(null);
+  const paidFullPaymentBill = invoice?.invoiceType === 'project' && invoice.status === 'paid' && !invoice.installmentNumber;
+  const billOrderId = invoice?.orderId?._id || invoice?.orderId;
+  useResource(paidFullPaymentBill && billOrderId ? `${SummaryApi.myInvoices.url}?orderId=${encodeURIComponent(billOrderId)}` : null, next => setFinalInvoice((Array.isArray(next) ? next : []).find(isProjectStatement) || null));
   const [user, setUser] = useState(null);
 
   useEffect(() => {
@@ -73,9 +78,10 @@ const InvoiceDetailPage = () => {
   // A complimentary invoice was never due: no due/paid dates, no agreement, and like a statement
   // it is a document to keep, so it gets the same View / Download / Share buttons.
   const isComplimentary = isComplimentaryInvoice(invoice);
-  const hasDocument = isStatement || isComplimentary;
-  const isServerInvoice = Boolean(invoice?._id);
-  const invoiceDocumentUrl = isServerInvoice ? `${SummaryApi.invoices.viewDocument.url}/${invoice._id}` : null;
+  const documentInvoice = (paidFullPaymentBill && finalInvoice) || invoice;
+  const hasDocument = isStatement || isComplimentary || Boolean(paidFullPaymentBill && finalInvoice);
+  const isServerInvoice = Boolean(documentInvoice?._id);
+  const invoiceDocumentUrl = isServerInvoice ? `${SummaryApi.invoices.viewDocument.url}/${documentInvoice._id}` : null;
 
   const handleShareInvoice = async () => {
     if (!invoiceDocumentUrl || !navigator.share || !navigator.canShare) {
@@ -86,9 +92,9 @@ const InvoiceDetailPage = () => {
       setSharingInvoice(true);
       const response = await fetch(`${invoiceDocumentUrl}/download`, { credentials: 'include' });
       if (!response.ok) throw new Error('Unable to prepare invoice PDF');
-      const file = new File([await response.blob()], `${invoice.invoiceNumber || 'invoice'}.pdf`, { type: 'application/pdf' });
+      const file = new File([await response.blob()], `${documentInvoice.invoiceNumber || 'invoice'}.pdf`, { type: 'application/pdf' });
       if (!navigator.canShare({ files: [file] })) throw new Error('PDF sharing is not supported on this device');
-      await navigator.share({ title: invoice.invoiceNumber || 'Invoice', files: [file] });
+      await navigator.share({ title: documentInvoice.invoiceNumber || 'Invoice', files: [file] });
     } catch (error) {
       if (error.name !== 'AbortError') toast.error(error.message || 'Unable to share invoice');
     } finally {
@@ -264,7 +270,7 @@ const InvoiceDetailPage = () => {
                   status pill. Same eyebrow treatment as Modal and WalletDetails. */}
               <p className="inline-flex items-center gap-2 text-sm font-bold uppercase text-[var(--eyebrow-fg)]">
                 <Sparkles className="h-3.5 w-3.5" />
-                {isComplimentary ? COMPLIMENTARY_INVOICE_LABEL : isStatement ? 'Summary' : 'Bill'}
+                {isComplimentary ? COMPLIMENTARY_INVOICE_LABEL : isStatement ? (isProjectStatement(invoice) ? 'Final invoice' : 'Summary') : 'Bill'}
               </p>
               <h1 className="mt-3 text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl lg:text-4xl">
                 {getOrderDisplayName(invoice.orderId, 'Your plan')}

@@ -14,7 +14,7 @@ import {
   customerChildState,
   goToCustomerReturn,
 } from '../helpers/customerReturnNavigation';
-import { getInvoiceStatusText, isStatementInvoice, getInvoicePurposeText, isFreeInvoice } from '../helpers/invoicePresentation';
+import { getInvoiceStatusText, isStatementInvoice, isProjectStatement, collapseFullPaymentBills, getInvoicePurposeText, isFreeInvoice } from '../helpers/invoicePresentation';
 
 const formatDate = (date) => {
   if (!date) return 'N/A';
@@ -151,6 +151,8 @@ const OrderDetailPage = () => {
   // (recurring plan, full payment) keeps the original two-card layout below.
   const isInstallmentProject = !isRecurringPlan && order.isPartialPayment && order.installments?.length > 0;
   const projectStatement = invoices.find((invoice) => invoice.invoiceType === 'project_final') || null;
+  // A project paid in full is one card here, not its bill and its final invoice side by side.
+  const visibleInvoices = collapseFullPaymentBills(invoices);
   const installmentsTotal = (order.installments || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
   const startDate = new Date(order.createdAt);
@@ -293,11 +295,11 @@ const OrderDetailPage = () => {
               </Surface>
 
               {/* Invoice history — shown whenever this order has any invoice records */}
-              {invoices.length > 0 && (
+              {visibleInvoices.length > 0 && (
                 <Surface tone="subtle" radius="panel" className="p-5">
                   <h3 className="mb-3 text-lg font-semibold text-[var(--text-primary)]">Your bills</h3>
                   <div className="space-y-3">
-                    {invoices.map((invoice) => {
+                    {visibleInvoices.map((invoice) => {
                       // A project_final invoice is a statement of the whole project, not an amount
                       // to collect — its installments are billed separately. Showing it a "Due"
                       // badge (its status is unpaid/partially_paid until the last installment
@@ -326,7 +328,7 @@ const OrderDetailPage = () => {
                             </div>
                             <p className="mt-1 text-sm text-[var(--text-secondary)]">
                               {isStatement
-                                ? 'Everything charged on this order'
+                                ? (isProjectStatement(invoice) && invoice.status === 'paid' && invoice.paidDate ? `Paid on ${formatDate(invoice.paidDate)}` : 'Everything charged on this order')
                                 : invoice.status === 'paid'
                                   ? `Paid on ${formatDate(invoice.paidDate)}`
                                   : `Due on ${formatDate(invoice.dueDate)}`}
