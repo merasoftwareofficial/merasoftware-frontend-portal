@@ -22,7 +22,7 @@ import GlassButton from '../components/GlassButton';
 import { OrderList } from '../components/OrderListRow';
 import { isProjectItem, isPlanItem } from '../helpers/orderType';
 import { getOrderCategoryLabel, getOrderDisplayName, getItemStatusMeta } from '../helpers/orderPresentation';
-import { customerChildState } from '../helpers/customerReturnNavigation';
+import { customerChildState, orderPagePath } from '../helpers/customerReturnNavigation';
 import { COMPLIMENTARY_INVOICE_TYPE } from '../helpers/invoicePresentation';
 
 // Display label for one order. Derived by backend/helpers/orderStatusEngine.js and delivered on
@@ -126,7 +126,7 @@ const PURCHASE_COLUMNS = [
 
 const OrderRow = ({ order, navigate, location, formatDate }) => {
   const handleClick = () => {
-    navigate(`/order-detail/${order._id}`, { state: customerChildState(location) });
+    navigate(orderPagePath(order._id), { state: customerChildState(location) });
   };
 
   const status = getOrderStatus(order);

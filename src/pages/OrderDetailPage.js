@@ -8,6 +8,7 @@ import TriangleMazeLoader from '../components/TriangleMazeLoader';
 import Surface from '../components/Surface';
 import Badge from '../components/Badge';
 import GlassButton from '../components/GlassButton';
+import PackageDetails from '../components/PackageDetails';
 import { getOrderCategoryLabel, getOrderDisplayName } from '../helpers/orderPresentation';
 import { getInstallmentPaymentEligibility } from '../helpers/installmentPaymentEligibility';
 import {
@@ -205,16 +206,19 @@ const OrderDetailPage = () => {
                       ₹{installmentsTotal.toLocaleString()} in total, paid in parts. Started {formatDate(startDate)}.
                     </p>
                   </div>
-                  {projectStatement ? (
-                    <GlassButton
-                      as="a"
-                      href={`${SummaryApi.invoices.downloadDocument.url}/${projectStatement._id}/download`}
-                      className="w-fit shrink-0"
-                    >
-                      <FileText className="h-4 w-4" />
-                      Download Invoice
-                    </GlassButton>
-                  ) : null}
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <PackageDetails order={order} />
+                    {projectStatement ? (
+                      <GlassButton
+                        as="a"
+                        href={`${SummaryApi.invoices.downloadDocument.url}/${projectStatement._id}/download`}
+                        className="w-fit shrink-0"
+                      >
+                        <FileText className="h-4 w-4" />
+                        Download Invoice
+                      </GlassButton>
+                    ) : null}
+                  </div>
                 </div>
 
                 <div className="mt-5 border-t border-[var(--glass-border)]">
@@ -292,6 +296,8 @@ const OrderDetailPage = () => {
                     </div>
                   )}
                 </div>
+                {/* What was agreed when this was bought: price, included work, terms. */}
+                <div className="mt-3"><PackageDetails order={order} /></div>
               </Surface>
 
               {/* Invoice history — shown whenever this order has any invoice records */}

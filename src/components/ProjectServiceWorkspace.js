@@ -1,4 +1,4 @@
-import ProjectAgreement from './ProjectAgreement';
+import OrderLinkStrip from './OrderLinkStrip';
 import React, { useMemo } from 'react';
 import { ArrowLeft, ArrowRight, Clock3, Layers3, ShieldCheck } from 'lucide-react';
 import { getOrderDisplayName } from '../helpers/orderPresentation';
@@ -61,7 +61,6 @@ const ProjectServiceWorkspace = ({ project, onAddService, onBack, onOpenService,
           Back
         </button>
 
-        <ProjectAgreement order={project} />
         <Surface tone="strong" radius="panel">
           <div className="p-5 sm:p-7">
             <button
@@ -112,6 +111,8 @@ const ProjectServiceWorkspace = ({ project, onAddService, onBack, onOpenService,
             </div>
           </div>
         </Surface>
+
+        <OrderLinkStrip orderId={project._id} />
       </div>
     </div>
   );

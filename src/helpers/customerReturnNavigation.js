@@ -70,6 +70,12 @@ export const customerChildState = (location) => {
   return toNavigationState([...stack, currentPath].slice(-8));
 };
 
+/**
+ * The order page's address, decided in one place. The order page is where a customer finds an
+ * order's invoices, prices and package details, so every page that points there uses this.
+ */
+export const orderPagePath = (orderId) => `/order-detail/${encodeURIComponent(orderId)}`;
+
 export const getCustomerReturnTarget = (location, fallback) => {
   const stack = getCustomerReturnStack(location);
   return stack.length > 0 ? stack[stack.length - 1] : fallback;

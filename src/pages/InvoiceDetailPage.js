@@ -1,4 +1,3 @@
-import ProjectAgreement from '../components/ProjectAgreement';
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, Sparkles, Share2, Download, Eye } from 'lucide-react';
@@ -16,7 +15,7 @@ import GlassButton from '../components/GlassButton';
 import Modal from '../components/Modal';
 import { getOrderDisplayName } from '../helpers/orderPresentation';
 import { isPlanItem } from '../helpers/orderType';
-import { goToCustomerReturn } from '../helpers/customerReturnNavigation';
+import { goToCustomerReturn, orderPagePath } from '../helpers/customerReturnNavigation';
 import { getInvoiceStatusText, isStatementInvoice, isProjectStatement, receiptForBill, getPaymentMethodText, isFreeInvoice, isComplimentaryInvoice, COMPLIMENTARY_INVOICE_LABEL } from '../helpers/invoicePresentation';
 
 const generateTransactionId = () =>
@@ -87,18 +86,37 @@ const InvoiceDetailPage = () => {
   const isServerInvoice = Boolean(documentInvoice?._id);
   const invoiceDocumentUrl = isServerInvoice ? `${SummaryApi.invoices.viewDocument.url}/${documentInvoice._id}` : null;
 
+  // The PDF is fetched as soon as the page shows it, not when Share is tapped. A phone only opens its share
+  // sheet when share() runs straight from the tap; waiting for a download first loses that permission and the
+  // tap does nothing. `shareStatus`: loading (button shown, not ready), ready, or none (this device cannot
+  // share a PDF, so the button is left out).
+  const [shareFile, setShareFile] = useState(null);
+  const [shareStatus, setShareStatus] = useState('loading');
+  const documentNumber = documentInvoice?.invoiceNumber;
+  useEffect(() => {
+    setShareFile(null);
+    if (!hasDocument || !invoiceDocumentUrl || !canShareFile) { setShareStatus('none'); return undefined; }
+    setShareStatus('loading');
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(`${invoiceDocumentUrl}/download`, { credentials: 'include' });
+        if (!response.ok) throw new Error('Unable to prepare invoice PDF');
+        const file = new File([await response.blob()], `${documentNumber || 'invoice'}.pdf`, { type: 'application/pdf' });
+        if (cancelled) return;
+        if (navigator.canShare({ files: [file] })) { setShareFile(file); setShareStatus('ready'); } else setShareStatus('none');
+      } catch {
+        if (!cancelled) setShareStatus('none');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [hasDocument, invoiceDocumentUrl, canShareFile, documentNumber]);
+
   const handleShareInvoice = async () => {
-    if (!invoiceDocumentUrl || !navigator.share || !navigator.canShare) {
-      toast.error('PDF sharing is not supported on this browser. Use Download instead.');
-      return;
-    }
+    if (!shareFile) return;
     try {
       setSharingInvoice(true);
-      const response = await fetch(`${invoiceDocumentUrl}/download`, { credentials: 'include' });
-      if (!response.ok) throw new Error('Unable to prepare invoice PDF');
-      const file = new File([await response.blob()], `${documentInvoice.invoiceNumber || 'invoice'}.pdf`, { type: 'application/pdf' });
-      if (!navigator.canShare({ files: [file] })) throw new Error('PDF sharing is not supported on this device');
-      await navigator.share({ title: documentInvoice.invoiceNumber || 'Invoice', files: [file] });
+      await navigator.share({ title: documentNumber || 'Invoice', files: [shareFile] });
     } catch (error) {
       if (error.name !== 'AbortError') toast.error(error.message || 'Unable to share invoice');
     } finally {
@@ -115,7 +133,7 @@ const InvoiceDetailPage = () => {
       return `/plan-details/${orderId}`;
     }
 
-    return `/order-detail/${orderId}`;
+    return orderPagePath(orderId);
   };
 
   const handleBack = () => goToCustomerReturn(navigate, location, getInvoiceFallback());
@@ -330,7 +348,6 @@ const InvoiceDetailPage = () => {
               )}
             </div>
 
-            {!isComplimentary && <ProjectAgreement order={invoice.orderId} />}
             <div className="relative mt-5">
               {/* Only a statement is a document to keep: the project_final invoice already states
                   the whole project — its total, every installment and what is paid — so a paid
@@ -348,8 +365,8 @@ const InvoiceDetailPage = () => {
                     <GlassButton as="a" href={`${invoiceDocumentUrl}/view`} target="_blank" rel="noopener noreferrer" title="View" aria-label="View invoice" className="h-12 w-12 shrink-0 !px-0">
                       <Eye size={18} />
                     </GlassButton>
-                    {canShareFile && (
-                      <GlassButton onClick={handleShareInvoice} disabled={sharingInvoice} title={sharingInvoice ? 'Preparing…' : 'Share'} aria-label="Share invoice" className="h-12 w-12 shrink-0 !px-0 disabled:opacity-60">
+                    {canShareFile && shareStatus !== 'none' && (
+                      <GlassButton onClick={handleShareInvoice} disabled={!shareFile || sharingInvoice} title={shareFile ? 'Share' : 'Preparing…'} aria-label="Share invoice" className="h-12 w-12 shrink-0 !px-0 disabled:opacity-60">
                         <Share2 size={18} />
                       </GlassButton>
                     )}

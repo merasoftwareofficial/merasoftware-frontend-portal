@@ -1,11 +1,12 @@
 import React from 'react';
 
-export default function OfferPaymentTerms({ order }) {
+// `bare` drops the box and margins, for use inside a popup that already is one.
+export default function OfferPaymentTerms({ order, bare = false }) {
   const policy = order?.paymentPolicy;
   if (!policy) return null;
   const labels = { advance: 'Advance payment', limited_uploads: 'Limited uploads before payment', pay_later: 'Pay later' };
   const access = order.paymentAccess;
-  return <section aria-label="Agreed payment terms" className="my-4 rounded-2xl border border-[var(--glass-border)] p-4 text-base">
+  return <section aria-label="Agreed payment terms" className={bare ? 'text-base' : 'my-4 rounded-2xl border border-[var(--glass-border)] p-4 text-base'}>
     <h3 className="font-semibold">Payment terms · {policy.offerTitle}</h3>
     <p>{labels[policy.mode]}</p>
     {policy.mode === 'limited_uploads' && <p>{policy.uploadAllowance} successful submissions allowed before required payment.</p>}

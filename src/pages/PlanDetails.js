@@ -11,12 +11,12 @@ import TriangleMazeLoader from '../components/TriangleMazeLoader';
 import UpdateRequestModal from '../components/UpdateRequestModal';
 import SummaryApi from '../common';
 import { isPlanItem } from '../helpers/orderType';
-import { getInvoiceStatusText, isStatementInvoice } from '../helpers/invoicePresentation';
+import { isInvoicePayable } from '../helpers/invoicePresentation';
 import { getNextCycleOutcome, getTimeUntilText, getTermRemainingText, CYCLE_OUTCOME } from '../helpers/servicePlanCycle';
 import { goToCustomerReturn } from '../helpers/customerReturnNavigation';
 import UploadedDataList from '../components/UploadedDataList';
 import PlanUpdateCards from '../components/PlanUpdateCards';
-import OfferPaymentTerms from '../components/OfferPaymentTerms';
+import OrderLinkStrip from '../components/OrderLinkStrip';
 import { downloadAuthenticatedFile } from '../helpers/downloadFile';
 
 const formatDate = (date) => {
@@ -157,7 +157,6 @@ const getBoughtFacts = (plan) => {
   const cycleMonths = Number(plan.serviceBillingCycleMonths) || 0;
   const cycles = Number(plan.serviceTotalCycles) || 0;
   if (s.selectedBillingCycle && cycleMonths && cycles) facts.push(['Plan length', `${cycleMonths * cycles} months`]);
-  if (Number(plan.serviceCyclePrice) > 0) facts.push([s.selectedBillingCycle ? 'Price per period' : 'Price', `₹${Number(plan.serviceCyclePrice).toLocaleString('en-IN')}`]);
   if (s.capability === 'upload_data' && s.selectedBillingCycle && s.releaseMode) facts.push(['Updates open', s.releaseMode === 'monthly' ? 'Month by month' : 'All at once']);
   return facts;
 };
@@ -290,16 +289,9 @@ const PlanDetails = ({ isProjectServiceView = false }) => {
   // Whether the allowance comes back, and when — the same question the renewal cron asks.
   const nextCycle = getNextCycleOutcome(plan);
 
-  // A statement is the whole plan stated once; the rest are the bills it is made of. They are
-  // separated here rather than in the markup so the "is this a bill?" question is asked in one
-  // place, by the same helper the invoice pages use.
-  const serviceInvoices = plan.serviceInvoices || [];
-  const statementInvoice = serviceInvoices.find(isStatementInvoice) || null;
-  const billedInvoices = serviceInvoices.filter((invoice) => !isStatementInvoice(invoice));
-  // amountPaid is the running total the payment helpers maintain on the invoice, so what has
-  // arrived and what is still owed are read, never recomputed from the bills below.
-  const statementPaid = Number(statementInvoice?.amountPaid || 0);
-  const statementDue = Math.max(0, Number(statementInvoice?.amount || 0) - statementPaid);
+  // Prices and invoices are on the order page; this page only says when a bill is due (the oldest one),
+  // so a customer is never left without the way to pay it. The invoice page is where a bill is paid.
+  const dueBill = [...(plan.serviceInvoices || [])].reverse().find(isInvoicePayable) || null;
 
   // How much of the PLAN's term is left. Deliberately computed next to nextCycle, because the
   // two answer different questions and the page used to blur them: the cycle line said when the
@@ -357,7 +349,6 @@ const PlanDetails = ({ isProjectServiceView = false }) => {
                 <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl lg:text-4xl">
                   {purchasedName}
                 </h1>
-                <OfferPaymentTerms order={plan} />
                 <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${BADGE_TONE_CLASSES[status.tone]}`}>
                   {status.badge}
                 </span>
@@ -432,68 +423,6 @@ const PlanDetails = ({ isProjectServiceView = false }) => {
                     )}
                   </div>
                 )}
-
-                {/* What this plan costs, on one line.
-                    This was a heading, a total, a paid/due line, a "Your bill" heading and a row
-                    under it — five stacked lines on a full-width band, with the right half of the
-                    page empty and the same figure printed twice: the header said "₹1,490 paid"
-                    and the single row beneath it said "₹1,490 · Paid".
-                    Measured against live data before rebuilding: no plan has more than one bill
-                    (5 have exactly one, 3 have none), so the list and its heading were never
-                    earned — a heading over a single row is furniture. Where a statement exists,
-                    money is genuinely still owed on both, which makes the outstanding figure the
-                    one thing worth saying loudly.
-                    Three shapes exist in the data and each gets its own sentence. The money is
-                    read from invoice.amountPaid, which the payment helpers maintain — nothing is
-                    added up here.
-
-                    ON THE WORDING, which was wrong once already: the statement's remainder is NOT
-                    a debt. A plan bought for N cycles states its whole price up front, but only
-                    the cycle that has started is ever billed — the rest has no invoice yet.
-                    Measured across live data: every statement remainder equals exactly the cycles
-                    not yet billed, and no issued bill is unpaid on any plan. So "₹1,490 still to
-                    pay" told a customer who owes nothing that they were holding money back. It
-                    leads with what HAS been paid, and says the rest arrives with the plan. */}
-                {(statementInvoice || billedInvoices.length) ? (
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t border-[var(--glass-border)] pt-3">
-                    {statementInvoice ? (
-                      statementDue > 0 ? (
-                        <p className="text-base text-[var(--text-primary)]">
-                          <span className="font-semibold">₹{statementPaid.toLocaleString('en-IN')} paid</span>
-                          <span className="text-[var(--text-secondary)]">
-                            {' '}of ₹{Number(statementInvoice.amount || 0).toLocaleString('en-IN')} for this plan.
-                            {nextCycle.outcome === CYCLE_OUTCOME.RETURNS
-                              ? ` The rest is billed as the plan runs — next on ${formatDate(nextCycle.returnsOn)}.`
-                              : ' The rest is billed as the plan runs.'}
-                          </span>
-                        </p>
-                      ) : (
-                        <p className="text-base text-[var(--text-primary)]">
-                          <span className="font-semibold">₹{Number(statementInvoice.amount || 0).toLocaleString('en-IN')}</span>
-                          <span className="text-[var(--text-secondary)]"> for this plan — fully paid.</span>
-                        </p>
-                      )
-                    ) : (
-                      /* No statement: the plan was billed once and that bill is the whole story. */
-                      <p className="text-base text-[var(--text-primary)]">
-                        <span className="font-semibold">₹{Number(billedInvoices[0]?.amount || 0).toLocaleString('en-IN')}</span>
-                        <span className="text-[var(--text-secondary)]">
-                          {' '}for this plan — {getInvoiceStatusText(billedInvoices[0]).label.toLowerCase()}.
-                        </span>
-                      </p>
-                    )}
-
-                    {/* One link, to whichever record actually holds the detail. Two buttons that
-                        both opened an invoice page sat here before. */}
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/invoice-detail/${(statementInvoice || billedInvoices[0])._id}`, { state: location.state })}
-                      className="shrink-0 rounded-lg border border-[var(--glass-border-strong)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--glass-bg-hover)]"
-                    >
-                      Payment details
-                    </button>
-                  </div>
-                ) : null}
               </section>
             )}
 
@@ -795,6 +724,8 @@ const PlanDetails = ({ isProjectServiceView = false }) => {
               </div>
             </div>
           </div>
+
+          <OrderLinkStrip orderId={orderId} bill={dueBill} />
         </div>
       {showRequestModal && (
         <UpdateRequestModal

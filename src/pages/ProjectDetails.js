@@ -1,5 +1,6 @@
 import { useResource } from '../hooks/useResource';
-import ProjectAgreement from '../components/ProjectAgreement';
+import PackageDetails from '../components/PackageDetails';
+import OrderLinkStrip from '../components/OrderLinkStrip';
 import WebsitePreviewPanel from '../components/WebsitePreviewPanel';
 import React, { useState, useEffect, useRef, useCallback, useContext, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
@@ -19,7 +20,7 @@ import { isPlanItem } from '../helpers/orderType';
 import AddServiceModal from '../components/AddServiceModal';
 import ProjectServiceWorkspace from '../components/ProjectServiceWorkspace';
 import Context from '../context';
-import { customerChildState, goToCustomerReturn } from '../helpers/customerReturnNavigation';
+import { customerChildState, goToCustomerReturn, orderPagePath } from '../helpers/customerReturnNavigation';
 import UploadedDataList from '../components/UploadedDataList';
 import { downloadAuthenticatedFile } from '../helpers/downloadFile';
 import OrderLifecycleTimeline from '../components/OrderLifecycleTimeline';
@@ -475,7 +476,7 @@ const ProjectDetails = ({ isAdminView = false }) => {
         state: customerChildState(location),
       });
     } else {
-      navigate(`/order-detail/${orderId}`, {
+      navigate(orderPagePath(orderId), {
         state: customerChildState(location),
       });
     }
@@ -661,7 +662,7 @@ const ProjectDetails = ({ isAdminView = false }) => {
                           state: customerChildState(location),
                         });
                       } else {
-                        navigate(`/order-detail/${order._id}`, {
+                        navigate(orderPagePath(order._id), {
                           state: customerChildState(location),
                         });
                       }
@@ -844,7 +845,6 @@ const ProjectDetails = ({ isAdminView = false }) => {
               UPI payment. The two states were swapped in exactly the case that matters. */}
           {/* A cancelled project outranks every payment banner below: the money is already
               settled, so "payment pending" / "awaiting approval" no longer mean anything. */}
-          <ProjectAgreement order={order} />
           {isOrderCancelled && (
             <div className={g(
               'mb-6 rounded-2xl border border-[var(--glass-border)] bg-slate-100 p-4', 'mb-6 rounded-2xl border border-[var(--glass-border-strong)] bg-[var(--glass-bg)] p-4 backdrop-blur-md')}>
@@ -1373,6 +1373,12 @@ const ProjectDetails = ({ isAdminView = false }) => {
                 canSend={isProjectComplete && !isOrderCancelled}
                 onChanged={fetchOrderDetails}
               />
+
+              {/* Prices, invoices and package details live on the order page; this page only points there.
+                  The team's view has no order page, so it keeps the package details popup. */}
+              <div className="mt-4">
+                {isAdminView ? <PackageDetails order={order} /> : <OrderLinkStrip orderId={order._id} />}
+              </div>
           </div>
         </div>
 

@@ -63,16 +63,41 @@ test('a paid full-payment bill offers the final invoice PDF: a Download PDF butt
   expect(viewLink().getAttribute('title')).toBe('View');
 });
 
-test('Share is offered only where the browser can share a file', async () => {
-  await openDetail(url => (url.includes('invoiceId=') ? [statement()] : null));
-  expect(shareButton()).toBeNull();
+const withSharing = async (canShare, run) => {
+  const blob = new Blob(['%PDF'], { type: 'application/pdf' });
+  global.fetch = jest.fn(async () => ({ ok: true, blob: async () => blob }));
+  Object.assign(navigator, { share: jest.fn(async () => {}), canShare: jest.fn(() => canShare) });
+  try { await run(); } finally { delete navigator.share; delete navigator.canShare; delete global.fetch; }
+};
+const flush = () => act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+test('Share is prepared before it is tapped: the PDF is fetched on load and share runs straight from the tap', async () => {
+  await withSharing(true, async () => {
+    await openDetail(url => (url.includes('invoiceId=') ? [statement()] : null));
+    await flush();
+    expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/stmt\/download$/), expect.anything());
+    expect(shareButton().disabled).toBe(false);
+    await act(async () => shareButton().click());
+    expect(navigator.share).toHaveBeenCalledTimes(1);
+    expect(navigator.share.mock.calls[0][0].files[0].name).toMatch(/\.pdf$/);
+  });
+});
+
+test('a device that cannot share a PDF, or has no file sharing, gets no Share button', async () => {
+  await withSharing(false, async () => {
+    await openDetail(url => (url.includes('invoiceId=') ? [statement()] : null));
+    await flush();
+    expect(shareButton()).toBeNull();
+  });
   await act(async () => root.unmount());
   root = createRoot(container);
-  Object.assign(navigator, { share: jest.fn(), canShare: jest.fn(() => true) });
+  global.fetch = jest.fn();
   try {
     await openDetail(url => (url.includes('invoiceId=') ? [statement()] : null));
-    expect(shareButton()).toBeTruthy();
-  } finally { delete navigator.share; delete navigator.canShare; }
+    await flush();
+    expect(shareButton()).toBeNull();
+    expect(global.fetch).not.toHaveBeenCalled();
+  } finally { delete global.fetch; }
 });
 
 test('an unpaid bill has no download, and a bill paid in parts is left as it was', async () => {
@@ -138,4 +163,30 @@ test('a plan paid in one go is one card on the order page and on the bills page:
 test('a paid plan bill offers the plan statement PDF', async () => {
   await openDetail(url => (url.includes('invoiceId=') ? [planBill()] : [planBill(), planStatement()]));
   expect(downloadLink().getAttribute('href')).toMatch(/\/pstmt\/download$/);
+});
+
+const agreedOrder = { ...order, projectSnapshot: { displayName: 'All-in-One Startup', salesAgreement: { package: { name: 'All-in-One Startup' }, regularPrice: 25000, offerDiscount: 22901, finalPrice: 2099, scope: ['A single-page business website'], terms: ['Domain and hosting are separate'], extras: [] } } };
+const packageButton = () => [...container.querySelectorAll('button')].find(item => /Package details/.test(item.textContent));
+
+test('the invoice page no longer carries the agreement card', async () => {
+  await openDetail(url => (url.includes('invoiceId=') ? [bill({ orderId: agreedOrder, status: 'unpaid', amountPaid: 0, paidDate: null })] : null));
+  expect(container.textContent).not.toContain('Agreed project total');
+  expect(container.textContent).not.toContain('Regular scope price');
+  expect(packageButton()).toBeUndefined();
+});
+
+test('the order page holds the Package details button, for a project paid at once and for one paid in parts', async () => {
+  global.__responses = url => (url.includes('orderId=') ? [bill({ orderId: agreedOrder }), statement({ orderId: agreedOrder })] : { ...detailOrder, ...agreedOrder, productId: detailOrder.productId });
+  await act(async () => root.render(<MemoryRouter initialEntries={['/order-detail/o1']}><Routes><Route path="/order-detail/:orderId" element={<OrderDetailPage />} /></Routes></MemoryRouter>));
+  expect(packageButton()).toBeTruthy();
+  await act(async () => packageButton().click());
+  expect(document.body.querySelector('[role="dialog"]').textContent).toContain('Agreed project total');
+  await act(async () => document.body.querySelector('[role="dialog"] button[aria-label="Close"]').click());
+  await act(async () => root.unmount());
+  root = createRoot(container);
+  const parts = { ...detailOrder, ...agreedOrder, productId: detailOrder.productId, isPartialPayment: true, installments: [{ installmentNumber: 1, amount: 1000, paid: true, paidDate: day }, { installmentNumber: 2, amount: 1099, paid: false, dueDate: day }] };
+  global.__responses = url => (url.includes('orderId=') ? [bill({ orderId: agreedOrder, installmentNumber: 1 }), statement({ orderId: agreedOrder })] : parts);
+  await act(async () => root.render(<MemoryRouter initialEntries={['/order-detail/o1']}><Routes><Route path="/order-detail/:orderId" element={<OrderDetailPage />} /></Routes></MemoryRouter>));
+  expect(container.textContent).toContain('Payments');
+  expect(packageButton()).toBeTruthy();
 });
