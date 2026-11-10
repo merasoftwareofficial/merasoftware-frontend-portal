@@ -319,7 +319,7 @@ const InvoiceDetailPage = () => {
               )}
             </div>
 
-            {!isComplimentary && <ProjectAgreement order={invoice.orderId} compact />}
+            {!isComplimentary && <ProjectAgreement order={invoice.orderId} />}
             <div className="relative mt-5">
               {/* Only a statement is a document to keep: the project_final invoice already states
                   the whole project — its total, every installment and what is paid — so a paid
