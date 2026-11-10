@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'sonner';
 import {
   Home, ShoppingBag, Settings, Wallet, MessageSquare, LogOut,
-  FileText, PlusCircle, Gamepad2, FileCheck
+  FileText, ShoppingCart, Gamepad2, FileCheck
 } from 'lucide-react';
 import SummaryApi from '../common';
 import { logout } from '../store/userSlice';
@@ -63,8 +63,8 @@ const DashboardLayout = ({ children, user, walletBalance, cartCount, isLoading, 
     },
     {
       to: '/start-new-project',
-      label: 'Get a Service',
-      icon: PlusCircle,
+      label: 'Explore Projects and Plans',
+      icon: ShoppingCart,
       active: currentPath.startsWith('/start-new-project'),
     },
   ];
@@ -83,7 +83,7 @@ const DashboardLayout = ({ children, user, walletBalance, cartCount, isLoading, 
   const bottomNavTabs = [
     { to: '/dashboard', label: 'Dashboard', icon: Home, active: currentPath === '/dashboard' },
     { to: '/projects-and-plans', label: 'Projects', icon: FileText, active: projectsAndPlansActive },
-    { to: '/start-new-project', label: 'Start', icon: PlusCircle, active: currentPath.startsWith('/start-new-project') },
+    { to: '/start-new-project', label: 'Explore', icon: ShoppingCart, active: currentPath.startsWith('/start-new-project') },
     { to: '/games', label: 'Games', icon: Gamepad2, active: gamesActive },
   ];
 
