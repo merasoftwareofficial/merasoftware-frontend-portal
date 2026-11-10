@@ -46,7 +46,7 @@ const PortalHeader = ({ user, dashboardTo = "/dashboard", onLogout, showProfileL
 
   return (
     <header className={`sticky top-0 z-50 border-b backdrop-blur ${c("border-white/10 bg-slate-950/95", "border-[var(--glass-border)] bg-[var(--header-bg)]")}`}>
-      <div className="mx-auto flex h-16 max-w-[120rem] items-center justify-between gap-6 px-4 sm:px-6 lg:px-8">
+      <div className={`mx-auto flex h-16 max-w-[120rem] items-center justify-between px-4 sm:px-6 lg:px-8 ${themed ? "gap-2 sm:gap-6" : "gap-6"}`}>
         {/* Opens the website's homepage, exactly like the website's own admin panel logo. */}
         <BrandLogo onDark={logoOnDark} />
 

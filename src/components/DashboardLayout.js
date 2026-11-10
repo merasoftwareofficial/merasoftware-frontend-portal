@@ -276,7 +276,7 @@ const DashboardLayout = ({ children, user, walletBalance, cartCount, isLoading, 
 
         <div className="min-w-0 flex-1">
           <main
-            className="portal-surface min-h-full pb-16 lg:pb-0"
+            className="portal-surface min-h-full pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0"
           >
             <PageTransition pageKey={location.key}>
               {children}

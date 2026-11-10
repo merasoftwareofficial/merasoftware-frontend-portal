@@ -36,7 +36,7 @@ export default function ChessBoardFlat({ board, turn, assignedColor, paletteKey,
   };
 
   return (
-    <div className="inline-block rounded-2xl border border-slate-300 bg-white p-3 shadow-[0_20px_60px_-30px_rgba(15,23,42,0.4)]">
+    <div className="w-full max-w-[476px] rounded-2xl border border-slate-300 bg-white p-3 shadow-[0_20px_60px_-30px_rgba(15,23,42,0.4)] sm:max-w-[540px]">
       <div className="overflow-hidden rounded-xl border border-slate-300">
         {rowOrder.map((row) => (
           <div key={row} className="flex">
@@ -54,7 +54,7 @@ export default function ChessBoardFlat({ board, turn, assignedColor, paletteKey,
                   key={col}
                   onClick={() => handleSquareClick(row, col)}
                   className={[
-                    'relative flex h-14 w-14 items-center justify-center select-none cursor-pointer transition sm:h-16 sm:w-16',
+                    'relative flex aspect-square min-w-0 flex-1 items-center justify-center select-none cursor-pointer transition',
                     isSelected ? 'ring-4 ring-inset ring-amber-400' : ''
                   ].join(' ')}
                   style={{ backgroundColor: isDark ? palette.dark : palette.light }}
@@ -70,7 +70,7 @@ export default function ChessBoardFlat({ board, turn, assignedColor, paletteKey,
                     </span>
                   )}
                   {piece && (
-                    <div className="h-10 w-10 drop-shadow-sm sm:h-12 sm:w-12">
+                    <div className="h-10 w-10 max-h-[70%] max-w-[70%] drop-shadow-sm sm:h-12 sm:w-12 sm:max-h-none sm:max-w-none">
                       <ChessPieceIcon piece={piece} paletteKey={paletteKey} />
                     </div>
                   )}

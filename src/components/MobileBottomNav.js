@@ -6,7 +6,7 @@ import { MoreHorizontal } from 'lucide-react';
 // keeps its original fixed-dark bar.
 const MobileBottomNav = ({ tabs, onMoreClick, themed = false }) => {
   return (
-    <nav className={`fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur lg:hidden ${themed ? "border-[var(--glass-border)] bg-[var(--header-bg)]" : "border-white/10 bg-slate-950/95"}`}>
+    <nav className={`fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur lg:hidden ${themed ? "border-[var(--glass-border)] bg-[var(--header-bg)] pb-[env(safe-area-inset-bottom)]" : "border-white/10 bg-slate-950/95"}`}>
       <div className="grid grid-cols-5">
         {tabs.map(({ to, label, icon: Icon, active }) => (
           <Link

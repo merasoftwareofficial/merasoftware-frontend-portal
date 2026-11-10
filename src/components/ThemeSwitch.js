@@ -60,7 +60,7 @@ const ThemeSwitch = () => {
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 top-11 z-50 w-64 overflow-hidden rounded-2xl border border-[var(--glass-border)] bg-[var(--menu-bg)] py-1.5 shadow-xl"
+          className="absolute -right-12 top-11 z-50 w-64 overflow-hidden rounded-2xl border border-[var(--glass-border)] bg-[var(--menu-bg)] py-1.5 shadow-xl sm:right-0"
         >
           <p className="px-4 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
             Appearance

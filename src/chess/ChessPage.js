@@ -268,7 +268,7 @@ export default function ChessPage() {
                   paletteKey={paletteKey}
                   onMove={movePiece}
                 />
-                <div className="flex gap-3">
+                <div className="flex flex-wrap justify-center gap-3">
                   <button
                     onClick={undoMove}
                     className="px-4 py-2 rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] text-[var(--text-primary)] hover:bg-[var(--glass-bg-subtle)]"
