@@ -40,8 +40,26 @@ export const readPackageQuote = (packageId, choice, signal) => call(SummaryApi.p
 export const readPackagePaymentInfo = (signal) => call(SummaryApi.packagePaymentInfo, { signal, fallback: 'Could not load your payment details.' });
 
 // "Proceed to pay" first tells the team the client started buying (as the website does); the purchase follows.
-export const requestPackageBuy = (packageId, choice) => call(SummaryApi.packageStartRequest, {
-  body: { json: { packageId, choice, kind: 'buy' } }, fallback: 'Could not start your purchase. Please try again.',
+// `contact` ({ countryCode, phone }) is sent only for an account that has no mobile number yet (the backend asks with HTTP 428).
+export const requestPackageBuy = (packageId, choice, contact) => call(SummaryApi.packageStartRequest, {
+  body: { json: { packageId, choice, kind: 'buy', ...contact } }, fallback: 'Could not start your purchase. Please try again.',
 });
 
 export const purchasePackage = (body) => call(SummaryApi.packagePurchase, { body: { json: body }, fallback: 'The payment could not be completed.' });
+
+// Country codes the backend accepts for a phone number (the same list its check uses). India alone if it cannot load.
+export const readPhoneCountries = async (signal) => {
+  const response = await fetch(SummaryApi.phoneCountries.url, { signal });
+  const result = await response.json().catch(() => ({}));
+  return result.success && result.data?.length ? result.data : [{ code: '+91', label: 'India', digits: 10 }];
+};
+
+// "2d 23h 58m 59s" until an offer ends: the website's wording (merasoftware src/components/campaign/package-card.tsx timeLeft).
+const pad = (value) => String(value).padStart(2, '0');
+export const timeLeft = (endsAt, now) => {
+  const seconds = Math.max(0, Math.floor((Date.parse(endsAt) - now) / 1000));
+  const days = Math.floor(seconds / 86400);
+  return `${days ? `${days}d ` : ''}${pad(Math.floor(seconds / 3600) % 24)}h ${pad(Math.floor(seconds / 60) % 60)}m ${pad(seconds % 60)}s`;
+};
+// True once a listed offer has run out on the server clock: the list is then asked for again, so it shows the real price.
+export const offerEnded = (offer, now) => Boolean(offer) && now !== null && Date.parse(offer.endsAt) <= now;

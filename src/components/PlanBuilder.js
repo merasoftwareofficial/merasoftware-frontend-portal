@@ -61,7 +61,7 @@ const segClass = (on) => `flex flex-col items-center gap-0.5 rounded-xl border p
   : 'border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] text-[var(--text-primary)] hover:bg-[var(--glass-bg)]'}`;
 
 // Each step heading is a direct question, with no step number.
-const Step = ({ title, extra, children, compact }) => (
+export const Step = ({ title, extra, children, compact }) => (
   <div className={`flex flex-col gap-3 border-t border-[var(--glass-border)] first:border-t-0 ${compact ? 'py-3' : 'p-5'}`}>
     <div className="flex items-baseline gap-3">
       <h3 className={`${compact ? 'text-sm' : 'text-base'} font-semibold text-[var(--text-primary)]`}>{title}</h3>
@@ -101,7 +101,7 @@ const InfoBubble = ({ label, children }) => {
   );
 };
 
-const Row = ({ label, value, tone }) => (
+export const Row = ({ label, value, tone }) => (
   <div className={`flex justify-between gap-3 text-sm ${tone === 'good' ? 'text-[var(--badge-success-fg)]' : 'text-[var(--text-secondary)]'}`}>
     <span>{label}</span><span className="font-mono tabular-nums">{value}</span>
   </div>
