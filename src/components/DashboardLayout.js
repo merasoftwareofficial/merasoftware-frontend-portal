@@ -57,7 +57,7 @@ const DashboardLayout = ({ children, user, walletBalance, cartCount, isLoading, 
     },
     {
       to: '/projects-and-plans',
-      label: 'My Projects and Plans',
+      label: 'My Projects',
       icon: FileText,
       active: projectsAndPlansActive,
     },

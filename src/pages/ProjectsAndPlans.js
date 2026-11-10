@@ -87,7 +87,7 @@ const ProjectsAndPlans = () => {
         <div className="relative mx-auto max-w-7xl">
           <div className="text-center">
             <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl lg:text-4xl">
-              My Projects and Plans
+              My Projects
             </h1>
             <p className="mx-auto mt-3 max-w-2xl text-base text-[var(--text-secondary)] sm:text-lg">
               See the progress and details of your projects and plans.
@@ -97,7 +97,7 @@ const ProjectsAndPlans = () => {
           <OrderList
             as={AnimatedSection}
             className="mt-10"
-            title="My Projects and Plans"
+            title="My Projects"
             toolbar={(
               <CustomerWorkspaceTabs
                 tabs={[
