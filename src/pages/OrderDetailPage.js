@@ -298,6 +298,15 @@ const OrderDetailPage = () => {
                 </div>
                 {/* What was agreed when this was bought: price, included work, terms. */}
                 <div className="mt-3"><PackageDetails order={order} /></div>
+                {/* A custom project has no package agreement: its category and add-on terms, frozen when it was created. */}
+                {!order?.projectSnapshot?.salesAgreement && order?.projectSnapshot?.terms?.length > 0 && (
+                  <div className="mt-3">
+                    <h3 className="text-base font-bold text-[var(--text-primary)]">Terms &amp; conditions</h3>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-[var(--text-secondary)]">
+                      {order.projectSnapshot.terms.map((line, index) => <li key={index} className="break-words">{line}</li>)}
+                    </ul>
+                  </div>
+                )}
               </Surface>
 
               {/* Invoice history — shown whenever this order has any invoice records */}

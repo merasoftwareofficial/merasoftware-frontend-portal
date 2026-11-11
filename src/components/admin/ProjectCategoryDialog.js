@@ -18,6 +18,7 @@ export const ProjectCategoryForm = ({ entry, nextSortOrder, onCancel, onSaved })
   const [keyEdited, setKeyEdited] = useState(false);
   const [basePrice, setBasePrice] = useState(entry?.basePrice ?? "");
   const [description, setDescription] = useState(entry?.description ?? "");
+  const [termsText, setTermsText] = useState((Array.isArray(entry?.terms) ? entry.terms : []).join("\n"));
   const [startingNodeTitle, setStartingNodeTitle] = useState(entry?.startingNodeTitle ?? "");
   const [sortOrder, setSortOrder] = useState(entry?.sortOrder ?? nextSortOrder);
   const [customerSelectable, setCustomerSelectable] = useState(entry?.customerSelectable ?? false);
@@ -39,6 +40,8 @@ export const ProjectCategoryForm = ({ entry, nextSortOrder, onCancel, onSaved })
     if (price !== null && (!Number.isFinite(price) || price < 0)) return toast.error("Base price must be zero or more, or left empty.");
     const order = Number(sortOrder);
     if (!Number.isInteger(order) || order < 0 || order > 9999) return toast.error("Display order must be a whole number from 0 to 9999.");
+    const termLines = termsText.split("\n").map((line) => line.trim()).filter(Boolean);
+    if (termLines.length > 50 || termLines.some((line) => line.length > 1500)) return toast.error("Terms: at most 50 lines, each at most 1500 characters.");
 
     setIsSubmitting(true);
     try {
@@ -52,6 +55,7 @@ export const ProjectCategoryForm = ({ entry, nextSortOrder, onCancel, onSaved })
           label: label.trim(),
           basePrice: price,
           description: description.trim(),
+          terms: termLines,
           startingNodeTitle: startingNodeTitle.trim(),
           sortOrder: order,
           customerSelectable,
@@ -120,6 +124,11 @@ export const ProjectCategoryForm = ({ entry, nextSortOrder, onCancel, onSaved })
         <div className="sm:col-span-2">
           <label className={formLabelClassName} htmlFor="category-description">Description</label>
           <textarea id="category-description" className={formInputClassName} rows={3} maxLength={1000} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Shown to admin when this category is selected" />
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className={formLabelClassName} htmlFor="category-terms">Terms &amp; conditions (one per line)</label>
+          <textarea id="category-terms" className={formInputClassName} rows={4} value={termsText} onChange={(event) => setTermsText(event.target.value)} placeholder="Added automatically to packages and custom projects in this category" />
         </div>
 
         <div className="sm:col-span-2">

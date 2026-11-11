@@ -23,6 +23,7 @@ const FeatureEditForm = ({ feature, categories, onCancel, onSaved, onDeleted }) 
   const [serviceName, setServiceName] = useState(feature?.serviceName ?? "");
   const [sellingPrice, setSellingPrice] = useState(feature?.sellingPrice ?? feature?.price ?? "");
   const [description, setDescription] = useState(feature?.formattedDescriptions?.[0]?.content ?? "");
+  const [termsText, setTermsText] = useState((Array.isArray(feature?.terms) ? feature.terms : []).join("\n"));
   const [isHidden, setIsHidden] = useState(Boolean(feature?.isHidden));
   const [isQuantityBased, setIsQuantityBased] = useState(Boolean(feature?.isQuantityBased));
   const existingCategories = Array.isArray(feature?.compatibleWith) ? feature.compatibleWith : [];
@@ -54,6 +55,11 @@ const FeatureEditForm = ({ feature, categories, onCancel, onSaved, onDeleted }) 
       toast.error("Select at least one category, or choose All Categories.");
       return;
     }
+    const termLines = termsText.split("\n").map((line) => line.trim()).filter(Boolean);
+    if (termLines.length > 50 || termLines.some((line) => line.length > 1500)) {
+      toast.error("Terms: at most 50 lines, each at most 1500 characters.");
+      return;
+    }
 
     const payload = {
       serviceName: serviceName.trim(),
@@ -67,6 +73,8 @@ const FeatureEditForm = ({ feature, categories, onCancel, onSaved, onDeleted }) 
       isQuantityBased,
       // Empty array = offered for every category.
       compatibleWith: isScopedToSelection ? selectedCategories : [],
+      // Terms & conditions, one per line: a package or custom project that includes this add-on gets them automatically.
+      terms: termLines,
     };
     if (isEditing) payload._id = feature._id;
 
@@ -168,6 +176,18 @@ const FeatureEditForm = ({ feature, categories, onCancel, onSaved, onDeleted }) 
             value={description}
             onChange={(event) => setDescription(event.target.value)}
           />
+        </div>
+
+        <div>
+          <label className={formLabelClassName}>Terms &amp; conditions (one per line)</label>
+          <textarea
+            className={formInputClassName}
+            rows={4}
+            aria-label="Terms and conditions"
+            value={termsText}
+            onChange={(event) => setTermsText(event.target.value)}
+          />
+          <p className="mt-1 text-xs text-slate-500">Packages and custom projects that include this add-on show these terms automatically.</p>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
