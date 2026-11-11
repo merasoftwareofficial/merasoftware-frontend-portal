@@ -24,7 +24,8 @@ const call = async (spec, { body, signal, fallback }) => {
     ...(body?.json ? { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body.json) } : {}),
   });
   const result = await response.json().catch(() => ({}));
-  if (!response.ok || !result.success) throw Object.assign(new Error(result.message || fallback), { status: response.status });
+  // `code`/`details`: what the page should ask next (package_already_bought carries the running project).
+  if (!response.ok || !result.success) throw Object.assign(new Error(result.message || fallback), { status: response.status, code: result.code, details: result.details });
   return result.data;
 };
 
@@ -41,9 +42,11 @@ export const readPackagePaymentInfo = (signal) => call(SummaryApi.packagePayment
 
 // "Proceed to pay" first tells the team the client started buying (as the website does); the purchase follows.
 // `contact` ({ countryCode, phone }) is sent only for an account that has no mobile number yet (the backend asks with HTTP 428).
-export const requestPackageBuy = (packageId, choice, contact) => call(SummaryApi.packageStartRequest, {
-  body: { json: { packageId, choice, kind: 'buy', ...contact } }, fallback: 'Could not start your purchase. Please try again.',
+// `confirmRepeat`: the client said yes to a second purchase of a package they already bought (owner decision 11 Nov 2026).
+export const requestPackageBuy = (packageId, choice, contact, confirmRepeat = false) => call(SummaryApi.packageStartRequest, {
+  body: { json: { packageId, choice, kind: 'buy', ...contact, ...(confirmRepeat ? { confirmRepeat: true } : {}) } }, fallback: 'Could not start your purchase. Please try again.',
 });
+export const ALREADY_BOUGHT = 'package_already_bought';
 
 export const purchasePackage = (body) => call(SummaryApi.packagePurchase, { body: { json: body }, fallback: 'The payment could not be completed.' });
 

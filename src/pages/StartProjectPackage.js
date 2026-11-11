@@ -14,7 +14,7 @@ import useServerNow from '../hooks/useServerNow';
 import { formatCurrency } from '../helpers/paymentLedger';
 import { forgetPurchaseKey, isUpiReference, paymentSplit, purchaseKeyFor } from '../helpers/planCheckout';
 import {
-  PACKAGES_PATH, PAYMENT_OPTION_WORDS, offerEnded, purchasePackage, readPackageCatalogue, readPackagePaymentInfo, readPackageQuote,
+  ALREADY_BOUGHT, PACKAGES_PATH, PAYMENT_OPTION_WORDS, offerEnded, purchasePackage, readPackageCatalogue, readPackagePaymentInfo, readPackageQuote,
   readPhoneCountries, requestPackageBuy, timeLeft,
 } from '../helpers/packageStart';
 
@@ -89,6 +89,9 @@ const PackageScreen = ({ packageId }) => {
   const [notice, setNotice] = useState('');
   const [done, setDone] = useState(null);
   const [termsOpen, setTermsOpen] = useState(false);
+  // This package's project still runs (backend helpers/packagePurchase.js): ask before a second purchase.
+  const [bought, setBought] = useState(null);
+  const [repeat, setRepeat] = useState(false);
   const now = useServerNow(catalogue?.serverNow);
 
   const item = useMemo(() => (catalogue?.enabled ? catalogue.packages.find((row) => row.id === packageId) || null : null), [catalogue, packageId]);
@@ -130,7 +133,8 @@ const PackageScreen = ({ packageId }) => {
   useEffect(() => { if (ended) { setStep('review'); setRevision((value) => value + 1); setRefreshToken((value) => value + 1); } }, [ended]);
 
   // One key per package and choice, kept for this tab until the purchase succeeds: a reload or a second click never charges twice.
-  const keyScope = `package:${packageId}?${paymentOption}`;
+  // A second purchase the client confirmed is its own purchase, with its own key.
+  const keyScope = `package:${packageId}?${paymentOption}${repeat ? '&repeat' : ''}`;
   const purchaseKey = useMemo(() => purchaseKeyFor(keyScope), [keyScope]);
   const split = info && q ? paymentSplit(q.dueNow, info.walletBalance) : null;
   const contactBody = needsPhone ? { countryCode: contact.countryCode, phone: contact.phone.trim() } : undefined;
@@ -138,7 +142,7 @@ const PackageScreen = ({ packageId }) => {
   const buy = async (upiReference) => {
     const result = await purchasePackage({
       packageId, choice, quoteKey: q.quoteKey, dueNow: q.dueNow, creationKey: purchaseKey, ...contactBody,
-      ...(upiReference ? { upiTransactionId: upiReference } : {}),
+      ...(upiReference ? { upiTransactionId: upiReference } : {}), ...(repeat ? { confirmRepeat: true } : {}),
     });
     invalidatePortalResources(['orders', 'payments', 'invoices', 'users', 'wallet']);
     forgetPurchaseKey(keyScope);
@@ -148,6 +152,8 @@ const PackageScreen = ({ packageId }) => {
     if (!ready) return;
     setProcessing(true); setNotice('');
     try { await task(); } catch (error) {
+      // Bought already and still running: ask the client (nothing was bought), not "the price changed".
+      if (error.code === ALREADY_BOUGHT && error.details?.project) { setStep('review'); setBought(error.details.project); return; }
       // 428: the account has no mobile number yet; ask for it here and send it with the purchase.
       if (error.status === 428) setNeedsPhone(true);
       // 409: the price or terms changed. Nothing was bought; ask the price again so the page shows what is true now.
@@ -157,13 +163,17 @@ const PackageScreen = ({ packageId }) => {
   };
   // "Pay" tells the team the client started buying (as the website does), then pays from the wallet or asks for the UPI remainder.
   const pay = () => run(async () => {
-    await requestPackageBuy(packageId, choice, contactBody);
+    await requestPackageBuy(packageId, choice, contactBody, repeat);
     const payment = await readPackagePaymentInfo();
     setInfo(payment);
     if (paymentSplit(q.dueNow, payment.walletBalance).upi > 0) { setReference(''); setStep('upi'); return; }
     await buy();
   });
   const sendUpi = () => run(() => buy(reference.trim()));
+  // "Yes, buy another one": the purchase goes on once the page holds the answer (its own key, confirmRepeat).
+  const repeatPending = React.useRef(false);
+  const buyAnother = () => { setBought(null); repeatPending.current = true; setRepeat(true); };
+  useEffect(() => { if (repeat && repeatPending.current) { repeatPending.current = false; pay(); } });
 
   if (done) {
     const Icon = done.approved ? CheckCircle2 : Clock;
@@ -308,6 +318,19 @@ const PackageScreen = ({ packageId }) => {
       </div>
       <Modal open={termsOpen} onClose={() => setTermsOpen(false)} eyebrow={item.name} title="Terms & exclusions" size="lg">
         <List lines={item.terms} />
+      </Modal>
+      <Modal open={Boolean(bought)} onClose={() => setBought(null)} eyebrow={item.name} title="You already bought this package">
+        {bought && (
+          <div className="flex flex-col gap-4">
+            <p className="text-base text-[var(--text-secondary)]">
+              You bought <b className="text-[var(--text-primary)]">{bought.name}</b>
+              {bought.boughtAt ? ` on ${new Date(bought.boughtAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}` : ''}.{' '}
+              {bought.approved ? 'Your project is running.' : 'Your payment is being checked by our team.'} Paying again creates a <b className="text-[var(--text-primary)]">second project</b> and charges you again.
+            </p>
+            <Link to={`/project-details/${bought.orderId}`} className={primaryButton}>Open my project</Link>
+            <button type="button" className={secondaryButton} onClick={buyAnother}>Yes, buy another one</button>
+          </div>
+        )}
       </Modal>
     </Shell>
   );
