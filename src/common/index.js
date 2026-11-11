@@ -822,6 +822,14 @@ const SummaryApi = {
         url: `${backendDomain}/api/admin/settings`,
         method: "post"
     },
+    invoiceSettings: {
+        url: `${backendDomain}/api/admin/invoice-settings`,
+        method: "get"
+    },
+    updateInvoiceSettings: {
+        url: `${backendDomain}/api/admin/invoice-settings`,
+        method: "patch"
+    },
     myReferredLeads: {
         url: `${backendDomain}/api/my-referred-leads`,
         method: "get"
