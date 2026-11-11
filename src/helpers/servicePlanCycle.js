@@ -53,6 +53,12 @@ export const getNextCycleOutcome = (plan) => {
   const totalCycles = hasFixedTenure(plan) ? Number(plan.serviceTotalCycles) : null;
   const cycleNumber = Number(plan?.serviceCurrentCycleNumber || 1);
 
+  // Stopped by the client (backend serviceLifecycle.js stopServiceRenewal): the cron ends it after the paid
+  // cycle, whatever length was bought, so nothing comes back after this cycle.
+  if (plan?.serviceAutoRenewalStoppedAt) {
+    return { outcome: CYCLE_OUTCOME.FINISHED, returnsOn: null, cycleNumber, totalCycles };
+  }
+
   // The cron's own terminal test, asked first for the same reason it asks it first: a final
   // cycle ends the plan even though a billing date is still sitting on the record.
   if (totalCycles && cycleNumber >= totalCycles) {

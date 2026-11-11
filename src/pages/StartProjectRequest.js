@@ -84,6 +84,8 @@ const StartProjectRequest = () => {
                             <div className="relative flex items-baseline gap-2">
                               <strong className="text-2xl font-bold text-[var(--text-primary)]">{formatCurrency(item.price)}</strong>
                               {item.mainPrice > item.price && <s className="text-base text-[var(--text-muted)]">{formatCurrency(item.mainPrice)}</s>}
+                              {/* A monthly package (backend packagePlanOrder.js) is priced per month and runs as a plan. */}
+                              {item.billing === 'monthly' && <span className="text-sm text-[var(--text-muted)]">/ month</span>}
                             </div>
                             {offer && (
                               <span role="timer" aria-label="Time left on this offer" className={`${pill} badge badge-pending relative w-fit text-sm`}>

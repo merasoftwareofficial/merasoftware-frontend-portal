@@ -14,8 +14,8 @@ import useServerNow from '../hooks/useServerNow';
 import { formatCurrency } from '../helpers/paymentLedger';
 import { forgetPurchaseKey, isUpiReference, paymentSplit, purchaseKeyFor } from '../helpers/planCheckout';
 import {
-  ALREADY_BOUGHT, PACKAGES_PATH, PAYMENT_OPTION_WORDS, offerEnded, purchasePackage, readPackageCatalogue, readPackagePaymentInfo, readPackageQuote,
-  readPhoneCountries, requestPackageBuy, timeLeft,
+  ALREADY_BOUGHT, CYCLE_WORDS, PACKAGES_PATH, PAYMENT_OPTION_WORDS, monthlyCycles, monthlyGets, monthlyLengths, offerEnded, orderPath, purchasePackage,
+  readPackageCatalogue, readPackagePaymentInfo, readPackageQuote, readPhoneCountries, requestPackageBuy, timeLeft,
 } from '../helpers/packageStart';
 
 // Start a Project → one package (/start-new-project/project/package/:packageId), laid out like the plan page
@@ -78,6 +78,9 @@ const PackageScreen = ({ packageId }) => {
   const [loadError, setLoadError] = useState('');
   const [revision, setRevision] = useState(0);
   const [picked, setPicked] = useState('');
+  // A monthly package (backend helpers/packagePlanOrder.js): the client picks how often to pay and for how long.
+  const [pickedCycle, setPickedCycle] = useState('');
+  const [pickedMonths, setPickedMonths] = useState(0);
   const [quote, setQuote] = useState({ for: '', value: null, error: '' });
   const [refreshToken, setRefreshToken] = useState(0);
   const [info, setInfo] = useState(null);
@@ -104,7 +107,12 @@ const PackageScreen = ({ packageId }) => {
     return () => controller.abort();
   }, [revision]);
   // The client's pick, else the package's first option: known from the first frame, so nothing flashes.
-  const paymentOption = item ? (item.paymentOptions.includes(picked) ? picked : item.paymentOptions[0] || '') : '';
+  const monthly = item?.billing === 'monthly';
+  const paymentOption = item && !monthly ? ((item.paymentOptions || []).includes(picked) ? picked : (item.paymentOptions || [])[0] || '') : '';
+  const cycles = monthly ? monthlyCycles(item) : [];
+  const billingCycle = monthly ? (cycles.some((row) => row.billingCycle === pickedCycle) ? pickedCycle : cycles[0]?.billingCycle || '') : '';
+  const lengths = monthly ? monthlyLengths(item, billingCycle) : [];
+  const tenureMonths = monthly ? (lengths.includes(pickedMonths) ? pickedMonths : lengths[lengths.length - 1] || 0) : 0;
   // The wallet balance and the UPI payee, shown before the client pays.
   useEffect(() => {
     if (!item) return undefined;
@@ -114,7 +122,8 @@ const PackageScreen = ({ packageId }) => {
   }, [item?.id, revision]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The backend's price of the choice; a new choice or a refused (stale) price asks again.
-  const choice = useMemo(() => (paymentOption ? { paymentOption } : null), [paymentOption]);
+  const choice = useMemo(() => (monthly ? (billingCycle && tenureMonths ? { billingCycle, tenureMonths } : null) : paymentOption ? { paymentOption } : null),
+    [monthly, billingCycle, tenureMonths, paymentOption]);
   const asked = JSON.stringify({ packageId, choice, refreshToken });
   useEffect(() => {
     if (!choice || !item) return undefined;
@@ -134,7 +143,7 @@ const PackageScreen = ({ packageId }) => {
 
   // One key per package and choice, kept for this tab until the purchase succeeds: a reload or a second click never charges twice.
   // A second purchase the client confirmed is its own purchase, with its own key.
-  const keyScope = `package:${packageId}?${paymentOption}${repeat ? '&repeat' : ''}`;
+  const keyScope = `package:${packageId}?${monthly ? `${billingCycle}:${tenureMonths}` : paymentOption}${repeat ? '&repeat' : ''}`;
   const purchaseKey = useMemo(() => purchaseKeyFor(keyScope), [keyScope]);
   const split = info && q ? paymentSplit(q.dueNow, info.walletBalance) : null;
   const contactBody = needsPhone ? { countryCode: contact.countryCode, phone: contact.phone.trim() } : undefined;
@@ -177,6 +186,21 @@ const PackageScreen = ({ packageId }) => {
 
   if (done) {
     const Icon = done.approved ? CheckCircle2 : Clock;
+    // A monthly package is a plan: its own plan page (invoices every period, updates, stop).
+    if (done.plan) {
+      return (
+        <Shell header={<CustomerPageHeader title={done.approved ? 'Your plan is active' : 'Payment submitted'} />}>
+          <section role="status" className={`${panel} items-center gap-4 p-6 text-center`}>
+            <Icon className={`h-12 w-12 ${done.approved ? 'text-[var(--badge-success-fg)]' : 'text-[var(--badge-pending-fg)]'}`} strokeWidth={1.75} />
+            <h2 className="text-xl font-bold text-[var(--text-primary)]">{item?.name}</h2>
+            <p className="text-base text-[var(--text-secondary)]">{done.approved
+              ? 'Payment received. Your plan is active: every billing period adds its bill to your plan, and you can stop it any time.'
+              : 'Your plan is created. It starts once our team confirms your UPI payment.'}</p>
+            <Link to={orderPath(done.orderId, true)} className={primaryButton}>Open my plan →</Link>
+          </section>
+        </Shell>
+      );
+    }
     return (
       <Shell header={<CustomerPageHeader title={done.approved ? 'Your project is created' : 'Payment submitted'} />}>
         <section role="status" className={`${panel} items-center gap-4 p-6 text-center`}>
@@ -185,7 +209,7 @@ const PackageScreen = ({ packageId }) => {
           <p className="text-base text-[var(--text-secondary)]">{done.approved
             ? 'Payment received. Your work will start within 4 to 24 hours. Follow its progress, send files and see invoices in your project.'
             : 'Your project is created. Once our team confirms your UPI payment, your work will start within 4 to 24 hours.'}</p>
-          <Link to={`/project-details/${done.orderId}`} className={primaryButton}>Open my project →</Link>
+          <Link to={orderPath(done.orderId)} className={primaryButton}>Open my project →</Link>
         </section>
       </Shell>
     );
@@ -202,7 +226,7 @@ const PackageScreen = ({ packageId }) => {
   }
 
   const offer = q?.offer && !ended ? q.offer : null;
-  const optionTitle = PAYMENT_OPTION_WORDS[paymentOption]?.title || '';
+  const optionTitle = monthly ? (billingCycle ? `${CYCLE_WORDS[billingCycle].toLowerCase()}, ${tenureMonths} month${tenureMonths === 1 ? '' : 's'}` : '') : PAYMENT_OPTION_WORDS[paymentOption]?.title || '';
   const upiLink = info && split && split.upi > 0
     ? `upi://pay?pa=${info.upiId}&pn=${encodeURIComponent(info.payeeName)}&am=${split.upi}&cu=INR&tn=${encodeURIComponent(`${item.name} project`)}` : '';
   const phoneMissing = needsPhone && !contact.phone.trim();
@@ -215,7 +239,7 @@ const PackageScreen = ({ packageId }) => {
         <div className={`${panel} min-w-0`}>
           <Step title="What's included">
             <List lines={item.inclusions} />
-            <p className="text-sm text-[var(--text-muted)]">{item.portalUploads ? 'Send your files in your client portal while we build.' : 'Follow the progress in your client portal.'}</p>
+            <p className="text-sm text-[var(--text-muted)]">{monthly ? `${monthlyGets(item)}. Runs as a plan in your client portal; stop any time, with no bill after the period you paid for.` : item.portalUploads ? 'Send your files in your client portal while we build.' : 'Follow the progress in your client portal.'}</p>
             {item.terms.length > 0 && (
               <button type="button" onClick={() => setTermsOpen(true)} className="w-fit cursor-pointer text-sm font-semibold text-[var(--accent-soft-fg)] underline underline-offset-4 transition hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-soft-fg)]">Terms &amp; exclusions</button>
             )}
@@ -234,6 +258,31 @@ const PackageScreen = ({ packageId }) => {
                   <Clock3 size={14} aria-hidden="true" />{now === null ? '—' : `${offer.title} ends in ${timeLeft(offer.endsAt, now)}`}
                 </span>
               )}
+{monthly ? (
+              <div className="flex flex-col gap-2">
+                <span className="text-sm font-semibold text-[var(--text-primary)]">How often do you want to pay?</span>
+                <div role="radiogroup" aria-label="Billing period" className="flex flex-col gap-2">
+                  {cycles.map((option) => (
+                    <button
+                      key={option.billingCycle} type="button" role="radio" aria-checked={billingCycle === option.billingCycle} disabled={processing}
+                      onClick={() => setPickedCycle(option.billingCycle)}
+                      className={`flex items-baseline justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-soft-fg)] ${billingCycle === option.billingCycle
+                        ? 'border-[var(--accent-soft-border)] bg-[var(--accent-soft-bg)] shadow-[inset_0_0_0_1px_var(--accent-soft-border)]' : 'border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] hover:border-[var(--glass-border-strong)]'}`}
+                    >
+                      <b className="text-base text-[var(--text-primary)]">{CYCLE_WORDS[option.billingCycle]}</b>
+                      <span className="text-sm text-[var(--text-muted)]">{option.discountPercent ? `save ${option.discountPercent}%` : ''}</span>
+                    </button>
+                  ))}
+                </div>
+                <label className="flex flex-col gap-2">
+                  <span className="text-sm font-semibold text-[var(--text-primary)]">For how long?</span>
+                  <select aria-label="Length" disabled={processing} value={tenureMonths} onChange={(event) => setPickedMonths(Number(event.target.value))} className={`${field} cursor-pointer`}>
+                    {lengths.map((months) => <option key={months} value={months}>{months} month{months === 1 ? '' : 's'}</option>)}
+                  </select>
+                  <span className="text-sm text-[var(--text-muted)]">The price stays the same for this whole time. To continue after it, you buy it again at the price of that day.</span>
+                </label>
+              </div>
+) : (
               <div className="flex flex-col gap-2">
                 <span className="text-sm font-semibold text-[var(--text-primary)]">How do you want to pay?</span>
                 <div role="radiogroup" aria-label="Payment option" className="flex flex-col gap-2">
@@ -250,11 +299,28 @@ const PackageScreen = ({ packageId }) => {
                   ))}
                 </div>
               </div>
+)}
 
               {quoted.error ? <Notice>{quoted.error}</Notice>
                 : !q ? <p className="flex items-center gap-2 text-sm text-[var(--text-muted)]" role="status"><Spinner />Working out the price…</p>
                   : (
                     <div className="flex flex-col gap-3" aria-live="polite">
+                      {q.monthly ? (
+                        <>
+                          <div className="flex flex-col gap-2">
+                            <Row label="Monthly price" value={formatCurrency(q.monthly.perMonthPrice)} />
+                            {q.monthly.cycleMonths > 1 && <Row label={`× ${q.monthly.cycleMonths} months`} value={formatCurrency(q.monthly.perMonthPrice * q.monthly.cycleMonths)} />}
+                            {q.monthly.discountPercent > 0 && <Row tone="good" label={`${q.monthly.discountPercent}% period discount`} value={`− ${formatCurrency(q.monthly.perMonthPrice * q.monthly.cycleMonths - q.monthly.cyclePrice)}`} />}
+                            {offer && q.discountAmount > 0 && <Row tone="good" label={offer.title} value={`− ${formatCurrency(q.discountAmount)} in total`} />}
+                          </div>
+                          <div className="flex flex-wrap items-baseline justify-between gap-3 border-t border-dashed border-[var(--glass-border)] pt-3">
+                            <span className="text-sm text-[var(--text-muted)]">{q.monthly.cycleMonths === 1 ? 'Per month' : CYCLE_WORDS[q.monthly.billingCycle]}</span>
+                            <span className="font-mono text-3xl font-extrabold tabular-nums text-[var(--text-primary)]">{formatCurrency(q.monthly.cyclePrice)}</span>
+                          </div>
+                          <Row label={`${q.monthly.totalCycles} payment${q.monthly.totalCycles === 1 ? '' : 's'} in total`} value={formatCurrency(q.finalPrice)} />
+                        </>
+                      ) : (
+                      <>
                       <div className="flex flex-col gap-2">
                         <Row label="Package price" value={formatCurrency(q.regularPrice)} />
                         {offer && q.discountAmount > 0 && <Row tone="good" label={offer.title} value={`− ${formatCurrency(q.discountAmount)}`} />}
@@ -267,13 +333,15 @@ const PackageScreen = ({ packageId }) => {
                         <span className="font-mono text-3xl font-extrabold tabular-nums text-[var(--text-primary)]">{formatCurrency(q.dueNow)}</span>
                       </div>
                       {q.installments.length > 0 && <Row label="Total" value={formatCurrency(q.finalPrice)} />}
+                      </>
+                      )}
                       {split && (
                         <div className="flex flex-col gap-2 rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] p-3">
                           <Row label="Paid from wallet" value={formatCurrency(split.wallet)} />
                           {split.upi > 0 && <Row label="To pay by UPI" value={formatCurrency(split.upi)} />}
                           <p className="text-sm text-[var(--text-muted)]">
                             Wallet balance: {formatCurrency(info.walletBalance)}.{' '}
-                            {split.upi > 0 ? 'The UPI part is checked by our team; your project starts when it is approved.' : 'Your wallet covers it, so your project is created at once.'}
+                            {split.upi > 0 ? `The UPI part is checked by our team; your ${monthly ? 'plan' : 'project'} starts when it is approved.` : `Your wallet covers it, so your ${monthly ? 'plan starts' : 'project is created'} at once.`}
                           </p>
                         </div>
                       )}
@@ -286,7 +354,7 @@ const PackageScreen = ({ packageId }) => {
                   : !q ? <><Spinner className="mr-2" />Working out the price…</>
                     : split && split.upi === 0 ? `Pay ${formatCurrency(split.total)} from wallet` : split ? 'Continue to UPI' : 'Proceed to pay →'}
               </button>
-              <p className="text-sm text-[var(--text-muted)]">You pay the first payment now (wallet first, then UPI). Your project is created with it and runs in your client portal.</p>
+              <p className="text-sm text-[var(--text-muted)]">{monthly ? 'You pay the first period now (wallet first, then UPI). Your plan starts with it; each next period adds its bill to your plan.' : 'You pay the first payment now (wallet first, then UPI). Your project is created with it and runs in your client portal.'}</p>
             </>
           ) : (
             <>
@@ -325,9 +393,9 @@ const PackageScreen = ({ packageId }) => {
             <p className="text-base text-[var(--text-secondary)]">
               You bought <b className="text-[var(--text-primary)]">{bought.name}</b>
               {bought.boughtAt ? ` on ${new Date(bought.boughtAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}` : ''}.{' '}
-              {bought.approved ? 'Your project is running.' : 'Your payment is being checked by our team.'} Paying again creates a <b className="text-[var(--text-primary)]">second project</b> and charges you again.
+              {bought.approved ? `Your ${bought.plan ? 'plan' : 'project'} is running.` : 'Your payment is being checked by our team.'} Paying again creates a <b className="text-[var(--text-primary)]">second {bought.plan ? 'plan' : 'project'}</b> and charges you again.
             </p>
-            <Link to={`/project-details/${bought.orderId}`} className={primaryButton}>Open my project</Link>
+            <Link to={orderPath(bought.orderId, bought.plan)} className={primaryButton}>{bought.plan ? 'Open my plan' : 'Open my project'}</Link>
             <button type="button" className={secondaryButton} onClick={buyAnother}>Yes, buy another one</button>
           </div>
         )}

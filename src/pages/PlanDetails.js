@@ -175,6 +175,9 @@ const PlanDetails = ({ isProjectServiceView = false }) => {
 
 
   const serviceActionMessage = '';
+  // Stop a monthly package (a plan made from a package, backend helpers/packagePlanOrder.js) like a subscription:
+  // the paid period runs to its end, then no more bills (backend serviceLifecycle.js + servicePlanRenewalCron.js).
+  const [stopStep, setStopStep] = useState('');
 
   const detail = useResource(`${SummaryApi.orderDetails.url}/${orderId}`, next => {
     if (!next) { setPlan(null); return; }
@@ -185,6 +188,20 @@ const PlanDetails = ({ isProjectServiceView = false }) => {
   const loading = detail.loading || history.loading;
   const notFound = Boolean(detail.error && !plan);
   const fetchPlanDetails = () => Promise.all([detail.refresh(), history.refresh()]);
+  const stopPlan = async () => {
+    setStopStep('sending');
+    try {
+      const response = await fetch(SummaryApi.stopServiceRenewal.url, {
+        method: SummaryApi.stopServiceRenewal.method, credentials: 'include',
+        headers: { 'content-type': 'application/json' }, body: JSON.stringify({ serviceOrderId: orderId }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success) throw new Error(result.message || 'Could not stop the plan');
+      toast.success(result.message || 'Your plan stops after the period you paid for');
+      await detail.refresh();
+    } catch (error) { toast.error(error.message); }
+    setStopStep('');
+  };
   useEffect(() => { if (detail.error || history.error) toast.error(detail.error || history.error); }, [detail.error, history.error]);
 
   const handleBack = () => {
@@ -381,7 +398,7 @@ const PlanDetails = ({ isProjectServiceView = false }) => {
             {plan.isServicePlan && (
               <section className="relative border-b border-[var(--glass-border)] px-5 py-4 text-[var(--text-primary)] sm:px-6">
                 <p className="text-sm text-[var(--text-secondary)]">
-                  {product.formattedDescriptions?.[0]?.content?.replace(/<[^>]*>/g, '') || 'No additional information for this plan.'}
+                  {product.formattedDescriptions?.[0]?.content?.replace(/<[^>]*>/g, '') || plan.salesPackage?.package?.description || 'No additional information for this plan.'}
                 </p>
 
                 {serviceActionMessage && (
@@ -403,6 +420,27 @@ const PlanDetails = ({ isProjectServiceView = false }) => {
                       </div>
                     ))}
                   </dl>
+                )}
+
+                {/* A monthly package: stop it any time; it ends after the period already paid for. */}
+                {plan.salesPackage && plan.servicePlanStatus === 'active' && (
+                  <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-[var(--glass-border)] pt-3">
+                    {plan.serviceAutoRenewalStoppedAt ? (
+                      <p role="status" className="text-sm text-[var(--text-secondary)]">
+                        Stopped. Your plan ends on {plan.serviceCurrentCycleEnd ? formatDate(plan.serviceCurrentCycleEnd) : 'the end of this period'}; no more bills after that.
+                      </p>
+                    ) : nextCycle.outcome !== CYCLE_OUTCOME.RETURNS ? null : stopStep === 'ask' ? (
+                      <>
+                        <p className="text-sm text-[var(--text-secondary)]">Stop after this period? You keep it until {plan.serviceCurrentCycleEnd ? formatDate(plan.serviceCurrentCycleEnd) : 'the end of this period'}, with no more bills. To continue later, you buy it again.</p>
+                        <button type="button" onClick={stopPlan} className="rounded-xl border border-[var(--badge-error-border)] bg-[var(--badge-error-bg)] px-3 py-1.5 text-sm font-semibold text-[var(--badge-error-fg)]">Yes, stop my plan</button>
+                        <button type="button" onClick={() => setStopStep('')} className="rounded-xl border border-[var(--glass-border)] px-3 py-1.5 text-sm font-semibold text-[var(--text-primary)]">Keep it</button>
+                      </>
+                    ) : (
+                      <button type="button" disabled={stopStep === 'sending'} onClick={() => setStopStep('ask')} className="rounded-xl border border-[var(--glass-border)] px-3 py-1.5 text-sm font-semibold text-[var(--text-primary)] disabled:opacity-60">
+                        {stopStep === 'sending' ? 'Stopping…' : 'Stop plan'}
+                      </button>
+                    )}
+                  </div>
                 )}
 
                 {/* A plan without uploads: what our team did, posted by the admin

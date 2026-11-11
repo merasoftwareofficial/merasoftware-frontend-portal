@@ -4109,7 +4109,7 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
   const [startRequestId, setStartRequestId] = useState("");
   const pendingRequest = useRef(null);
   const openedRequestApplied = useRef(false);
-  // A monthly package: the customer's cycle, length, files and updates, priced by the backend.
+  // A monthly package: the customer's cycle and length, priced by the backend; it is made as a plan (Plans tab).
   const [monthlyChoice, setMonthlyChoice] = useState(null);
   const [monthlyQuote, setMonthlyQuote] = useState(null);
   const [monthlyQuoteError, setMonthlyQuoteError] = useState("");
@@ -4293,7 +4293,7 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMonthly, selectedPackage?.id]);
   const monthlyRequest = isMonthly && monthlyChoice ? JSON.stringify({ packageId: selectedPackage.id, customerId, offerReservationId: selectedReservation?.id || undefined,
-    choice: { billingCycle: monthlyChoice.billingCycle, tenureMonths: monthlyChoice.tenureMonths, ...(selectedPackage.monthly.pricing === 'per_file' ? { files: monthlyChoice.files, updates: monthlyChoice.updates } : {}) } }) : "";
+    choice: { billingCycle: monthlyChoice.billingCycle, tenureMonths: monthlyChoice.tenureMonths } }) : "";
   useEffect(() => {
     setMonthlyQuote(null); setMonthlyQuoteError("");
     if (!monthlyRequest) return undefined;
@@ -4423,7 +4423,7 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
         throw new Error(result.message || "Failed to create project");
       }
 
-      toast.success("Project created and started for this client.");
+      toast.success(isMonthly ? "Monthly package started as a plan for this client (Plans tab)." : "Project created and started for this client.");
       onCreated?.();
     } catch (error) {
       console.error("Error creating project for client:", error);
@@ -4549,7 +4549,7 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
           {selectedOffer?.paymentPolicy && selectedOffer.paymentPolicy.mode !== 'current' && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-base text-emerald-900">Payment terms: {selectedOffer.paymentPolicy.mode.replaceAll('_', ' ')}{selectedOffer.paymentPolicy.mode === 'limited_uploads' ? ` · ${selectedOffer.paymentPolicy.uploadAllowance} submissions before payment` : ''} · Due in {selectedOffer.paymentPolicy.dueDays} day(s). These terms will be saved with this project.</p>}
           {isPricedSelection && <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-base text-slate-700"><strong>{selectedPackage?.name || selectedOffer?.title}</strong><p>{selectedOffer ? `Offer: ${selectedOffer.title}` : "Regular package price"}</p><ul className="mt-2 list-disc pl-5">{(selectedPackage?.inclusions || selectedOffer?.inclusions || []).map((line, index) => <li key={index}>{line}</li>)}</ul><p className="mt-3">Regular ₹{selectedRegular.toLocaleString("en-IN")} − offer benefit ₹{Math.round((selectedRegular - bundlePrice) * 100) / 100} + extra features ₹{featuresTotal.toLocaleString("en-IN")}</p><p className="mt-1">Select additional features only for work outside the package scope.</p>{selectedPackage?.linkedPlanIds?.length > 0 && <p>Related services are references only; no service plan will be purchased or activated.</p>}<details className="mt-2"><summary>Agreed terms</summary><ul className="list-disc pl-5">{(selectedPackage?.quote.terms || selectedOffer?.resolvedTerms || []).map((line, index) => <li key={index}>{line}</li>)}</ul></details></div>}
           {isMonthly && monthlyChoice && <div className="rounded-xl border border-slate-200 bg-white p-4 text-base text-slate-700 space-y-3">
-            <p className="font-semibold">Monthly package: the client pays per billing cycle. Sold as it is, without extra features or a price adjustment.</p>
+            <p className="font-semibold">Monthly package: it runs as a plan (Plans tab) and the client pays per billing cycle at this price for the whole length. Sold as it is, without extra features or a price adjustment.</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block"><span className={projectFormLabelClassName}>Billing cycle</span>
                 <select aria-label="Billing cycle" className={projectFormInputClassName} value={monthlyChoice.billingCycle} onChange={event => { const months = CYCLE_MONTHS[event.target.value]; setMonthlyChoice(current => ({ ...current, billingCycle: event.target.value, tenureMonths: Math.max(months, Math.floor(current.tenureMonths / months) * months) })); }}>
@@ -4559,12 +4559,6 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
                 <select aria-label="Length in months" className={projectFormInputClassName} value={monthlyChoice.tenureMonths} onChange={event => setMonthlyChoice(current => ({ ...current, tenureMonths: Number(event.target.value) }))}>
                   {Array.from({ length: Math.floor(Math.min(selectedPackage.monthly.maxTenureMonths, 12) / CYCLE_MONTHS[monthlyChoice.billingCycle]) }, (_, index) => (index + 1) * CYCLE_MONTHS[monthlyChoice.billingCycle]).map(months => <option key={months} value={months}>{months}</option>)}
                 </select></label>
-              {selectedPackage.monthly.pricing === 'per_file' && <>
-                <label className="block"><span className={projectFormLabelClassName}>Files per update</span>
-                  <input aria-label="Files per update" type="number" className={projectFormInputClassName} min={selectedPackage.monthly.files.min} max={selectedPackage.monthly.files.max} step={selectedPackage.monthly.files.step} value={monthlyChoice.files ?? ''} onChange={event => setMonthlyChoice(current => ({ ...current, files: Number(event.target.value) }))} /></label>
-                <label className="block"><span className={projectFormLabelClassName}>Updates a month</span>
-                  <input aria-label="Updates per month" type="number" className={projectFormInputClassName} min={selectedPackage.monthly.updatesPerMonth.min} max={selectedPackage.monthly.updatesPerMonth.max} value={monthlyChoice.updates ?? ''} onChange={event => setMonthlyChoice(current => ({ ...current, updates: Number(event.target.value) }))} /></label>
-              </>}
             </div>
             {monthlyQuoteError ? <p role="alert" className="text-red-600">{monthlyQuoteError}</p>
               : !monthlyQuote ? <p className="text-slate-500">Working out the monthly price…</p>

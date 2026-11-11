@@ -16,6 +16,25 @@ export const PAYMENT_OPTION_WORDS = {
   installments_3: { title: '3 installments', detail: '30% + 30% + 40%' },
 };
 
+// A monthly package (backend helpers/packagePlanOrder.js) runs as a plan: the client picks a billing period and a
+// length from the package's own settings; the backend quote prices the choice (servicePlanPricing.js).
+const CYCLE_MONTHS = { monthly: 1, quarterly: 3, half_yearly: 6, yearly: 12 };
+export const CYCLE_WORDS = { monthly: 'Monthly', quarterly: 'Every 3 months', half_yearly: 'Every 6 months', yearly: 'Yearly' };
+export const monthlyCycles = (item) => (item?.monthly?.billingOptions || [])
+  .filter((option) => CYCLE_MONTHS[option.billingCycle] <= Math.min(item.monthly.maxTenureMonths || 12, 12))
+  .sort((a, b) => CYCLE_MONTHS[a.billingCycle] - CYCLE_MONTHS[b.billingCycle]);
+export const monthlyLengths = (item, cycle) => {
+  const step = CYCLE_MONTHS[cycle] || 0;
+  const max = Math.min(item?.monthly?.maxTenureMonths || 12, 12);
+  const out = [];
+  for (let months = step; step && months <= max; months += step) out.push(months);
+  return out;
+};
+export const monthlyGets = (item) => (!item?.portalUploads ? 'Progress updates from our team'
+  : item.monthly?.uploadsPerMonth ? `${item.monthly.uploadsPerMonth} update${item.monthly.uploadsPerMonth === 1 ? '' : 's'} a month in your portal` : 'Unlimited updates in your portal');
+// A bought package's page: a monthly package is a plan (its plan page), a one-time package a project.
+export const orderPath = (orderId, plan = false) => `/${plan ? 'plan-details' : 'project-details'}/${orderId}`;
+
 const call = async (spec, { body, signal, fallback }) => {
   const response = await fetch(spec.url, {
     method: spec.method,
