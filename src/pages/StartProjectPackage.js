@@ -78,6 +78,7 @@ const PackageScreen = ({ packageId }) => {
   const [loadError, setLoadError] = useState('');
   const [revision, setRevision] = useState(0);
   const [picked, setPicked] = useState('');
+  const [advanceAmount, setAdvanceAmount] = useState(0);
   // A monthly package (backend helpers/packagePlanOrder.js): the client picks how often to pay and for how long.
   const [pickedCycle, setPickedCycle] = useState('');
   const [pickedMonths, setPickedMonths] = useState(0);
@@ -122,8 +123,8 @@ const PackageScreen = ({ packageId }) => {
   }, [item?.id, revision]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The backend's price of the choice; a new choice or a refused (stale) price asks again.
-  const choice = useMemo(() => (monthly ? (billingCycle && tenureMonths ? { billingCycle, tenureMonths } : null) : paymentOption ? { paymentOption } : null),
-    [monthly, billingCycle, tenureMonths, paymentOption]);
+  const choice = useMemo(() => (monthly ? (billingCycle && tenureMonths ? { billingCycle, tenureMonths } : null) : paymentOption ? { paymentOption, ...(advanceAmount > 0 ? { advanceAmount } : {}) } : null),
+    [monthly, billingCycle, tenureMonths, paymentOption, advanceAmount]);
   const asked = JSON.stringify({ packageId, choice, refreshToken });
   useEffect(() => {
     if (!choice || !item) return undefined;
@@ -143,7 +144,7 @@ const PackageScreen = ({ packageId }) => {
 
   // One key per package and choice, kept for this tab until the purchase succeeds: a reload or a second click never charges twice.
   // A second purchase the client confirmed is its own purchase, with its own key.
-  const keyScope = `package:${packageId}?${monthly ? `${billingCycle}:${tenureMonths}` : paymentOption}${repeat ? '&repeat' : ''}`;
+  const keyScope = `package:${packageId}?${monthly ? `${billingCycle}:${tenureMonths}` : `${paymentOption}:${advanceAmount || 'default'}`}${repeat ? '&repeat' : ''}`;
   const purchaseKey = useMemo(() => purchaseKeyFor(keyScope), [keyScope]);
   const split = info && q ? paymentSplit(q.dueNow, info.walletBalance) : null;
   const contactBody = needsPhone ? { countryCode: contact.countryCode, phone: contact.phone.trim() } : undefined;
@@ -293,11 +294,17 @@ const PackageScreen = ({ packageId }) => {
                       className={`flex items-baseline justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-soft-fg)] ${paymentOption === option
                         ? 'border-[var(--accent-soft-border)] bg-[var(--accent-soft-bg)] shadow-[inset_0_0_0_1px_var(--accent-soft-border)]' : 'border-[var(--glass-border)] bg-[var(--glass-bg-subtle)] hover:border-[var(--glass-border-strong)]'}`}
                     >
-                      <b className="text-base text-[var(--text-primary)]">{PAYMENT_OPTION_WORDS[option]?.title || option}</b>
-                      <span className="text-sm text-[var(--text-muted)]">{PAYMENT_OPTION_WORDS[option]?.detail}</span>
+                      <b className="text-base text-[var(--text-primary)]">{q?.advance && option === 'full' ? 'Advance + final balance' : PAYMENT_OPTION_WORDS[option]?.title || option}</b>
+                      <span className="text-sm text-[var(--text-muted)]">{q?.advance && option === 'full' ? 'balance at 90% progress' : PAYMENT_OPTION_WORDS[option]?.detail}</span>
                     </button>
                   ))}
                 </div>
+                {q?.advance && <label className="mt-2 flex flex-col gap-2">
+                  <span className="text-sm font-semibold text-[var(--text-primary)]">Advance to pay now</span>
+                  <input aria-label="Advance to pay now" type="number" min={q.advance.minimum} max={q.finalPrice} step="0.01" disabled={processing}
+                    value={advanceAmount || q.advance.selected} onChange={(event) => setAdvanceAmount(Number(event.target.value))} className={field} />
+                  <span className="text-sm text-[var(--text-muted)]">Minimum {formatCurrency(q.advance.minimum)}. You may pay up to {formatCurrency(q.finalPrice)}.</span>
+                </label>}
               </div>
 )}
 
@@ -325,7 +332,7 @@ const PackageScreen = ({ packageId }) => {
                         <Row label="Package price" value={formatCurrency(q.regularPrice)} />
                         {offer && q.discountAmount > 0 && <Row tone="good" label={offer.title} value={`− ${formatCurrency(q.discountAmount)}`} />}
                         {q.installments.map((part) => (
-                          <Row key={part.installmentNumber} label={`Installment ${part.installmentNumber} (${part.percentage}%)${part.progressThreshold == null ? ' · at the start' : ` · at ${part.progressThreshold}% progress`}`} value={formatCurrency(part.amount)} />
+                          <Row key={part.installmentNumber} label={`${q.advance && part.installmentNumber === 1 ? 'Advance' : `Installment ${part.installmentNumber}`} (${part.percentage}%)${part.progressThreshold == null ? ' · at the start' : ` · at ${part.progressThreshold}% progress`}`} value={formatCurrency(part.amount)} />
                         ))}
                       </div>
                       <div className="flex flex-wrap items-baseline justify-between gap-3 border-t border-dashed border-[var(--glass-border)] pt-3">

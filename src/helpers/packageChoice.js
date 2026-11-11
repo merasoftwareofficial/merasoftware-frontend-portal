@@ -8,7 +8,7 @@ export const CYCLE_MONTHS = { monthly: 1, quarterly: 3, half_yearly: 6, yearly: 
 // "2 installments", or "Quarterly · 12 months" (an older request may still say its files and updates).
 export const packageChoiceText = (choice) => {
   if (!choice) return '';
-  if (choice.paymentOption) return PAYMENT_OPTION_WORDS[choice.paymentOption] || choice.paymentOption;
+  if (choice.paymentOption) return `${PAYMENT_OPTION_WORDS[choice.paymentOption] || choice.paymentOption}${choice.advanceAmount ? ` · ₹${Number(choice.advanceAmount).toLocaleString('en-IN')} advance` : ''}`;
   return [CYCLE_WORDS[choice.billingCycle], choice.tenureMonths ? `${choice.tenureMonths} month${choice.tenureMonths === 1 ? '' : 's'}` : '',
     choice.files ? `${choice.files} files × ${choice.updates} updates a month` : ''].filter(Boolean).join(' · ');
 };
