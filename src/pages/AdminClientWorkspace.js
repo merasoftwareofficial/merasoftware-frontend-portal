@@ -83,8 +83,9 @@ const CANCEL_REFUND_MODE_OPTIONS = [
 ];
 
 const OVERVIEW_TAB = { id: "overview", label: "Overview", active: true };
-const PROJECTS_TAB = { id: "projects", label: "Projects", active: true };
-const PLANS_TAB = { id: "plans", label: "Plans", active: true };
+// One tab lists projects and plans together (owner decision 12 Nov 2026). Its id stays "projects" so
+// existing links keep working; an old ?tab=plans link is moved here (see the effect on activeTab).
+const PROJECTS_TAB = { id: "projects", label: "Projects & Plans", active: true };
 const PAYMENTS_TAB = { id: "payments", label: "Payments", active: true };
 const DELETED_PROJECTS_TAB = { id: "deleted-projects", label: "Deleted Projects", active: true };
 const DOCUMENTS_TAB = { id: "documents", label: "Documents", active: true };
@@ -93,7 +94,7 @@ const ACCESS_TAB = { id: "access", label: "Account & Access", active: true };
 
 // Fixed tab order (user-confirmed) — same for every client, no longer derived from whether the
 // client currently has an active project/plan.
-const WORKSPACE_TABS = [PROJECTS_TAB, PLANS_TAB, PAYMENTS_TAB, DELETED_PROJECTS_TAB, DOCUMENTS_TAB, UPLOAD_LINKS_TAB, ACCESS_TAB, OVERVIEW_TAB];
+const WORKSPACE_TABS = [PROJECTS_TAB, PAYMENTS_TAB, DELETED_PROJECTS_TAB, DOCUMENTS_TAB, UPLOAD_LINKS_TAB, ACCESS_TAB, OVERVIEW_TAB];
 
 const safeDateTime = (value) => {
   if (!value) return null;
@@ -176,6 +177,18 @@ const sortWorkspaceItem = (a, b, getRank) => {
   const rankDiff = getRank(a) - getRank(b);
   if (rankDiff !== 0) return rankDiff;
   return (safeDateTime(b?.updatedAt || b?.createdAt)?.getTime() || 0) - (safeDateTime(a?.updatedAt || a?.createdAt)?.getTime() || 0);
+};
+
+// Projects & Plans tab. The two rank functions above use different scales, so the mixed list ranks on one:
+// running work (0) before closed work (1) — a completed, cancelled or rejected project, or a completed,
+// expired or inactive plan — then latest first, as each list did on its own.
+const getWorkItemSortRank = (order) => ((isPlanItem(order) ? getPlanSortRank(order) : getProjectSortRank(order)) > 0 ? 1 : 0);
+const createdTime = (order) => safeDateTime(order?.createdAt)?.getTime() || 0;
+const WORK_LIST_SORTS = {
+  status: { label: "Status (running first)", compare: (a, b) => sortWorkspaceItem(a, b, getWorkItemSortRank) },
+  newest: { label: "Newest first", compare: (a, b) => createdTime(b) - createdTime(a) },
+  oldest: { label: "Oldest first", compare: (a, b) => createdTime(a) - createdTime(b) },
+  name: { label: "Name (A–Z)", compare: (a, b) => String(getWorkspaceItemName(a) || "").localeCompare(String(getWorkspaceItemName(b) || ""), "en", { sensitivity: "base" }) },
 };
 
 // Display label for a project row. Derived by backend/helpers/orderStatusEngine.js and delivered
@@ -336,6 +349,7 @@ const AdminClientWorkspace = () => {
   useEffect(() => {
     if (!startRequestParam) return;
     setOpenedStartRequest(startRequestParam);
+    setCreateProjectMode("package"); // a package request is always made from its package
     setShowCreateProjectForm(true);
     const params = new URLSearchParams(searchParams);
     params.delete("startRequest");
@@ -415,6 +429,11 @@ const AdminClientWorkspace = () => {
   const cancelHasAutoFocused = useRef(false);
   const cancelPendingServiceAdvanceIndex = useRef(null);
   const [showCreateProjectForm, setShowCreateProjectForm] = useState(false);
+  // Which Create button opened the form: "package" (Create from Package) or "custom" (Create Custom Project).
+  const [createProjectMode, setCreateProjectMode] = useState("custom");
+  // Projects & Plans list: type filter and sort order (page state only — setWorkspaceParams rewrites the URL).
+  const [workListType, setWorkListType] = useState("all");
+  const [workListSort, setWorkListSort] = useState("status");
   const [workspaceRefreshKey, setWorkspaceRefreshKey] = useState(0);
   // Edit Details: the client's lead, loaded when the button is pressed (EditLeadModal edits the lead
   // and the backend writes a new name or phone to this account too).
@@ -584,18 +603,19 @@ const AdminClientWorkspace = () => {
     setActiveProjectRefreshKey((current) => current + 1);
   };
 
+  // Plans open inside the Projects & Plans tab, so every plan URL carries tab=projects.
   const handleOpenPlan = (plan) => {
     if (!plan?._id) return;
-    setWorkspaceParams({ tab: "plans", plan: plan._id });
+    setWorkspaceParams({ tab: "projects", plan: plan._id });
   };
 
   // Same contract as Projects above.
   const handleBackToPlans = () => {
-    stepBackOrReplace("plans");
+    stepBackOrReplace("projects");
   };
 
   const closeDeletedPlan = () => {
-    setWorkspaceParams({ tab: "plans" }, { replace: true });
+    setWorkspaceParams({ tab: "projects" }, { replace: true });
   };
 
   const handleToggleDeleteSection = (sectionKey) => {
@@ -1324,6 +1344,12 @@ const AdminClientWorkspace = () => {
     [allData.orders]
   );
 
+  // Projects & Plans tab: both lists in one, filtered by type and sorted as the admin picks.
+  const workListItems = useMemo(() => {
+    const list = workListType === "projects" ? projectOrders : workListType === "plans" ? planOrders : [...projectOrders, ...planOrders];
+    return list.slice().sort(WORK_LIST_SORTS[workListSort]?.compare || WORK_LIST_SORTS.status.compare);
+  }, [projectOrders, planOrders, workListType, workListSort]);
+
   // Fixed order (user-confirmed, replaces the earlier active-project/active-plan-dependent
   // ordering): Projects, Plans, Payments, Documents, Access, Overview last — same for every
   // client regardless of what they currently have running.
@@ -1378,6 +1404,9 @@ const AdminClientWorkspace = () => {
   useEffect(() => {
     if (activeTab === null) {
       setWorkspaceParams({ tab: location.state?.activeTab || tabs[0].id }, { replace: true });
+    } else if (activeTab === "plans") {
+      // The Plans tab is now part of Projects & Plans; an old link keeps its open plan.
+      setWorkspaceParams({ tab: "projects", plan: activePlanId }, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
@@ -1665,7 +1694,7 @@ const AdminClientWorkspace = () => {
                 getStatusLabel={getProjectDisplayStatus}
                 getBadgeClassName={getBadgeClassName}
                 formatDateTime={formatDateTime}
-                backLabel="Back to Projects"
+                backLabel="Back to Projects & Plans"
                 detailLabel="Project"
                 view={activeProjectView}
                 onOpenView={handleOpenProjectView}
@@ -1686,56 +1715,7 @@ const AdminClientWorkspace = () => {
                   handleSoftRefreshActiveProject();
                 }}
               />
-            ) : (
-              <>
-              <CompactWorkspaceCard
-                title="Projects"
-                subtitle={`Active projects first. Last updated ${dataLoading && !client ? "..." : lastUpdatedAt}.`}
-                items={projectOrders}
-                emptyText={dataLoading ? "Loading..." : "No projects found for this client."}
-                onRowClick={handleOpenProject}
-                onDelete={handleRequestDelete}
-                onCancel={handleRequestCancel}
-                deletingOrderId={deletingOrderId}
-                cancellingOrderId={cancellingOrderId}
-                headerAction={
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateProjectForm(true)}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-                  >
-                    Create Project for Client
-                  </button>
-                }
-                renderMeta={(order) => [
-                  `Category: ${getCategoryLabel(order)}`,
-                  `Phase: ${getProjectPhaseLabel(order)}`,
-                  `Progress: ${order.projectProgress || 0}%`,
-                ]}
-                renderRight={(order) => (
-                  <div className="flex flex-col items-end gap-2">
-                    <span
-                      className={[
-                        "inline-flex rounded-full px-3 py-1 text-xs font-semibold",
-                        getBadgeClassName(getProjectDisplayStatus(order)),
-                      ].join(" ")}
-                    >
-                      {getProjectDisplayStatus(order)}
-                    </span>
-                    <span className="text-xs text-slate-500">{formatDateTime(order.updatedAt || order.createdAt)}</span>
-                  </div>
-                )}
-              />
-              {/* Offer reservations: extend a deadline or apply the saved reserved price. */}
-              <ReservedOffersPanel customerId={customerId} projects={projectOrders} onChanged={() => setWorkspaceRefreshKey((current) => current + 1)} />
-              </>
-            )}
-          </section>
-        )}
-
-        {activeTab === "plans" && (
-          <section className="space-y-5">
-            {activePlan ? (
+            ) : activePlan ? (
               <WorkspaceDetailSubpage
                 item={activePlan}
                 loading={activePlanLoading}
@@ -1748,7 +1728,7 @@ const AdminClientWorkspace = () => {
                 getStatusLabel={getPlanDisplayStatus}
                 getBadgeClassName={getBadgeClassName}
                 formatDateTime={formatDateTime}
-                backLabel="Back to Plans"
+                backLabel="Back to Projects & Plans"
                 detailLabel="Plan"
                 onSoftRefresh={() => setActivePlanRefreshKey((current) => current + 1)}
                 allInvoices={allData.invoices}
@@ -1778,53 +1758,106 @@ const AdminClientWorkspace = () => {
                     if (orderId) handleOpenPlan({ _id: orderId });
                   }}
                 />
-              ) : (
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setStartPlanOpen(true)}
-                    className="rounded-2xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
-                  >
-                    Start plan for client
-                  </button>
-                </div>
-              )}
+              ) : null}
               <CompactWorkspaceCard
-                title="Plans"
-                subtitle={`Active plans first. ${planOrders.length} total.`}
-                items={planOrders}
-                emptyText={dataLoading ? "Loading..." : "No plans found for this client."}
-                onRowClick={handleOpenPlan}
+                title="Projects & Plans"
+                subtitle={`${projectOrders.length} project${projectOrders.length === 1 ? "" : "s"} · ${planOrders.length} plan${planOrders.length === 1 ? "" : "s"}. Last updated ${dataLoading && !client ? "..." : lastUpdatedAt}.`}
+                items={workListItems}
+                emptyText={dataLoading ? "Loading..." : workListType === "plans" ? "No plans found for this client." : workListType === "projects" ? "No projects found for this client." : "No projects or plans found for this client."}
+                onRowClick={(order) => (isPlanItem(order) ? handleOpenPlan(order) : handleOpenProject(order))}
                 onDelete={handleRequestDelete}
                 onCancel={handleRequestCancel}
                 deletingOrderId={deletingOrderId}
                 cancellingOrderId={cancellingOrderId}
-                renderMeta={(plan) => [
-                  `Type: ${getPlanTypeLabel(plan)}`,
-                  // A service's allowance is frozen on the order; getItemSummary reads it from
-                  // there and returns "" for a reminder-only service, which then shows no usage line.
-                  plan.isServicePlan
-                    ? (getItemSummary(plan) ? `Usage: ${getItemSummary(plan)}` : null)
-                    : `Usage: ${
-                        plan.productId?.isMonthlyRenewablePlan || plan.productId?.isMonthlyLimitedPlan
-                          ? `${plan.currentMonthUpdatesUsed || 0} used / ${plan.currentMonthUpdatesRemaining ?? "N/A"} remaining`
-                          : `${plan.updatesUsed || 0} updates used`
-                      }`,
-                ].filter(Boolean)}
-                renderRight={(plan) => (
-                  <div className="flex flex-col items-end gap-2">
-                    <span
-                      className={[
-                        "inline-flex rounded-full px-3 py-1 text-xs font-semibold",
-                        getBadgeClassName(getPlanDisplayStatus(plan)),
-                      ].join(" ")}
+                headerAction={
+                  <div className="flex flex-wrap gap-2 sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => { setCreateProjectMode("package"); setShowCreateProjectForm(true); }}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
                     >
-                      {getPlanDisplayStatus(plan)}
-                    </span>
-                    <span className="text-xs text-slate-500">{formatDateTime(plan.updatedAt || plan.createdAt)}</span>
+                      Create from Package
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setCreateProjectMode("custom"); setShowCreateProjectForm(true); }}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-100"
+                    >
+                      Create Custom Project
+                    </button>
+                    {!startPlanOpen ? (
+                      <button
+                        type="button"
+                        onClick={() => setStartPlanOpen(true)}
+                        className="inline-flex items-center justify-center rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100"
+                      >
+                        Start Service Plan
+                      </button>
+                    ) : null}
                   </div>
-                )}
+                }
+                toolbar={
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div role="group" aria-label="Show" className="inline-flex w-fit rounded-2xl border border-slate-200 bg-white p-1">
+                      {[["all", "All"], ["projects", "Projects"], ["plans", "Plans"]].map(([id, label]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          aria-pressed={workListType === id}
+                          onClick={() => setWorkListType(id)}
+                          className={[
+                            "rounded-xl px-3 py-1.5 text-sm font-semibold transition",
+                            workListType === id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100",
+                          ].join(" ")}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                      Sort
+                      <select
+                        value={workListSort}
+                        onChange={(event) => setWorkListSort(event.target.value)}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800"
+                      >
+                        {Object.entries(WORK_LIST_SORTS).map(([id, option]) => <option key={id} value={id}>{option.label}</option>)}
+                      </select>
+                    </label>
+                  </div>
+                }
+                renderMeta={(order) => (isPlanItem(order)
+                  ? [
+                      `Plan · ${getPlanTypeLabel(order)}`,
+                      // A service's allowance is frozen on the order; getItemSummary reads it from
+                      // there and returns "" for a reminder-only service, which then shows no usage line.
+                      order.isServicePlan
+                        ? (getItemSummary(order) ? `Usage: ${getItemSummary(order)}` : null)
+                        : `Usage: ${
+                            order.productId?.isMonthlyRenewablePlan || order.productId?.isMonthlyLimitedPlan
+                              ? `${order.currentMonthUpdatesUsed || 0} used / ${order.currentMonthUpdatesRemaining ?? "N/A"} remaining`
+                              : `${order.updatesUsed || 0} updates used`
+                          }`,
+                    ].filter(Boolean)
+                  : [
+                      `Project · ${getCategoryLabel(order)}`,
+                      `Phase: ${getProjectPhaseLabel(order)}`,
+                      `Progress: ${order.projectProgress || 0}%`,
+                    ])}
+                renderRight={(order) => {
+                  const status = isPlanItem(order) ? getPlanDisplayStatus(order) : getProjectDisplayStatus(order);
+                  return (
+                    <div className="flex flex-col items-end gap-2">
+                      <span className={["inline-flex rounded-full px-3 py-1 text-xs font-semibold", getBadgeClassName(status)].join(" ")}>
+                        {status}
+                      </span>
+                      <span className="text-xs text-slate-500">{formatDateTime(order.updatedAt || order.createdAt)}</span>
+                    </div>
+                  );
+                }}
               />
+              {/* Offer reservations: extend a deadline or apply the saved reserved price. */}
+              <ReservedOffersPanel customerId={customerId} projects={projectOrders} onChanged={() => setWorkspaceRefreshKey((current) => current + 1)} />
               </>
             )}
           </section>
@@ -2613,10 +2646,13 @@ const AdminClientWorkspace = () => {
                 clientName={clientName}
                 customerId={customerId}
                 startRequestId={openedStartRequest}
+                mode={createProjectMode}
                 onCancel={() => { setShowCreateProjectForm(false); setOpenedStartRequest(""); }}
-                onCreated={() => {
+                onCreated={(created) => {
                   setShowCreateProjectForm(false); setOpenedStartRequest("");
                   setWorkspaceRefreshKey((current) => current + 1);
+                  // Open what was just made: a monthly package is a plan, the rest a project.
+                  if (created?.id) (created.isPlan ? handleOpenPlan : handleOpenProject)({ _id: created.id });
                 }}
               />
             </div>
@@ -3894,7 +3930,7 @@ const PaymentOrderHistorySubpage = ({ customerId, orderId, onBack }) => {
   );
 };
 
-const CompactWorkspaceCard = ({ title, subtitle, items, emptyText, onRowClick, onDelete, onCancel, deletingOrderId, cancellingOrderId, renderMeta, renderRight, headerAction }) => {
+const CompactWorkspaceCard = ({ title, subtitle, items, emptyText, onRowClick, onDelete, onCancel, deletingOrderId, cancellingOrderId, renderMeta, renderRight, headerAction, toolbar }) => {
   return (
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -3904,6 +3940,8 @@ const CompactWorkspaceCard = ({ title, subtitle, items, emptyText, onRowClick, o
         </div>
         {headerAction ? <div className="shrink-0">{headerAction}</div> : null}
       </div>
+      {/* Optional row under the heading, e.g. the Projects & Plans type filter and sort. */}
+      {toolbar ? <div className="mt-4">{toolbar}</div> : null}
 
       <div className="mt-5">
         <AdminWorkspaceList
@@ -4083,7 +4121,11 @@ const projectFormInputClassName =
   "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-black outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100";
 const projectFormLabelClassName = "mb-1.5 block text-base font-semibold text-slate-700";
 
-const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreated, startRequestId: openedRequestId = "" }) => {
+// `mode` is which button opened the form (Projects & Plans tab): "package" builds the work from a published
+// package (a one-time package makes a project, a monthly one a plan — backend adminCreateProjectOrder.js decides),
+// "custom" is a project priced by hand from its category and add-ons. Same form, same backend request.
+const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreated, startRequestId: openedRequestId = "", mode = "custom" }) => {
+  const isPackageMode = mode === "package";
   const [step, setStep] = useState(1);
   const creationKey = useRef(null);
   if (!creationKey.current) creationKey.current = crypto.randomUUID();
@@ -4109,7 +4151,7 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
   const [startRequestId, setStartRequestId] = useState("");
   const pendingRequest = useRef(null);
   const openedRequestApplied = useRef(false);
-  // A monthly package: the customer's cycle and length, priced by the backend; it is made as a plan (Plans tab).
+  // A monthly package: the customer's cycle and length, priced by the backend; it is made as a plan (listed under Projects & Plans).
   const [monthlyChoice, setMonthlyChoice] = useState(null);
   const [monthlyQuote, setMonthlyQuote] = useState(null);
   const [monthlyQuoteError, setMonthlyQuoteError] = useState("");
@@ -4196,6 +4238,38 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
   useEffect(() => {
     setPackageId(""); setOfferSlug(""); setOfferReservationId(""); setSellingPrice(""); setSelectedFeatureIds([]); setPriceAdjustment(""); setAdjustmentLabel("");
   }, [category]);
+  // Package mode: a package (or a reservation) brings its own category. Changing the category clears the
+  // selection (effect above), so the choice waits here and is applied once the new category is in place.
+  // Declared after that effect so it runs after it in the same commit.
+  const pendingSelection = useRef(null);
+  useEffect(() => {
+    const pending = pendingSelection.current;
+    if (!pending || pending.category !== category) return;
+    pendingSelection.current = null;
+    pending.apply();
+  }, [category]);
+  const selectWithCategory = (nextCategory, apply) => {
+    if (!nextCategory || nextCategory === category) { apply(); return; }
+    pendingSelection.current = { category: nextCategory, apply };
+    setCategory(nextCategory);
+    setFeatureQuantities({});
+  };
+  const applyPackage = (id) => {
+    const item = packages.find(entry => entry.id === id);
+    selectWithCategory(item?.category, () => {
+      setPackageId(item?.id || ""); setOfferSlug(""); setSellingPrice(""); setSelectedFeatureIds([]); setPriceAdjustment(""); setAdjustmentLabel("");
+    });
+  };
+  const applyReservation = (id) => {
+    const row = offerReservations.find(item => item.id === id);
+    // A reservation goes with its own package (merasoftware/src/docs/package.md §5 item 7), so the project records it.
+    const ownPackage = packages.find(item => item.id === row?.offerSnapshot?.packageId);
+    const applicable = row?.offerSnapshot?.applicableCategories || [];
+    const nextCategory = ownPackage?.category || (applicable.includes(category) ? category : applicable[0] || "");
+    selectWithCategory(row ? nextCategory : "", () => {
+      setOfferReservationId(row ? id : ""); setPackageId(ownPackage?.id || ""); setOfferSlug(row?.offerSlug || ""); setPriceAdjustment(""); setAdjustmentLabel(""); setSellingPrice("");
+    });
+  };
   // A package request fills the form with its package and the customer's choice; the admin may still change it.
   const applyStartRequest = (row) => {
     setStartRequestId(row?.id || "");
@@ -4283,6 +4357,10 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
   }, 0);
   const selectedPackage = packages.find(item => item.id === packageId && item.category === category);
   const selectedReservation = offerReservations.find(row => row.id === offerReservationId);
+  // Package mode lists every published package of an active category, grouped by that category.
+  const packageGroups = activeCategories
+    .map(entry => ({ category: entry.category, label: entry.label, items: packages.filter(item => item.category === entry.category) }))
+    .filter(group => group.items.length > 0);
   // A monthly package is paid per billing cycle and sold as it is (no extras, no adjustment); its total is
   // the backend's choice quote (PATCH /admin/sales-packages/quote), the same one the creation checks.
   const isMonthly = selectedPackage?.billing === 'monthly';
@@ -4345,6 +4423,10 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
     : Number(sellingPrice) || 0;
 
   const validateStepOne = () => {
+    if (isPackageMode && !isPricedSelection) {
+      toast.error("Choose a package or a reserved offer.");
+      return false;
+    }
     if (!category || !hasSellingPrice) {
       toast.error("Category and selling price are required.");
       return false;
@@ -4423,8 +4505,9 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
         throw new Error(result.message || "Failed to create project");
       }
 
-      toast.success(isMonthly ? "Monthly package started as a plan for this client (Plans tab)." : "Project created and started for this client.");
-      onCreated?.();
+      toast.success(isMonthly ? "Monthly package started as a plan for this client." : "Project created and started for this client.");
+      // The parent opens what was made: a monthly package is a plan, everything else a project.
+      onCreated?.({ id: result.data?._id || null, isPlan: isMonthly });
     } catch (error) {
       console.error("Error creating project for client:", error);
       toast.error(error.message || "Failed to create project");
@@ -4438,12 +4521,14 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="text-lg font-bold text-slate-900">
-            {step === 1 ? `Create Project for ${clientName}` : "Payment Settings"}
+            {step === 2 ? "Payment Settings" : isPackageMode ? `Create from Package for ${clientName}` : `Create Custom Project for ${clientName}`}
           </h3>
           <p className="mt-1 text-sm text-slate-500">
-            {step === 1
-              ? "This creates a working project for this client only. It will not be saved to the project catalog."
-              : "Record the first payment now, or let the client pay later. Step 2 of 2."}
+            {step === 2
+              ? "Record the first payment now, or let the client pay later. Step 2 of 2."
+              : isPackageMode
+              ? "Choose a published package. A one-time package becomes a project; a monthly package becomes a plan."
+              : "This creates a working project for this client only. It will not be saved to the project catalog."}
           </p>
         </div>
         <button
@@ -4459,6 +4544,13 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
       {step === 1 ? (
       <>
       <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
+        {isPackageMode ? (
+        <div>
+          <span className={projectFormLabelClassName}>Category</span>
+          {/* Set by the chosen package or reservation; to change it, choose another package. */}
+          <p className={`${projectFormInputClassName} bg-slate-50 text-slate-700`}>{selectedCategoryEntry?.label || "Set by the package you choose"}</p>
+        </div>
+        ) : (
         <div>
           <label className={projectFormLabelClassName}>Category</label>
           <select
@@ -4486,6 +4578,7 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
             <p className="mt-1.5 text-sm text-amber-700">No base price is set for this category, so the reference total starts at ₹0. Enter the selling price yourself.</p>
           ) : null}
         </div>
+        )}
 
         <div>
           <label className={projectFormLabelClassName}>
@@ -4520,7 +4613,9 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
           </div>
         ) : null}
 
-        <div className="md:col-span-2 space-y-4">
+        {/* Package mode only, shown first (order-first): the package brings the category, price and terms. */}
+        {isPackageMode ? (
+        <div className="order-first md:col-span-2 space-y-4">
           {packageStarts.length > 0 && <>
             <label className={projectFormLabelClassName}>Customer's package request (optional)</label>
             <select aria-label="Customer's package request" className={projectFormInputClassName} value={startRequestId} onChange={event => applyStartRequest(packageStarts.find(row => row.id === event.target.value))}>
@@ -4530,26 +4625,28 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
             {startRequestId && <p className="rounded-xl bg-emerald-50 p-3 text-emerald-900">Filled from the customer's request. The price is today's package price; creating the project closes the request.</p>}
           </>}
           <label className={projectFormLabelClassName}>Customer's reserved offer (optional)</label>
-          <select aria-label="Customer's reserved offer" className={projectFormInputClassName} value={offerReservationId} disabled={!category || Boolean(reservationError)} onChange={event => {
-            const row = offerReservations.find(item => item.id === event.target.value);
-            // A reservation goes with its own package (merasoftware/src/docs/package.md §5 item 7), so the project records it.
-            const ownPackage = packages.find(item => item.id === row?.offerSnapshot?.packageId && item.category === category);
-            setOfferReservationId(event.target.value); setPackageId(ownPackage?.id || ''); setOfferSlug(row?.offerSlug || ''); setPriceAdjustment(''); setAdjustmentLabel(''); setSellingPrice('');
-          }}><option value="">Use current catalogue or custom price</option>{offerReservations.filter(row => row.offerSnapshot?.applicableCategories?.includes(category)).map(row => <option key={row.id} value={row.id} disabled={Boolean(row.projectId) || (row.status !== 'start_requested' && (row.status !== 'reserved' || Date.parse(row.deadline || row.expiresAt) <= Date.now()))}>{row.title} — ₹{row.reservedPrice.toLocaleString('en-IN')} · {row.status === 'start_requested' ? 'start requested' : row.status}{row.projectId ? ' · attached to a project' : ''}</option>)}</select>
+          <select aria-label="Customer's reserved offer" className={projectFormInputClassName} value={offerReservationId} disabled={Boolean(reservationError) || offersLoading} onChange={event => applyReservation(event.target.value)}><option value="">No reservation — use the package below</option>{offerReservations.map(row => <option key={row.id} value={row.id} disabled={Boolean(row.projectId) || (row.status !== 'start_requested' && (row.status !== 'reserved' || Date.parse(row.deadline || row.expiresAt) <= Date.now()))}>{row.title} — ₹{row.reservedPrice.toLocaleString('en-IN')} · {row.status === 'start_requested' ? 'start requested' : row.status}{row.projectId ? ' · attached to a project' : ''}</option>)}</select>
           {reservationError && <p role="alert" className="text-base text-red-600">{reservationError}. Refresh before applying a saved reservation.</p>}
           {selectedReservation && <p className="rounded-xl bg-emerald-50 p-3 text-emerald-900">Saved reservation price and terms apply. {selectedReservation.status === 'start_requested'
             // Paused by Start my project: creating the project resumes the countdown (backend offerReservations.js attachProjectReservation).
             ? `The customer asked to start; the countdown is paused. Creating this project resumes it: the first payment is due within ${Math.max(Math.round((selectedReservation.pausedRemainingMs || 0) / 3600000), 24)} hours to keep the reserved price.`
             : `Payment deadline: ${new Date(selectedReservation.deadline || selectedReservation.expiresAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST. The reservation's own deadline continues; it does not restart.`}</p>}
-          <label className={projectFormLabelClassName}>Showcase package (optional)</label>
-          <select aria-label="Showcase package" className={projectFormInputClassName} value={packageId} disabled={Boolean(offerReservationId) || !category || offersLoading || Boolean(offersError)} onChange={event => { setPackageId(event.target.value); setOfferSlug(""); setSellingPrice(""); setSelectedFeatureIds([]); setPriceAdjustment(""); setAdjustmentLabel(""); }}>
-            <option value="">{offersLoading ? "Loading packages…" : "Custom project — no package"}</option>
-            {packages.filter(item => item.category === category).map(item => <option key={item.id} value={item.id}>{item.name} — ₹{item.quote.finalPrice.toLocaleString("en-IN")}</option>)}
+          <label className={projectFormLabelClassName}>Package</label>
+          <select aria-label="Package" className={projectFormInputClassName} value={packageId} disabled={Boolean(offerReservationId) || offersLoading || Boolean(offersError)} onChange={event => applyPackage(event.target.value)}>
+            <option value="">{offersLoading ? "Loading packages…" : "Select a package"}</option>
+            {packageGroups.map(group => (
+              <optgroup key={group.category} label={group.label}>
+                {/* A monthly package's quote is its price per month (backend salesPackages.js quoteChoice). */}
+                {group.items.map(item => <option key={item.id} value={item.id}>{item.name} — ₹{item.quote.finalPrice.toLocaleString("en-IN")}{item.billing === "monthly" ? "/month · Monthly → Plan" : " · One-time → Project"}</option>)}
+              </optgroup>
+            ))}
           </select>
+          {!offersLoading && !offersError && packageGroups.length === 0 && <p role="status" className="rounded-xl bg-amber-50 p-3 text-base text-amber-900">No published package yet. Publish one on the website (Admin → Packages), then refresh below.</p>}
+          {selectedPackage && <p role="status" className={`rounded-xl p-3 text-base font-semibold ${isMonthly ? "bg-sky-50 text-sky-900" : "bg-emerald-50 text-emerald-900"}`}>{isMonthly ? "This creates a Plan: a monthly package runs as a plan and is billed per cycle." : "This creates a Project."}</p>}
           {selectedOffer?.paymentPolicy && selectedOffer.paymentPolicy.mode !== 'current' && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-base text-emerald-900">Payment terms: {selectedOffer.paymentPolicy.mode.replaceAll('_', ' ')}{selectedOffer.paymentPolicy.mode === 'limited_uploads' ? ` · ${selectedOffer.paymentPolicy.uploadAllowance} submissions before payment` : ''} · Due in {selectedOffer.paymentPolicy.dueDays} day(s). These terms will be saved with this project.</p>}
           {isPricedSelection && <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-base text-slate-700"><strong>{selectedPackage?.name || selectedOffer?.title}</strong><p>{selectedOffer ? `Offer: ${selectedOffer.title}` : "Regular package price"}</p><ul className="mt-2 list-disc pl-5">{(selectedPackage?.inclusions || selectedOffer?.inclusions || []).map((line, index) => <li key={index}>{line}</li>)}</ul><p className="mt-3">Regular ₹{selectedRegular.toLocaleString("en-IN")} − offer benefit ₹{Math.round((selectedRegular - bundlePrice) * 100) / 100} + extra features ₹{featuresTotal.toLocaleString("en-IN")}</p><p className="mt-1">Select additional features only for work outside the package scope.</p>{selectedPackage?.linkedPlanIds?.length > 0 && <p>Related services are references only; no service plan will be purchased or activated.</p>}<details className="mt-2"><summary>Agreed terms</summary><ul className="list-disc pl-5">{(selectedPackage?.quote.terms || selectedOffer?.resolvedTerms || []).map((line, index) => <li key={index}>{line}</li>)}</ul></details></div>}
           {isMonthly && monthlyChoice && <div className="rounded-xl border border-slate-200 bg-white p-4 text-base text-slate-700 space-y-3">
-            <p className="font-semibold">Monthly package: it runs as a plan (Plans tab) and the client pays per billing cycle at this price for the whole length. Sold as it is, without extra features or a price adjustment.</p>
+            <p className="font-semibold">Monthly package: it runs as a plan (listed under Projects &amp; Plans) and the client pays per billing cycle at this price for the whole length. Sold as it is, without extra features or a price adjustment.</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block"><span className={projectFormLabelClassName}>Billing cycle</span>
                 <select aria-label="Billing cycle" className={projectFormInputClassName} value={monthlyChoice.billingCycle} onChange={event => { const months = CYCLE_MONTHS[event.target.value]; setMonthlyChoice(current => ({ ...current, billingCycle: event.target.value, tenureMonths: Math.max(months, Math.floor(current.tenureMonths / months) * months) })); }}>
@@ -4567,9 +4664,10 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
                 <ul className="mt-2 list-disc pl-5 text-sm text-slate-600">{cyclePreview.map(row => <li key={row.installmentNumber}>{installmentName(row, cyclePreview.length)} — ₹{row.amount.toLocaleString('en-IN')}</li>)}</ul>
               </div>}
           </div>}
-          {offersError && <p role="alert" className="text-base text-red-600">{offersError}. A custom project without a package or offer can still be created.</p>}
+          {offersError && <p role="alert" className="text-base text-red-600">{offersError}. Refresh below, or use Create Custom Project instead.</p>}
           <button type="button" className="text-base font-semibold text-emerald-700 underline" disabled={offersLoading} onClick={() => setCatalogueReload(value => value + 1)}>Refresh packages and offers</button>
         </div>
+        ) : null}
 
         <div className="md:col-span-2 grid grid-cols-1 gap-5 md:grid-cols-2">
         <div ref={featureDropdownRef}>
@@ -4905,7 +5003,7 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
           ) : (
             <>
               <Save size={16} />
-              Create Project
+              {isMonthly ? "Start Plan" : "Create Project"}
             </>
           )}
         </button>
