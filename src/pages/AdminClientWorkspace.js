@@ -4163,6 +4163,23 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
   const [adjustmentLabel, setAdjustmentLabel] = useState("");
   const [offersLoading, setOffersLoading] = useState(true);
   const [offersError, setOffersError] = useState("");
+  // Package mode (owner decisions 12 Nov 2026): the website's package pages (Page → Package), its whole offer
+  // catalogue (to see a package's ended offer), the page picked, the ended-offer override with its reason,
+  // the server's package quote when that override is on, and the details popup.
+  const [packagePages, setPackagePages] = useState([]);
+  const [catalogueOffers, setCatalogueOffers] = useState([]);
+  const [pageSlug, setPageSlug] = useState("");
+  const [useEndedOffer, setUseEndedOffer] = useState(false);
+  const [endedOfferReason, setEndedOfferReason] = useState("");
+  const [serverPackageQuote, setServerPackageQuote] = useState(null);
+  const [showPackageDetails, setShowPackageDetails] = useState(false);
+  // An expired reservation is extended here (the same backend extend as ReservedOffersPanel), then used.
+  const [extendingId, setExtendingId] = useState("");
+  const [extendReason, setExtendReason] = useState("");
+  const [extendUntil, setExtendUntil] = useState("");
+  const [extendBusy, setExtendBusy] = useState(false);
+  // Start date (back-dating, both modes): empty = now. Sent as billingDate (backend adminCreateProjectOrder.js).
+  const [startDate, setStartDate] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -4229,6 +4246,8 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
         const result = await response.json();
         if (!response.ok || !result.success) throw new Error(result.message || "Packages could not be loaded");
         setPackages((result.data.packages || []).filter(item => item.status === "published"));
+        setPackagePages(Array.isArray(result.data.packagePages) ? result.data.packagePages : []);
+        setCatalogueOffers(Array.isArray(result.data.offers) ? result.data.offers : []);
       } catch (error) { if (error.name !== "AbortError") setOffersError(error.message || "Packages could not be loaded"); }
       finally { if (!controller.signal.aborted) setOffersLoading(false); }
     };
@@ -4260,8 +4279,9 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
       setPackageId(item?.id || ""); setOfferSlug(""); setSellingPrice(""); setSelectedFeatureIds([]); setPriceAdjustment(""); setAdjustmentLabel("");
     });
   };
-  const applyReservation = (id) => {
-    const row = offerReservations.find(item => item.id === id);
+  // `fresh`: the row as just extended (extendAndUse), before the reservation list reloads.
+  const applyReservation = (id, fresh = null) => {
+    const row = fresh || offerReservations.find(item => item.id === id);
     // A reservation goes with its own package (merasoftware/src/docs/package.md §5 item 7), so the project records it.
     const ownPackage = packages.find(item => item.id === row?.offerSnapshot?.packageId);
     const applicable = row?.offerSnapshot?.applicableCategories || [];
@@ -4357,10 +4377,32 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
   }, 0);
   const selectedPackage = packages.find(item => item.id === packageId && item.category === category);
   const selectedReservation = offerReservations.find(row => row.id === offerReservationId);
-  // Package mode lists every published package of an active category, grouped by that category.
-  const packageGroups = activeCategories
-    .map(entry => ({ category: entry.category, label: entry.label, items: packages.filter(item => item.category === entry.category) }))
-    .filter(group => group.items.length > 0);
+  // Package mode: Page → Package. A package lists the website pages it is shown on (`pages`, slugs); the page
+  // names come from the website (packagePages). Packages on no listed page are grouped as "Other packages".
+  const activeCategoryKeys = new Set(activeCategories.map(entry => entry.category));
+  const sellablePackages = packages.filter(item => activeCategoryKeys.has(item.category));
+  const OTHER_PAGE = "__other";
+  const listedPageSlugs = new Set(packagePages.map(page => page.slug));
+  const pageOptions = [
+    ...packagePages.filter(page => sellablePackages.some(item => (item.pages || []).includes(page.slug))),
+    ...(sellablePackages.some(item => !(item.pages || []).some(slug => listedPageSlugs.has(slug)))
+      ? [{ slug: OTHER_PAGE, title: packagePages.length ? "Other packages" : "All packages" }] : []),
+  ];
+  const packagesOnPage = (slug) => sellablePackages.filter(item => (slug === OTHER_PAGE
+    ? !(item.pages || []).some(page => listedPageSlugs.has(page)) : (item.pages || []).includes(slug)));
+  const pageOfPackage = (item) => (item ? (item.pages || []).find(slug => listedPageSlugs.has(slug)) || OTHER_PAGE : "");
+  // A package chosen by a request or a reservation shows its own page.
+  useEffect(() => {
+    if (isPackageMode && selectedPackage && !packagesOnPage(pageSlug).some(item => item.id === selectedPackage.id)) setPageSlug(pageOfPackage(selectedPackage));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPackageMode, selectedPackage?.id, packagePages]);
+  // The package's own offer once it has ended (backend projectPricing.js endedOfferFor): the admin may apply it.
+  const endedPackageOffer = isPackageMode && selectedPackage && !selectedReservation && !selectedPackage.quote.offer
+    ? catalogueOffers.find(offer => offer.slug === selectedPackage.offerSlug && offer.status === "published" && offer.endsAt && Date.parse(offer.endsAt) <= Date.now()
+      && (!offer.targets || offer.targets.includes("projects")) && (offer.applicableCategories || []).includes(selectedPackage.category)) || null
+    : null;
+  const endedOfferActive = Boolean(endedPackageOffer && useEndedOffer);
+  useEffect(() => { setUseEndedOffer(false); setEndedOfferReason(""); }, [packageId, offerReservationId]);
   // A monthly package is paid per billing cycle and sold as it is (no extras, no adjustment); its total is
   // the backend's choice quote (PATCH /admin/sales-packages/quote), the same one the creation checks.
   const isMonthly = selectedPackage?.billing === 'monthly';
@@ -4370,26 +4412,32 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
     setMonthlyChoice(current => (current?.forPackage === selectedPackage.id ? current : { ...defaultMonthlyChoice(selectedPackage), forPackage: selectedPackage.id }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMonthly, selectedPackage?.id]);
-  const monthlyRequest = isMonthly && monthlyChoice ? JSON.stringify({ packageId: selectedPackage.id, customerId, offerReservationId: selectedReservation?.id || undefined,
-    choice: { billingCycle: monthlyChoice.billingCycle, tenureMonths: monthlyChoice.tenureMonths } }) : "";
+  // The backend prices a monthly package's choice, and a package at its ended offer (PATCH /admin/sales-packages/quote,
+  // the same quote the creation checks): `quote` is the monthly choice, `packageQuote` the package price and its key.
+  const quoteRequest = selectedPackage && ((isMonthly && monthlyChoice) || endedOfferActive) ? JSON.stringify({ packageId: selectedPackage.id, customerId,
+    offerReservationId: selectedReservation?.id || undefined, endedOfferSlug: endedOfferActive ? endedPackageOffer.slug : undefined,
+    choice: isMonthly && monthlyChoice ? { billingCycle: monthlyChoice.billingCycle, tenureMonths: monthlyChoice.tenureMonths } : undefined }) : "";
   useEffect(() => {
-    setMonthlyQuote(null); setMonthlyQuoteError("");
-    if (!monthlyRequest) return undefined;
+    setMonthlyQuote(null); setMonthlyQuoteError(""); setServerPackageQuote(null);
+    if (!quoteRequest) return undefined;
     const controller = new AbortController();
-    fetch(SummaryApi.adminSalesPackagesQuote.url, { method: SummaryApi.adminSalesPackagesQuote.method, credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: monthlyRequest, signal: controller.signal })
+    fetch(SummaryApi.adminSalesPackagesQuote.url, { method: SummaryApi.adminSalesPackagesQuote.method, credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: quoteRequest, signal: controller.signal })
       .then(async response => {
         const result = await response.json();
-        if (!response.ok || !result.success) throw new Error(result.message || 'The monthly price could not be worked out');
-        setMonthlyQuote(result.data.quote);
+        if (!response.ok || !result.success) throw new Error(result.message || 'The price could not be worked out');
+        setMonthlyQuote(result.data.quote || null);
+        setServerPackageQuote(result.data.packageQuote || null);
       }).catch(error => { if (error.name !== 'AbortError') setMonthlyQuoteError(error.message); });
     return () => controller.abort();
-  }, [monthlyRequest]);
-  // The admin picks a package; its running offer applies by itself. A reservation keeps the offer it froze.
-  const selectedOffer = selectedReservation?.offerSnapshot || selectedPackage?.quote.offer;
+  }, [quoteRequest]);
+  // The admin picks a package; its running offer applies by itself. A reservation keeps the offer it froze; an ended
+  // offer applies only when the admin turns it on (priced by the backend above).
+  const endedQuote = endedOfferActive ? serverPackageQuote?.quote : null;
+  const selectedOffer = selectedReservation?.offerSnapshot || (endedOfferActive ? endedQuote?.offer : selectedPackage?.quote.offer);
   const isPricedSelection = Boolean(selectedPackage || selectedOffer);
-  const selectedRegular = isMonthly ? monthlyQuote?.regularPrice ?? 0 : (selectedReservation ? selectedOffer?.mainPrice : selectedPackage?.quote.regularPrice) ?? selectedOffer?.mainPrice ?? Number(basePrice);
+  const selectedRegular = isMonthly ? monthlyQuote?.regularPrice ?? 0 : (selectedReservation ? selectedOffer?.mainPrice : endedOfferActive ? endedQuote?.regularPrice : selectedPackage?.quote.regularPrice) ?? selectedOffer?.mainPrice ?? Number(basePrice);
   const referenceTotal = selectedRegular + featuresTotal;
-  let bundlePrice = isMonthly ? monthlyQuote?.finalPrice ?? 0 : selectedReservation ? undefined : selectedPackage?.quote.finalPrice;
+  let bundlePrice = isMonthly ? monthlyQuote?.finalPrice ?? 0 : selectedReservation ? undefined : endedOfferActive ? endedQuote?.finalPrice ?? 0 : selectedPackage?.quote.finalPrice;
   if (bundlePrice === undefined && selectedOffer) {
     bundlePrice = selectedOffer.pricingRule === "fixed_price" ? selectedOffer.offerPrice
       : selectedOffer.pricingRule === "percentage" ? selectedOffer.mainPrice * (1 - Number(selectedOffer.benefitValue) / 100)
@@ -4422,10 +4470,42 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
     ? buildInstallmentPreview(Number(sellingPrice), installmentCount)[0]?.amount || 0
     : Number(sellingPrice) || 0;
 
+  // One-time package: only the ways to pay the package offers (its paymentOptions; a package saved before
+  // payment options existed offers all three). The admin form records them as paymentType + installmentCount.
+  const packagePaymentOptions = isPackageMode && selectedPackage && !isMonthly
+    ? (selectedPackage.paymentOptions?.length ? selectedPackage.paymentOptions : ["full", "installments_2", "installments_3"]) : [];
+  const currentPaymentOption = paymentType === "partial" ? `installments_${installmentCount}` : "full";
+  const choosePaymentOption = (option) => {
+    if (option === "full") setPaymentType("full");
+    else { setPaymentType("partial"); setInstallmentCount(option === "installments_3" ? "3" : "2"); }
+  };
+  useEffect(() => {
+    if (packagePaymentOptions.length && !packagePaymentOptions.includes(currentPaymentOption)) choosePaymentOption(packagePaymentOptions[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPackage?.id, packagePaymentOptions.join(","), currentPaymentOption]);
+
+  // Start date: the picked moment, or now when left empty. A reserved offer runs on today's clock (backend refuses).
+  const startDateValue = startDate ? new Date(startDate) : null;
+  const startDateInvalid = Boolean(startDateValue && (!Number.isFinite(startDateValue.getTime()) || startDateValue.getTime() > Date.now() + 60000));
+  useEffect(() => { if (selectedReservation) setStartDate(""); }, [selectedReservation]);
+  // A back-dated monthly plan whose first cycle has already ended: its next bill is raised at once (renewal run)
+  // and the plan pauses until it is paid. Said before creating so it is not a surprise.
+  const firstCycleEnd = isMonthly && startDateValue && monthlyChoice ? (() => { const end = new Date(startDateValue); end.setMonth(end.getMonth() + (CYCLE_MONTHS[monthlyChoice.billingCycle] || 1)); return end; })() : null;
+  const firstCycleOver = Boolean(firstCycleEnd && firstCycleEnd.getTime() <= Date.now());
+
   const validateStepOne = () => {
     if (isPackageMode && !isPricedSelection) {
       toast.error("Choose a package or a reserved offer.");
       return false;
+    }
+    if (startDateInvalid) {
+      toast.error("The start date cannot be in the future."); return false;
+    }
+    if (endedOfferActive && !endedOfferReason.trim()) {
+      toast.error("Write why the ended offer is applied."); return false;
+    }
+    if (endedOfferActive && !endedQuote) {
+      toast.error(monthlyQuoteError || "Wait for the offer price."); return false;
     }
     if (!category || !hasSellingPrice) {
       toast.error("Category and selling price are required.");
@@ -4470,12 +4550,16 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
       featureQuantities,
       paymentType: isFree ? "full" : paymentType,
       installmentCount: !isFree && paymentType === "partial" ? installmentCount : null,
-      monthlyChoice: isMonthly ? JSON.parse(monthlyRequest).choice : undefined,
+      monthlyChoice: isMonthly && monthlyChoice ? { billingCycle: monthlyChoice.billingCycle, tenureMonths: monthlyChoice.tenureMonths } : undefined,
       packageId: selectedPackage?.id || null,
-      packageQuoteKey: !selectedReservation ? selectedPackage?.quoteKey || null : null,
+      // With the ended offer applied, the package is priced (and keyed) by the backend quote, not the catalogue's.
+      packageQuoteKey: !selectedReservation ? (endedOfferActive ? serverPackageQuote?.quoteKey : selectedPackage?.quoteKey) || null : null,
       offerSlug: selectedOffer?.slug || null,
       offerQuoteKey: selectedReservation || !selectedPackage ? selectedOffer?.quoteKey : null,
       offerReservationId: selectedReservation?.id || null,
+      endedOfferSlug: endedOfferActive ? endedPackageOffer.slug : undefined,
+      endedOfferReason: endedOfferActive ? endedOfferReason.trim() : undefined,
+      billingDate: startDateValue && !selectedReservation ? startDateValue.toISOString() : undefined,
       priceAdjustment: isPricedSelection ? adjustmentAmount : 0,
       adjustmentLabel: isPricedSelection && adjustmentAmount !== 0 ? adjustmentLabel.trim() : "",
       recordPayment: recordsPayment
@@ -4516,6 +4600,257 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
     }
   };
 
+  // ── Package mode, step 1 (owner decisions 12 Nov 2026): Page → Package, one compact card with the details in a
+  // popup, the payment choice the package allows, and only the request / reservation / ended offer this client
+  // really has. Name, category, first step and price come from the package; nothing is typed.
+  const inr = (value) => `₹${Number(value || 0).toLocaleString("en-IN")}`;
+  const indiaDate = (value) => new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
+  const usableReservations = offerReservations.filter(row => !row.projectId && !row.reuseNeedsReview && (row.status === "reserved" || row.status === "start_requested"));
+  // An expired reservation can be extended (backend offerReservations.js extendReservation refuses a price-locked
+  // or already-revised one), then used — the same Extend as the Reserved offers panel.
+  const expiredReservations = offerReservations.filter(row => !row.projectId && !row.reuseNeedsReview && row.status === "expired" && (!row.resolution || row.resolution === "unchanged"));
+  const extendAndUse = async (row) => {
+    const until = extendUntil ? new Date(extendUntil) : null;
+    if (!until || !Number.isFinite(until.getTime()) || until.getTime() <= Date.now()) { toast.error("Pick a new deadline in the future."); return; }
+    if (!extendReason.trim()) { toast.error("Write why the reservation is extended."); return; }
+    setExtendBusy(true);
+    try {
+      const response = await fetch(`${SummaryApi.offerReservations.url}/${row.id}/extend`, {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ until: until.toISOString(), reason: extendReason.trim() }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.message || "The reservation could not be extended");
+      const fresh = { ...row, status: "reserved", deadline: until.toISOString(), extendedUntil: until.toISOString() };
+      setOfferReservations(current => current.map(item => (item.id === row.id ? fresh : item)));
+      setExtendingId(""); setExtendReason(""); setExtendUntil("");
+      applyReservation(row.id, fresh);
+      toast.success("Reservation extended and applied to this project.");
+    } catch (error) {
+      toast.error(error.message || "The reservation could not be extended");
+    } finally {
+      setExtendBusy(false);
+    }
+  };
+  const oneTimePreview = !isMonthly && !isFree && paymentType === "partial" && quotedPrice > 0 ? buildInstallmentPreview(quotedPrice, installmentCount) : [];
+  const paymentOptionLabel = { full: "Full", installments_2: "2 parts", installments_3: "3 parts" };
+  const packageTerms = selectedReservation ? selectedReservation.offerSnapshot?.resolvedTerms || selectedReservation.terms || []
+    : (endedOfferActive ? endedQuote?.terms : selectedPackage?.quote.terms) || [];
+  const shownPrice = isMonthly ? monthlyQuote?.finalPrice : quotedPrice;
+
+  const packageStepOne = (
+    <div className="mt-6 space-y-5">
+      {packageStarts.map(row => (
+        <div key={row.id} className="flex flex-col gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-emerald-900"><strong>Client requested:</strong> {row.title}{row.choice ? ` · ${packageChoiceText(row.choice)}` : ""}</p>
+          {startRequestId === row.id
+            ? <span className="text-sm font-semibold text-emerald-800">Using this request</span>
+            : <button type="button" onClick={() => applyStartRequest(row)} className="shrink-0 rounded-xl bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Use request</button>}
+        </div>
+      ))}
+      {usableReservations.map(row => (
+        <div key={row.id} className="flex flex-col gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-emerald-900"><strong>Reserved offer:</strong> {row.title} — {inr(row.reservedPrice)} · {row.status === "start_requested" ? "start requested, countdown paused" : `pay by ${indiaDate(row.deadline || row.expiresAt)}`}</p>
+          {offerReservationId === row.id
+            ? <button type="button" onClick={() => applyReservation("")} className="shrink-0 rounded-xl border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-800">Remove</button>
+            : <button type="button" onClick={() => applyReservation(row.id)} disabled={offersLoading} className="shrink-0 rounded-xl bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">Use reservation</button>}
+        </div>
+      ))}
+      {expiredReservations.map(row => (
+        <div key={row.id} className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-amber-900"><strong>Reservation expired:</strong> {row.title} — {inr(row.reservedPrice)} · ended {indiaDate(row.deadline || row.expiresAt)}</p>
+            {extendingId !== row.id ? (
+              <button type="button" onClick={() => { setExtendingId(row.id); setExtendReason(""); const next = new Date(Date.now() + 48 * 3600000); next.setMinutes(next.getMinutes() - next.getTimezoneOffset()); setExtendUntil(next.toISOString().slice(0, 16)); }} className="shrink-0 rounded-xl border border-amber-400 bg-white px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100">Extend &amp; use</button>
+            ) : null}
+          </div>
+          {extendingId === row.id ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="block text-sm font-semibold text-amber-900">New payment deadline
+                <input type="datetime-local" value={extendUntil} onChange={event => setExtendUntil(event.target.value)} className={`${projectFormInputClassName} mt-1`} />
+              </label>
+              <label className="block text-sm font-semibold text-amber-900">Reason (kept on the reservation)
+                <input value={extendReason} maxLength={300} onChange={event => setExtendReason(event.target.value)} placeholder="e.g. client paid on time, added late" className={`${projectFormInputClassName} mt-1`} />
+              </label>
+              <p className="text-sm text-amber-900 sm:col-span-2">The reserved price holds only if the first payment is recorded by this deadline — record it in the next step.</p>
+              <div className="flex gap-2 sm:col-span-2">
+                <button type="button" disabled={extendBusy} onClick={() => extendAndUse(row)} className="rounded-xl bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50">{extendBusy ? "Extending…" : "Extend and use"}</button>
+                <button type="button" disabled={extendBusy} onClick={() => setExtendingId("")} className="rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-900">Cancel</button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ))}
+      {reservationError ? <p role="alert" className="text-sm text-red-600">{reservationError}. Reservations could not be loaded.</p> : null}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="create-package-page" className={projectFormLabelClassName}>Page</label>
+          <select id="create-package-page" aria-label="Page" className={projectFormInputClassName} value={pageSlug} disabled={offersLoading || Boolean(offersError) || Boolean(selectedReservation)}
+            onChange={event => { setPageSlug(event.target.value); if (selectedPackage && !packagesOnPage(event.target.value).some(item => item.id === selectedPackage.id)) applyPackage(""); }}>
+            <option value="">{offersLoading ? "Loading pages…" : "Select a page"}</option>
+            {pageOptions.map(page => <option key={page.slug} value={page.slug}>{page.title}</option>)}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="create-package-package" className={projectFormLabelClassName}>Package</label>
+          <select id="create-package-package" aria-label="Package" className={projectFormInputClassName} value={packageId} disabled={!pageSlug || offersLoading || Boolean(selectedReservation)} onChange={event => applyPackage(event.target.value)}>
+            <option value="">{pageSlug ? "Select a package" : "Choose a page first"}</option>
+            {packagesOnPage(pageSlug).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+        </div>
+      </div>
+      {!offersLoading && !offersError && pageOptions.length === 0 ? <p role="status" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">No published package yet. Publish one on the website (Admin → Packages), then refresh.</p> : null}
+      {offersError ? <p role="alert" className="text-sm text-red-600">{offersError}. Refresh, or use Create Custom Project instead.</p> : null}
+
+      {selectedPackage ? (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="min-w-0 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-base font-bold text-slate-900">{selectedPackage.name}</p>
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${isMonthly ? "bg-violet-100 text-violet-800" : "bg-blue-100 text-blue-800"}`}>{isMonthly ? "Plan · Monthly" : "Project · One-time"}</span>
+            </div>
+            <p className="text-sm text-slate-600">
+              {selectedCategoryEntry?.label || selectedPackage.category} ·{" "}
+              {isMonthly
+                ? (monthlyQuote ? <strong className="text-slate-900">{inr(monthlyQuote.monthly.cyclePrice)} per cycle</strong> : <span>working out the price…</span>)
+                : <strong className="text-slate-900">{inr(quotedPrice)}</strong>}
+              {!isMonthly && selectedRegular > quotedPrice ? <span className="ml-1 line-through">{inr(selectedRegular)}</span> : null}
+              {selectedOffer ? ` · ${selectedOffer.title}${endedOfferActive ? " (ended offer, applied)" : ""}` : ""}
+            </p>
+          </div>
+          <button type="button" aria-label="Package details" onClick={() => setShowPackageDetails(true)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 hover:bg-slate-100">
+            <Info size={18} />
+          </button>
+        </div>
+      ) : null}
+
+      {endedPackageOffer ? (
+        <div className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <label className="flex items-start gap-2 font-semibold">
+            <input type="checkbox" checked={useEndedOffer} onChange={event => setUseEndedOffer(event.target.checked)} className="mt-0.5 h-4 w-4" />
+            Apply the ended offer “{endedPackageOffer.title}” (ended {indiaDate(endedPackageOffer.endsAt)})
+          </label>
+          {useEndedOffer ? (
+            <input aria-label="Why the ended offer is applied" value={endedOfferReason} maxLength={300} onChange={event => setEndedOfferReason(event.target.value)} placeholder="Why — e.g. client paid during the offer" className={projectFormInputClassName} />
+          ) : <p>Without it the package's regular price applies.</p>}
+        </div>
+      ) : null}
+
+      {selectedPackage && !isMonthly && !isFree ? (
+        <div className="space-y-2">
+          <p className={projectFormLabelClassName}>How the client pays</p>
+          <div className="grid grid-cols-3 gap-2">
+            {packagePaymentOptions.map(option => (
+              <button key={option} type="button" aria-pressed={currentPaymentOption === option} onClick={() => choosePaymentOption(option)}
+                className={`h-11 rounded-2xl border text-sm font-semibold transition ${currentPaymentOption === option ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"}`}>
+                {paymentOptionLabel[option] || option}
+              </button>
+            ))}
+          </div>
+          <p className="text-sm text-slate-600">{oneTimePreview.length ? `${oneTimePreview.map(row => inr(row.amount)).join(" + ")} — part 1 now, the rest as the work progresses.` : `${inr(quotedPrice)} in one payment.`}</p>
+        </div>
+      ) : null}
+
+      {isMonthly && monthlyChoice ? (
+        <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="create-package-cycle" className={projectFormLabelClassName}>Billing cycle</label>
+              <select id="create-package-cycle" aria-label="Billing cycle" className={projectFormInputClassName} value={monthlyChoice.billingCycle} onChange={event => { const months = CYCLE_MONTHS[event.target.value]; setMonthlyChoice(current => ({ ...current, billingCycle: event.target.value, tenureMonths: Math.max(months, Math.floor(current.tenureMonths / months) * months) })); }}>
+                {selectedPackage.monthly.billingOptions.map(option => <option key={option.billingCycle} value={option.billingCycle}>{CYCLE_WORDS[option.billingCycle]}{option.discountPercent ? ` · ${option.discountPercent}% off` : ""}</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="create-package-length" className={projectFormLabelClassName}>Length</label>
+              <select id="create-package-length" aria-label="Length in months" className={projectFormInputClassName} value={monthlyChoice.tenureMonths} onChange={event => setMonthlyChoice(current => ({ ...current, tenureMonths: Number(event.target.value) }))}>
+                {Array.from({ length: Math.floor(Math.min(selectedPackage.monthly.maxTenureMonths, 12) / CYCLE_MONTHS[monthlyChoice.billingCycle]) }, (_, index) => (index + 1) * CYCLE_MONTHS[monthlyChoice.billingCycle]).map(months => <option key={months} value={months}>{months} months</option>)}
+              </select>
+            </div>
+          </div>
+          {monthlyQuoteError ? <p role="alert" className="text-sm text-red-600">{monthlyQuoteError}</p>
+            : !monthlyQuote ? <p className="text-sm text-slate-500">Working out the price…</p>
+            : <p className="text-sm text-slate-700"><strong>{inr(monthlyQuote.monthly.cyclePrice)} per cycle</strong> · {monthlyQuote.monthly.totalCycles} cycle{monthlyQuote.monthly.totalCycles === 1 ? "" : "s"} · {inr(monthlyQuote.finalPrice)} in total</p>}
+        </div>
+      ) : null}
+
+      {selectedOffer?.paymentPolicy && selectedOffer.paymentPolicy.mode !== "current" ? (
+        <p role="status" className="text-sm text-slate-600">Offer payment terms: {selectedOffer.paymentPolicy.mode.replaceAll("_", " ")} · due in {selectedOffer.paymentPolicy.dueDays} day(s).</p>
+      ) : null}
+
+      {selectedPackage ? (
+        <p className="text-sm text-slate-600">
+          Name <strong className="text-slate-900">{selectedPackage.name}</strong>, category <strong className="text-slate-900">{selectedCategoryEntry?.label || selectedPackage.category}</strong>
+          {isMonthly ? "" : <> and first step <strong className="text-slate-900">{startingNodeTitle || "Project Started"}</strong></>} come from the package.
+        </p>
+      ) : null}
+
+      {showPackageDetails && selectedPackage ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-label={`${selectedPackage.name} details`}>
+          <div className="max-h-[85vh] w-full max-w-lg space-y-5 overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between gap-3">
+              <h4 className="text-lg font-bold text-slate-900">{selectedPackage.name} — details</h4>
+              <button type="button" aria-label="Close details" onClick={() => setShowPackageDetails(false)} className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-600 hover:bg-slate-100"><X size={16} /></button>
+            </div>
+            <section className="space-y-1.5 text-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Price</p>
+              <div className="flex justify-between"><span>Regular price</span><span>{inr(selectedRegular)}</span></div>
+              {shownPrice != null && selectedRegular > shownPrice ? <div className="flex justify-between text-emerald-700"><span>{selectedOffer?.title || "Discount"}</span><span>− {inr(Math.round((selectedRegular - shownPrice) * 100) / 100)}</span></div> : null}
+              <div className="flex justify-between border-t border-slate-200 pt-2 font-bold"><span>Client pays</span><span>{shownPrice != null ? inr(shownPrice) : "…"}</span></div>
+            </section>
+            {(selectedPackage.inclusions || []).length ? (
+              <section className="space-y-1.5 text-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Included</p>
+                <ul className="list-disc space-y-1 pl-5 text-slate-700">{selectedPackage.inclusions.map((line, index) => <li key={index}>{line}</li>)}</ul>
+              </section>
+            ) : null}
+            <section className="space-y-1.5 text-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{isMonthly ? "Cycles" : "Payment schedule"}</p>
+              {isMonthly
+                ? cyclePreview.map(row => <div key={row.installmentNumber} className="flex justify-between"><span>{installmentName(row, cyclePreview.length)}</span><span>{inr(row.amount)}</span></div>)
+                : oneTimePreview.length
+                  ? oneTimePreview.map(row => <div key={row.installmentNumber} className="flex justify-between"><span>Part {row.installmentNumber}{row.installmentNumber === 1 ? " — now" : ""}</span><span>{inr(row.amount)}</span></div>)
+                  : <div className="flex justify-between"><span>One payment</span><span>{inr(quotedPrice)}</span></div>}
+            </section>
+            {packageTerms.length ? (
+              <details className="text-sm text-slate-700">
+                <summary className="cursor-pointer font-semibold">Agreed terms ({packageTerms.length})</summary>
+                <ul className="mt-2 list-disc space-y-1 pl-5">{packageTerms.map((line, index) => <li key={index}>{line}</li>)}</ul>
+              </details>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      <button type="button" className="text-sm font-semibold text-emerald-700 underline" disabled={offersLoading} onClick={() => setCatalogueReload(value => value + 1)}>Refresh packages and offers</button>
+    </div>
+  );
+
+  // Start date (both modes): when the work really began. Empty = now. Back-dating sets the portal, invoice,
+  // payment and client mail to that date (backend adminCreateProjectOrder.js billingDate).
+  const startDateField = (
+    <div className="mt-5 space-y-1.5">
+      <label htmlFor="create-start-date" className={projectFormLabelClassName}>
+        Start date <span className="font-normal normal-case tracking-normal text-slate-400">(optional — leave empty for now)</span>
+      </label>
+      <input id="create-start-date" type="datetime-local" className={projectFormInputClassName} value={startDate} disabled={Boolean(selectedReservation)}
+        max={(() => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); })()}
+        onChange={event => setStartDate(event.target.value)} />
+      {selectedReservation
+        ? <p className="text-sm text-slate-500">A reserved offer starts today; it cannot be back-dated.</p>
+        : startDateInvalid
+          ? <p role="alert" className="text-sm text-red-600">The start date cannot be in the future.</p>
+          : startDateValue
+            ? <p className="text-sm text-slate-600">The {isMonthly ? "plan" : "project"}, its invoice, the payment and the client's mail will show {startDateValue.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" })}.</p>
+            : null}
+      {firstCycleOver ? (
+        <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          Cycle 1 ended on {indiaDate(firstCycleEnd)}. The next cycle's bill will be raised at once and the plan paused until it is paid — record that payment after creating, if the client has paid.
+        </p>
+      ) : null}
+    </div>
+  );
+
   return (
     <form onSubmit={step === 2 ? handleSubmit : (event) => event.preventDefault()}>
       <div className="flex items-start justify-between gap-4">
@@ -4543,14 +4878,9 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
 
       {step === 1 ? (
       <>
+      {isPackageMode ? packageStepOne : (
+      <>
       <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
-        {isPackageMode ? (
-        <div>
-          <span className={projectFormLabelClassName}>Category</span>
-          {/* Set by the chosen package or reservation; to change it, choose another package. */}
-          <p className={`${projectFormInputClassName} bg-slate-50 text-slate-700`}>{selectedCategoryEntry?.label || "Set by the package you choose"}</p>
-        </div>
-        ) : (
         <div>
           <label className={projectFormLabelClassName}>Category</label>
           <select
@@ -4578,7 +4908,6 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
             <p className="mt-1.5 text-sm text-amber-700">No base price is set for this category, so the reference total starts at ₹0. Enter the selling price yourself.</p>
           ) : null}
         </div>
-        )}
 
         <div>
           <label className={projectFormLabelClassName}>
@@ -4613,61 +4942,6 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
           </div>
         ) : null}
 
-        {/* Package mode only, shown first (order-first): the package brings the category, price and terms. */}
-        {isPackageMode ? (
-        <div className="order-first md:col-span-2 space-y-4">
-          {packageStarts.length > 0 && <>
-            <label className={projectFormLabelClassName}>Customer's package request (optional)</label>
-            <select aria-label="Customer's package request" className={projectFormInputClassName} value={startRequestId} onChange={event => applyStartRequest(packageStarts.find(row => row.id === event.target.value))}>
-              <option value="">Not from a request</option>
-              {packageStarts.map(row => <option key={row.id} value={row.id}>{row.title}{row.choice ? ` · ${packageChoiceText(row.choice)}` : ''}{row.price != null ? ` — ₹${Number(row.price).toLocaleString('en-IN')}` : ''}</option>)}
-            </select>
-            {startRequestId && <p className="rounded-xl bg-emerald-50 p-3 text-emerald-900">Filled from the customer's request. The price is today's package price; creating the project closes the request.</p>}
-          </>}
-          <label className={projectFormLabelClassName}>Customer's reserved offer (optional)</label>
-          <select aria-label="Customer's reserved offer" className={projectFormInputClassName} value={offerReservationId} disabled={Boolean(reservationError) || offersLoading} onChange={event => applyReservation(event.target.value)}><option value="">No reservation — use the package below</option>{offerReservations.map(row => <option key={row.id} value={row.id} disabled={Boolean(row.projectId) || (row.status !== 'start_requested' && (row.status !== 'reserved' || Date.parse(row.deadline || row.expiresAt) <= Date.now()))}>{row.title} — ₹{row.reservedPrice.toLocaleString('en-IN')} · {row.status === 'start_requested' ? 'start requested' : row.status}{row.projectId ? ' · attached to a project' : ''}</option>)}</select>
-          {reservationError && <p role="alert" className="text-base text-red-600">{reservationError}. Refresh before applying a saved reservation.</p>}
-          {selectedReservation && <p className="rounded-xl bg-emerald-50 p-3 text-emerald-900">Saved reservation price and terms apply. {selectedReservation.status === 'start_requested'
-            // Paused by Start my project: creating the project resumes the countdown (backend offerReservations.js attachProjectReservation).
-            ? `The customer asked to start; the countdown is paused. Creating this project resumes it: the first payment is due within ${Math.max(Math.round((selectedReservation.pausedRemainingMs || 0) / 3600000), 24)} hours to keep the reserved price.`
-            : `Payment deadline: ${new Date(selectedReservation.deadline || selectedReservation.expiresAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST. The reservation's own deadline continues; it does not restart.`}</p>}
-          <label className={projectFormLabelClassName}>Package</label>
-          <select aria-label="Package" className={projectFormInputClassName} value={packageId} disabled={Boolean(offerReservationId) || offersLoading || Boolean(offersError)} onChange={event => applyPackage(event.target.value)}>
-            <option value="">{offersLoading ? "Loading packages…" : "Select a package"}</option>
-            {packageGroups.map(group => (
-              <optgroup key={group.category} label={group.label}>
-                {/* A monthly package's quote is its price per month (backend salesPackages.js quoteChoice). */}
-                {group.items.map(item => <option key={item.id} value={item.id}>{item.name} — ₹{item.quote.finalPrice.toLocaleString("en-IN")}{item.billing === "monthly" ? "/month · Monthly → Plan" : " · One-time → Project"}</option>)}
-              </optgroup>
-            ))}
-          </select>
-          {!offersLoading && !offersError && packageGroups.length === 0 && <p role="status" className="rounded-xl bg-amber-50 p-3 text-base text-amber-900">No published package yet. Publish one on the website (Admin → Packages), then refresh below.</p>}
-          {selectedPackage && <p role="status" className={`rounded-xl p-3 text-base font-semibold ${isMonthly ? "bg-sky-50 text-sky-900" : "bg-emerald-50 text-emerald-900"}`}>{isMonthly ? "This creates a Plan: a monthly package runs as a plan and is billed per cycle." : "This creates a Project."}</p>}
-          {selectedOffer?.paymentPolicy && selectedOffer.paymentPolicy.mode !== 'current' && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-base text-emerald-900">Payment terms: {selectedOffer.paymentPolicy.mode.replaceAll('_', ' ')}{selectedOffer.paymentPolicy.mode === 'limited_uploads' ? ` · ${selectedOffer.paymentPolicy.uploadAllowance} submissions before payment` : ''} · Due in {selectedOffer.paymentPolicy.dueDays} day(s). These terms will be saved with this project.</p>}
-          {isPricedSelection && <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-base text-slate-700"><strong>{selectedPackage?.name || selectedOffer?.title}</strong><p>{selectedOffer ? `Offer: ${selectedOffer.title}` : "Regular package price"}</p><ul className="mt-2 list-disc pl-5">{(selectedPackage?.inclusions || selectedOffer?.inclusions || []).map((line, index) => <li key={index}>{line}</li>)}</ul><p className="mt-3">Regular ₹{selectedRegular.toLocaleString("en-IN")} − offer benefit ₹{Math.round((selectedRegular - bundlePrice) * 100) / 100} + extra features ₹{featuresTotal.toLocaleString("en-IN")}</p><p className="mt-1">Select additional features only for work outside the package scope.</p>{selectedPackage?.linkedPlanIds?.length > 0 && <p>Related services are references only; no service plan will be purchased or activated.</p>}<details className="mt-2"><summary>Agreed terms</summary><ul className="list-disc pl-5">{(selectedPackage?.quote.terms || selectedOffer?.resolvedTerms || []).map((line, index) => <li key={index}>{line}</li>)}</ul></details></div>}
-          {isMonthly && monthlyChoice && <div className="rounded-xl border border-slate-200 bg-white p-4 text-base text-slate-700 space-y-3">
-            <p className="font-semibold">Monthly package: it runs as a plan (listed under Projects &amp; Plans) and the client pays per billing cycle at this price for the whole length. Sold as it is, without extra features or a price adjustment.</p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className="block"><span className={projectFormLabelClassName}>Billing cycle</span>
-                <select aria-label="Billing cycle" className={projectFormInputClassName} value={monthlyChoice.billingCycle} onChange={event => { const months = CYCLE_MONTHS[event.target.value]; setMonthlyChoice(current => ({ ...current, billingCycle: event.target.value, tenureMonths: Math.max(months, Math.floor(current.tenureMonths / months) * months) })); }}>
-                  {selectedPackage.monthly.billingOptions.map(option => <option key={option.billingCycle} value={option.billingCycle}>{CYCLE_WORDS[option.billingCycle]}{option.discountPercent ? ` · ${option.discountPercent}% off` : ''}</option>)}
-                </select></label>
-              <label className="block"><span className={projectFormLabelClassName}>Length (months)</span>
-                <select aria-label="Length in months" className={projectFormInputClassName} value={monthlyChoice.tenureMonths} onChange={event => setMonthlyChoice(current => ({ ...current, tenureMonths: Number(event.target.value) }))}>
-                  {Array.from({ length: Math.floor(Math.min(selectedPackage.monthly.maxTenureMonths, 12) / CYCLE_MONTHS[monthlyChoice.billingCycle]) }, (_, index) => (index + 1) * CYCLE_MONTHS[monthlyChoice.billingCycle]).map(months => <option key={months} value={months}>{months}</option>)}
-                </select></label>
-            </div>
-            {monthlyQuoteError ? <p role="alert" className="text-red-600">{monthlyQuoteError}</p>
-              : !monthlyQuote ? <p className="text-slate-500">Working out the monthly price…</p>
-              : <div>
-                <p><strong>₹{monthlyQuote.monthly.cyclePrice.toLocaleString('en-IN')}</strong> per {CYCLE_WORDS[monthlyQuote.monthly.billingCycle].toLowerCase()} cycle · {monthlyQuote.monthly.totalCycles} cycle{monthlyQuote.monthly.totalCycles === 1 ? '' : 's'} · ₹{monthlyQuote.finalPrice.toLocaleString('en-IN')} in total{monthlyQuote.offer ? ` · ${monthlyQuote.offer.title} offer on every cycle` : ''}</p>
-                <ul className="mt-2 list-disc pl-5 text-sm text-slate-600">{cyclePreview.map(row => <li key={row.installmentNumber}>{installmentName(row, cyclePreview.length)} — ₹{row.amount.toLocaleString('en-IN')}</li>)}</ul>
-              </div>}
-          </div>}
-          {offersError && <p role="alert" className="text-base text-red-600">{offersError}. Refresh below, or use Create Custom Project instead.</p>}
-          <button type="button" className="text-base font-semibold text-emerald-700 underline" disabled={offersLoading} onClick={() => setCatalogueReload(value => value + 1)}>Refresh packages and offers</button>
-        </div>
-        ) : null}
 
         <div className="md:col-span-2 grid grid-cols-1 gap-5 md:grid-cols-2">
         <div ref={featureDropdownRef}>
@@ -4870,6 +5144,10 @@ const CreateProjectForClientForm = ({ clientName, customerId, onCancel, onCreate
         ) : null}
       </div>
       ) : null}
+      </>
+      )}
+
+      {startDateField}
 
       <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <button
