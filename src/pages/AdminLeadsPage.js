@@ -624,9 +624,9 @@ const AdminLeadsPage = () => {
                   <AdminDateTime value={getLeadLastUpdated(lead)} />
                 </div>
 
-                {/* Action column — Delete button (hard red, appears on row hover; hidden for converted leads). */}
+                {/* Action column — Delete button (hard red, appears on row hover; hidden for active converted leads, shown if client is in Trash). */}
                 <div className="col-span-6 flex items-center justify-end lg:col-span-1">
-                  {!lead.convertedToUserId ? (
+                  {(!lead.convertedToUserId || lead.clientInTrash) ? (
                     <button
                       type="button"
                       onClick={(e) => {
