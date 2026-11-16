@@ -25,6 +25,7 @@ export const getOrderDisplayName = (order, fallback = 'Untitled') => {
     order.projectSnapshot?.displayName ||
     order.productId?.serviceName ||
     order.servicePlanSnapshot?.serviceName ||
+    order.salesPackage?.package?.name ||
     (order.orderItems || []).find((item) => item.type === 'main')?.name ||
     order.orderItems?.[0]?.name ||
     fallback

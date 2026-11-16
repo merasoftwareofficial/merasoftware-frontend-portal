@@ -119,8 +119,7 @@ const formatDateTime = (value) => {
   });
 };
 
-const getWorkspaceItemName = (item) =>
-  item?.projectSnapshot?.displayName || item?.productId?.serviceName || "N/A";
+const getWorkspaceItemName = (item) => getOrderDisplayName(item, "N/A");
 
 const getProjectCategory = (order) =>
   order?.projectSnapshot?.category || order?.productId?.category;
@@ -1966,7 +1965,7 @@ const AdminClientWorkspace = () => {
                 <div className="flex-1">
                   <h3 className="text-xl font-bold text-slate-900">Cancel this project?</h3>
                   <p className="mt-1 text-sm text-slate-500">
-                    {cancelPreview?.projectName || cancelTarget.productId?.serviceName || "Project"}
+                    {cancelPreview?.projectName || getOrderDisplayName(cancelTarget, "Project")}
                   </p>
                 </div>
                 <button
@@ -2441,7 +2440,7 @@ const AdminClientWorkspace = () => {
                     Scan linked data, check only active sections, and delete runs only when all present items are selected.
                   </p>
                   <p className="mt-3 text-xs font-medium text-slate-500">
-                    {deleteScan?.serviceName || deleteTarget.productId?.serviceName || "Project"}
+                    {deleteScan?.serviceName || getOrderDisplayName(deleteTarget, "Project")}
                   </p>
                 </div>
                 <button
