@@ -134,15 +134,25 @@ const NotificationBell = () => {
     };
   }, []);
 
-  // Initial fetch and polling
+  // Initial fetch and polling (visible tabs only)
   useEffect(() => {
     if (user?._id) {
-    fetchNotifications();
-    
-    // Poll for new notifications every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000);
-    
-    return () => clearInterval(interval);
+      fetchNotifications();
+
+      const pollIfVisible = () => {
+        if (document.visibilityState === 'visible') {
+          fetchNotifications();
+        }
+      };
+
+      // Poll for new notifications every 60 seconds while tab is visible
+      const interval = setInterval(pollIfVisible, 60000);
+      document.addEventListener('visibilitychange', pollIfVisible);
+
+      return () => {
+        clearInterval(interval);
+        document.removeEventListener('visibilitychange', pollIfVisible);
+      };
     }
   }, [user]);
 
